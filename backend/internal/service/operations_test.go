@@ -292,48 +292,56 @@ type notificationTransport func(*http.Request) (*http.Response, error)
 
 func (f notificationTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 func TestResendDeliveryAndMerchantPayloads(t *testing.T) {
-	s, db, p := operationsFixture(t)
-	must(t, s.UpdateProduct(p.ID, map[string]interface{}{"redeem_url": "https://redeem.example.test/activate", "redeem_guide": "paste-your-code-on-the-redemption-page"}))
-	must(t, s.UpdateSettings(map[string]string{"resend_enabled": "true", "resend_api_key": "re_test_only", "resend_from": "orders@example.test", "order_push_enabled": "true", "order_notify_email": "merchant@example.test"}))
-	o, err := s.CreateOrder(CreateOrderReq{ProductID: p.ID, Contact: "buyer@example.test", Email: "buyer@example.test"})
-	must(t, err)
-	must(t, s.MarkPaid(o.OrderNo, "resend-test", "epay", 11500))
-	old := notificationHTTP
-	defer func() { notificationHTTP = old }()
-	count := 0
-	notificationHTTP = &http.Client{Transport: notificationTransport(func(r *http.Request) (*http.Response, error) {
-		count++
-		if r.URL.String() != "https://api.resend.com/emails" || r.Header.Get("Authorization") != "Bearer re_test_only" || r.Header.Get("Idempotency-Key") == "" {
-			t.Error("Resend request configuration incorrect")
-		}
-		var body struct {
-			To   []string `json:"to"`
-			Text string   `json:"text"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Error(err)
-		}
-		if len(body.To) != 1 {
-			t.Error("recipient missing")
-		} else if body.To[0] == "buyer@example.test" {
-			if !strings.Contains(body.Text, "TEST-") {
-				t.Error("delivery email missing card")
+	for _, redemptionURL := range []string{"https://redeem.example.test/activate", ""} {
+		t.Run("redeem="+redemptionURL, func(t *testing.T) {
+			expectedURL := redemptionURL
+			if expectedURL == "" {
+				expectedURL = "https://cdk.fksanta.cc/"
 			}
-			if !strings.Contains(body.Text, "https://redeem.example.test/activate") || !strings.Contains(body.Text, "paste-your-code-on-the-redemption-page") {
-				t.Error("delivery email missing redemption destination or instructions")
+			s, db, p := operationsFixture(t)
+			must(t, s.UpdateProduct(p.ID, map[string]interface{}{"redeem_url": redemptionURL, "redeem_guide": "paste-your-code-on-the-redemption-page"}))
+			must(t, s.UpdateSettings(map[string]string{"resend_enabled": "true", "resend_api_key": "re_test_only", "resend_from": "orders@example.test", "order_push_enabled": "true", "order_notify_email": "merchant@example.test"}))
+			o, err := s.CreateOrder(CreateOrderReq{ProductID: p.ID, Contact: "buyer@example.test", Email: "buyer@example.test"})
+			must(t, err)
+			must(t, s.MarkPaid(o.OrderNo, "resend-test", "epay", 11500))
+			old := notificationHTTP
+			defer func() { notificationHTTP = old }()
+			count := 0
+			notificationHTTP = &http.Client{Transport: notificationTransport(func(r *http.Request) (*http.Response, error) {
+				count++
+				if r.URL.String() != "https://api.resend.com/emails" || r.Header.Get("Authorization") != "Bearer re_test_only" || r.Header.Get("Idempotency-Key") == "" {
+					t.Error("Resend request configuration incorrect")
+				}
+				var body struct {
+					To   []string `json:"to"`
+					Text string   `json:"text"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					t.Error(err)
+				}
+				if len(body.To) != 1 {
+					t.Error("recipient missing")
+				} else if body.To[0] == "buyer@example.test" {
+					if !strings.Contains(body.Text, "TEST-") {
+						t.Error("delivery email missing card")
+					}
+					if !strings.Contains(body.Text, expectedURL) || !strings.Contains(body.Text, "paste-your-code-on-the-redemption-page") {
+						t.Error("delivery email missing redemption destination or instructions")
+					}
+				} else if !strings.Contains(body.Text, "10.00") || strings.Contains(body.Text, "TEST-") {
+					t.Error("merchant notification profit or card privacy wrong")
+				}
+				return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"id":"test-email"}`)), Header: make(http.Header)}, nil
+			})}
+			s.ProcessNotifications(context.Background())
+			if count != 2 {
+				t.Fatalf("expected 2 simulated emails, got %d", count)
 			}
-		} else if !strings.Contains(body.Text, "10.00") || strings.Contains(body.Text, "TEST-") {
-			t.Error("merchant notification profit or card privacy wrong")
-		}
-		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"id":"test-email"}`)), Header: make(http.Header)}, nil
-	})}
-	s.ProcessNotifications(context.Background())
-	if count != 2 {
-		t.Fatalf("expected 2 simulated emails, got %d", count)
-	}
-	var n int64
-	must(t, db.Model(&model.Notification{}).Where("status = ?", "sent").Count(&n).Error)
-	if n != 2 {
-		t.Fatal("emails not recorded as sent")
+			var n int64
+			must(t, db.Model(&model.Notification{}).Where("status = ?", "sent").Count(&n).Error)
+			if n != 2 {
+				t.Fatal("emails not recorded as sent")
+			}
+		})
 	}
 }

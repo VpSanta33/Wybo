@@ -6,9 +6,22 @@ import (
 	"github.com/wybo/backend/internal/model"
 	"github.com/wybo/backend/internal/pay"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
+
+var gatewayLogoPath = regexp.MustCompile(`^/uploads/[A-Za-z0-9_-]+\.(png|jpg|jpeg|gif)$`)
+
+func validGatewayLogo(value string) bool {
+	return value == "" || (len(value) <= 255 && gatewayLogoPath.MatchString(value))
+}
+
+func validGatewayDisplayName(value string) bool {
+	return utf8.RuneCountInString(value) <= 60 && !strings.ContainsFunc(value, unicode.IsControl)
+}
 
 func validHTTPURL(value string) bool {
 	u, err := url.Parse(value)
@@ -52,6 +65,12 @@ func (s *Service) UpdateGateway(code string, enabled bool, config string) error 
 			continue
 		}
 		old[k] = strings.TrimSpace(v)
+	}
+	if !validGatewayDisplayName(old["display_name"]) {
+		return errors.New("对外名称最多 60 个字，不能包含换行或控制字符")
+	}
+	if !validGatewayLogo(old["logo_url"]) {
+		return errors.New("请上传 PNG、JPG 或 GIF 格式的渠道 Logo")
 	}
 	if code == "stripe" {
 		methods, err := pay.StripePaymentMethods(old["payment_methods"])

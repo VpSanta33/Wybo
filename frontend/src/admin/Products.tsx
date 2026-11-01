@@ -184,14 +184,14 @@ export function ProductEditor({
         </Field>
         <Field
           label="兑换地址"
-          hint="支付成功后显示“前往兑换”按钮，也会附在发货邮件中；请填写实际兑换平台地址"
+          hint="留空使用“邮件与推送 → 站点信息”中的默认兑换地址；单独填写可覆盖，订单页和发货邮件同步生效"
         >
           <input
             type="url"
             maxLength={255}
             value={redeemUrl}
             onChange={(e) => setRedeemUrl(e.target.value)}
-            placeholder="https://你的兑换平台地址"
+            placeholder="留空使用站点默认兑换地址"
           />
         </Field>
         <Field

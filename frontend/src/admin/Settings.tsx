@@ -8,11 +8,13 @@ import {
   RefreshCw,
   Save,
   ShieldCheck,
+  Upload,
   Webhook,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { useAccess } from "./access";
-import { Modal } from "../components";
+import { Modal, PaymentLogo } from "../components";
+import { defaultPaymentName, gatewayValues } from "../payments";
 import {
   adminApi,
   useAdminQuery,
@@ -33,7 +35,6 @@ import {
 type GatewaySpec = {
   title: string;
   description: string;
-  logo: string;
   docs: string;
   fields: {
     key: string;
@@ -47,7 +48,6 @@ const specs: Record<string, GatewaySpec> = {
   stripe: {
     title: "Stripe",
     description: "银行卡 · 支付宝 · 微信支付，经 Stripe Checkout 收款",
-    logo: "/payments/stripe.svg",
     docs: "https://docs.stripe.com/payments/checkout",
     fields: [
       {
@@ -73,7 +73,6 @@ const specs: Record<string, GatewaySpec> = {
   epay: {
     title: "易支付",
     description: "支付宝、微信等聚合收款",
-    logo: "/payments/epay.svg",
     docs: "",
     fields: [
       {
@@ -94,7 +93,6 @@ const specs: Record<string, GatewaySpec> = {
   dujiaopay: {
     title: "DujiaoPay",
     description: "托管收银台 · 加密货币支付",
-    logo: "/payments/dujiaopay.webp",
     docs: "https://www.dujiaopay.com/docs",
     fields: [
       {
@@ -116,7 +114,6 @@ const specs: Record<string, GatewaySpec> = {
   bepusdt: {
     title: "BEpusdt",
     description: "USDT 等链上收款 · 自托管网关",
-    logo: "/payments/bepusdt.svg",
     docs: "https://github.com/v03413/BEpusdt/blob/main/docs/api/api.md",
     fields: [
       {
@@ -159,10 +156,11 @@ export function Payments({ notify }: { notify: (m: string) => void }) {
         <div className="a-payment-grid">
           {Object.entries(specs).map(([code, spec]) => {
             const g = q.data?.find((g) => g.code === code);
+            const values = gatewayValues(g?.config || "{}");
             return (
               <section className="a-panel a-payment-card" key={code}>
                 <div className="a-payment-heading">
-                  <ProviderLogo spec={spec} />
+                  <ProviderLogo code={code} logoUrl={values.logo_url} />
                   <Status
                     value={g?.enabled ? "completed" : "disabled"}
                     label={g?.enabled ? "已启用" : "未启用"}
@@ -171,8 +169,10 @@ export function Payments({ notify }: { notify: (m: string) => void }) {
                 <h2>{spec.title}</h2>
                 <p>{spec.description}</p>
                 <div className="a-payment-meta">
-                  <span>订单币种</span>
-                  <strong>CNY · 人民币</strong>
+                  <span>对外名称</span>
+                  <strong>
+                    {values.display_name || defaultPaymentName(code, values)}
+                  </strong>
                 </div>
                 <div className="a-payment-meta">
                   <span>配置方式</span>
@@ -227,10 +227,10 @@ export function Payments({ notify }: { notify: (m: string) => void }) {
     </>
   );
 }
-function ProviderLogo({ spec }: { spec: GatewaySpec }) {
+function ProviderLogo({ code, logoUrl }: { code: string; logoUrl?: string }) {
   return (
     <span className="a-payment-logo" aria-hidden="true">
-      <img src={spec.logo} alt="" width={32} height={32} />
+      <PaymentLogo code={code} logoUrl={logoUrl} size={32} />
     </span>
   );
 }
@@ -246,13 +246,7 @@ function GatewayEditor({
   onSaved: () => void;
 }) {
   const spec = specs[gateway.code];
-  const [values, setValues] = useState<Record<string, string>>(() => {
-    try {
-      return JSON.parse(gateway.config) || {};
-    } catch {
-      return {};
-    }
-  });
+  const [values, setValues] = useState(() => gatewayValues(gateway.config));
   const [enabled, setEnabled] = useState(gateway.enabled);
   const [stripeMode, setStripeMode] = useState(() =>
     !values.payment_methods || values.payment_methods === "auto"
@@ -265,9 +259,45 @@ function GatewayEditor({
       : values.payment_methods.split(",").map((v) => v.trim()),
   );
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const defaultName = defaultPaymentName(gateway.code, {
+    ...values,
+    ...(gateway.code === "stripe"
+      ? {
+          payment_methods:
+            stripeMode === "auto" ? "auto" : stripeMethods.join(","),
+        }
+      : {}),
+  });
+  async function uploadLogo(file: File) {
+    setError("");
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Logo 不能超过 2 MB");
+      return;
+    }
+    if (!/\.(png|jpe?g|gif)$/i.test(file.name)) {
+      setError("请选择 PNG、JPG 或 GIF 图片");
+      return;
+    }
+    setUploading(true);
+    try {
+      const data = new FormData();
+      data.append("file", file);
+      const result = await adminApi<{ url: string }>(
+        `/gateways/${gateway.code}/logo`,
+        { method: "POST", body: data },
+      );
+      setValues((current) => ({ ...current, logo_url: result.url }));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  }
   async function save(e: FormEvent) {
     e.preventDefault();
+    if (uploading || busy) return;
     if (
       gateway.code === "stripe" &&
       stripeMode === "manual" &&
@@ -302,15 +332,85 @@ function GatewayEditor({
     }
   }
   return (
-    <Modal title={spec.title + " 支付配置"} onClose={onClose}>
+    <Modal
+      title={spec.title + " 支付配置"}
+      onClose={() => {
+        if (!busy && !uploading) onClose();
+      }}
+    >
       <form className="a-editor" onSubmit={save}>
         <span className="a-eyebrow">PAYMENT PROVIDER</span>
         <div className="a-provider-title">
-          <ProviderLogo spec={spec} />
+          <ProviderLogo code={gateway.code} />
           <h2>{spec.title}</h2>
         </div>
         <p>已保存的密钥以 ******** 显示；保留或留空即沿用。</p>
         {error && <Banner>{error}</Banner>}
+        <section className="a-gateway-branding" aria-label="前台展示设置">
+          <div className="a-branding-heading">
+            <h3>前台展示</h3>
+            <span>顾客看到的支付方式</span>
+          </div>
+          <Field
+            label="对外名称"
+            hint="留空跟随支付方式自动命名，最多 60 个字。"
+          >
+            <input
+              maxLength={60}
+              value={values.display_name || ""}
+              placeholder={defaultName}
+              onChange={(e) =>
+                setValues((current) => ({
+                  ...current,
+                  display_name: e.target.value,
+                }))
+              }
+            />
+          </Field>
+          <div className="a-branding-preview" aria-label="前台效果预览">
+            <ProviderLogo code={gateway.code} logoUrl={values.logo_url} />
+            <div>
+              <strong>{values.display_name?.trim() || defaultName}</strong>
+              <small>前台效果预览</small>
+            </div>
+          </div>
+          <div className="a-logo-actions">
+            <label
+              className={`a-button a-logo-upload ${uploading || busy ? "is-disabled" : ""}`}
+            >
+              <Upload size={15} />
+              {uploading ? "上传中…" : "上传 Logo"}
+              <input
+                type="file"
+                aria-label="上传支付渠道 Logo"
+                accept="image/png,image/jpeg,image/gif"
+                disabled={uploading || busy}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) void uploadLogo(file);
+                }}
+              />
+            </label>
+            {values.logo_url && (
+              <button
+                type="button"
+                className="a-button"
+                disabled={uploading || busy}
+                onClick={() =>
+                  setValues((current) => ({ ...current, logo_url: "" }))
+                }
+              >
+                恢复默认 Logo
+              </button>
+            )}
+          </div>
+          <p className="a-logo-hint" role="status">
+            {uploading
+              ? "正在上传图片，请稍候…"
+              : "PNG / JPG / GIF，最大 2 MB，建议使用正方形图片。保存配置后在前台生效。"}
+          </p>
+        </section>
         {[
           ...spec.fields,
           {
@@ -410,10 +510,15 @@ function GatewayEditor({
           启用该支付渠道
         </label>
         <div className="a-form-actions">
-          <button className="a-button" type="button" onClick={onClose}>
+          <button
+            className="a-button"
+            type="button"
+            onClick={onClose}
+            disabled={busy || uploading}
+          >
             取消
           </button>
-          <button className="a-button primary" disabled={busy}>
+          <button className="a-button primary" disabled={busy || uploading}>
             <Save size={16} />
             {busy ? "保存中…" : "保存配置"}
           </button>
@@ -461,6 +566,7 @@ function SettingsForm({
         "site_desc",
         "announcement",
         "customer_service",
+        "default_redeem_url",
         "resend_enabled",
         "resend_api_key",
         "resend_from",
@@ -608,6 +714,17 @@ function SettingsForm({
             </div>
             {input("site_desc", "店铺简介")}
             {input("announcement", "店铺公告")}
+            <Field
+              label="默认兑换地址"
+              hint="未单独配置兑换地址的商品会使用此入口，同时显示在订单页和发货邮件；留空可关闭默认入口。"
+            >
+              <input
+                type="url"
+                maxLength={255}
+                value={v.default_redeem_url || ""}
+                onChange={(e) => set("default_redeem_url", e.target.value)}
+              />
+            </Field>
           </div>
         </section>
         <div className="a-form-actions">

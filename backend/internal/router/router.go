@@ -134,6 +134,7 @@ func New(db *gorm.DB, cfg *config.Config, logger *zap.Logger) *gin.Engine {
 			admin.DELETE("/products/:id", h.AdminDeleteProduct)
 			admin.GET("/gateways", h.AdminListGateways)
 			admin.PUT("/gateways/:code", h.AdminUpdateGateway)
+			admin.POST("/gateways/:code/logo", h.AdminPaymentLogo)
 			admin.GET("/coupons", h.AdminListCoupons)
 			admin.POST("/coupons", h.AdminCreateCoupon)
 			admin.PUT("/coupons/:id", h.AdminUpdateCoupon)

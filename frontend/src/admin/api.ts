@@ -20,7 +20,9 @@ export async function adminFetch(
       ...options,
       signal: options.signal ?? AbortSignal.timeout(15000),
       headers: {
-        "Content-Type": "application/json",
+        ...(options.body instanceof FormData
+          ? {}
+          : { "Content-Type": "application/json" }),
         "X-Admin-Path": adminBase(),
         Authorization: `Bearer ${token()}`,
         ...options.headers,

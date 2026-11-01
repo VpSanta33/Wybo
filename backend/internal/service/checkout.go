@@ -14,6 +14,7 @@ type PublicGateway struct {
 	Name        string `json:"name"`
 	Label       string `json:"label"`
 	Description string `json:"description"`
+	LogoURL     string `json:"logo_url"`
 	Crypto      bool   `json:"crypto"`
 }
 
@@ -63,12 +64,18 @@ func (s *Service) CustomerGateways() ([]PublicGateway, error) {
 				row.Description = "Stripe 安全收银台 · 可用方式受账户及地区限制"
 			}
 		case model.GatewayDujiao:
-			row.Label, row.Description, row.Crypto = "虚拟货币支付", "DujiaoPay · 在收银台选择币种和网络", true
+			row.Label, row.Description, row.Crypto = "USDT支付", "使用 USDT 钱包付款，核对收银台的网络与金额", true
 		case model.GatewayBepusdt:
-			row.Label, row.Description, row.Crypto = "虚拟货币支付", "BEpusdt · 按收银台提示使用钱包付款", true
+			row.Label, row.Description, row.Crypto = "USDT支付", "使用 USDT 钱包付款，核对收银台的网络与金额", true
 		default:
 			// Legacy placeholders have no working checkout implementation.
 			continue
+		}
+		if name := strings.TrimSpace(cfg["display_name"]); validGatewayDisplayName(name) && name != "" {
+			row.Label = name
+		}
+		if validGatewayLogo(cfg["logo_url"]) {
+			row.LogoURL = cfg["logo_url"]
 		}
 		out = append(out, row)
 	}
@@ -82,6 +89,8 @@ type OrderRedemption struct {
 	RedeemGuide string `json:"redeem_guide"`
 }
 
+const defaultRedeemURL = "https://cdk.fksanta.cc/"
+
 // OrderRedemptions also resolves older orders and products that have since been taken off sale.
 func (s *Service) OrderRedemptions(orderID uint) ([]OrderRedemption, error) {
 	rows := []OrderRedemption{}
@@ -89,8 +98,15 @@ func (s *Service) OrderRedemptions(orderID uint) ([]OrderRedemption, error) {
 		Select("order_items.product_id, order_items.product_name, products.redeem_url, products.redeem_guide").
 		Joins("LEFT JOIN products ON products.id = order_items.product_id").
 		Where("order_items.order_id = ?", orderID).Order("order_items.id ASC").Scan(&rows).Error
+	defaultURL := strings.TrimSpace(s.setting("default_redeem_url", defaultRedeemURL))
+	if !validHTTPURL(defaultURL) {
+		defaultURL = ""
+	}
 	for i := range rows {
 		rows[i].RedeemURL = strings.TrimSpace(rows[i].RedeemURL)
+		if rows[i].RedeemURL == "" {
+			rows[i].RedeemURL = defaultURL
+		}
 		if !validHTTPURL(rows[i].RedeemURL) {
 			rows[i].RedeemURL = ""
 		}

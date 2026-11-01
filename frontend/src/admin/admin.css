@@ -1195,6 +1195,92 @@
   gap: 13px;
   margin-bottom: 14px;
 }
+.a-gateway-branding {
+  padding: 18px;
+  margin: 18px 0 24px;
+  border: 1px solid var(--a-border);
+  border-radius: 12px;
+  background: #f8faff;
+}
+.a-branding-heading,
+.a-logo-actions,
+.a-branding-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.a-branding-heading {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.a-branding-heading h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.a-branding-heading > span,
+.a-branding-preview small {
+  color: #6c7789;
+  font-size: 12px;
+}
+.a-branding-preview {
+  padding: 14px;
+  border: 1px solid var(--a-border);
+  border-radius: 10px;
+  background: #fff;
+  margin: 14px 0;
+}
+.a-branding-preview > div {
+  min-width: 0;
+}
+.a-branding-preview strong {
+  display: block;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.a-branding-preview small {
+  display: block;
+  margin-top: 5px;
+}
+.a-logo-actions {
+  flex-wrap: wrap;
+}
+.a-logo-upload {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+.a-logo-upload:focus-within {
+  outline: 2px solid #3b82f6;
+  outline-offset: 3px;
+}
+.a-logo-upload.is-disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.a-logo-upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.a-gateway-branding .a-logo-hint {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #6c7789;
+}
+.a-payment-meta {
+  gap: 16px;
+}
+.a-payment-meta > span {
+  flex-shrink: 0;
+}
+.a-payment-meta > strong {
+  text-align: right;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
 .a-provider-title h2 {
   margin: 0;
   font-size: 24px;

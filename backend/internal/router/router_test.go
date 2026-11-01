@@ -108,6 +108,12 @@ func TestAdminEntryAndPublicPrivacy(t *testing.T) {
 	if !strings.Contains(w.Body.String(), `"code":0`) {
 		t.Fatal("authenticated dashboard rejected")
 	}
+	if call("POST", "/api/v1/admin/gateways/epay/logo", "", "/secret-console", "").Code != 401 {
+		t.Fatal("logo upload missing authentication")
+	}
+	if !strings.Contains(call("POST", "/api/v1/admin/gateways/epay/logo", "", "/secret-console", token).Body.String(), `"code":400`) {
+		t.Fatal("owner logo upload should reach file validation")
+	}
 
 	for _, endpoint := range []string{"/reports?month=2026-11", "/payment-operations", "/batches", "/stock-alerts", "/settlements", "/tickets", "/audit-logs", "/backups"} {
 		w = call("GET", "/api/v1/admin"+endpoint, "", "/secret-console", token)
@@ -184,6 +190,9 @@ func TestAdminEntryAndPublicPrivacy(t *testing.T) {
 		}
 		if call("PUT", "/api/v1/admin/gateways/epay", `{}`, "/secret-console", rt).Code != 403 {
 			t.Fatal("gateway permission", role)
+		}
+		if call("POST", "/api/v1/admin/gateways/epay/logo", "", "/secret-console", rt).Code != 403 {
+			t.Fatal("logo upload bypassed payment write permission", role)
 		}
 	}
 	db.Model(&model.Admin{}).Where("username = ?", "testadmin").Update("session_version", 1)

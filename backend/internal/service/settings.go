@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-var allowedSettings = map[string]bool{"site_url": true, "backup_retention_days": true, "runtime_alert_email": true, "stock_threshold": true, "stock_alert_email": true, "backup_interval_hours": true, "reconcile_enabled": true, "site_name": true, "site_desc": true, "announcement": true, "customer_service": true, "resend_enabled": true, "resend_api_key": true, "resend_from": true, "order_push_enabled": true, "order_notify_email": true, "order_webhook_url": true, "order_webhook_secret": true, "pay_notify_base": true, "pay_return_url": true}
+var allowedSettings = map[string]bool{"default_redeem_url": true, "site_url": true, "backup_retention_days": true, "runtime_alert_email": true, "stock_threshold": true, "stock_alert_email": true, "backup_interval_hours": true, "reconcile_enabled": true, "site_name": true, "site_desc": true, "announcement": true, "customer_service": true, "resend_enabled": true, "resend_api_key": true, "resend_from": true, "order_push_enabled": true, "order_notify_email": true, "order_webhook_url": true, "order_webhook_secret": true, "pay_notify_base": true, "pay_return_url": true}
 
 func (s *Service) GetSettings() (map[string]string, error) {
 	var rows []model.Setting
@@ -29,6 +29,7 @@ func (s *Service) GetSettings() (map[string]string, error) {
 	}
 	m["pay_notify_base"] = s.setting("pay_notify_base", s.cfg.Pay.NotifyBase)
 	m["pay_return_url"] = s.setting("pay_return_url", s.cfg.Pay.ReturnURL)
+	m["default_redeem_url"] = s.setting("default_redeem_url", defaultRedeemURL)
 	return m, nil
 }
 func (s *Service) UpdateSettings(values map[string]string) error {
@@ -48,7 +49,7 @@ func (s *Service) UpdateSettings(values map[string]string) error {
 		if len(v) > 4096 {
 			return errors.New("设置内容过长")
 		}
-		if (k == "site_url" || k == "order_webhook_url" || k == "pay_notify_base" || k == "pay_return_url") && v != "" && !validHTTPURL(v) {
+		if (k == "default_redeem_url" || k == "site_url" || k == "order_webhook_url" || k == "pay_notify_base" || k == "pay_return_url") && v != "" && !validHTTPURL(v) {
 			return errors.New("请填写有效的 HTTP(S) 地址")
 		}
 		if (k == "resend_from" || k == "order_notify_email") && v != "" {
@@ -83,7 +84,7 @@ func (s *Service) UpdateSettings(values map[string]string) error {
 					return err
 				}
 			}
-			if err := tx.Where("key = ?", k).Assign(model.Setting{Value: v}).FirstOrCreate(&model.Setting{Key: k}).Error; err != nil {
+			if err := tx.Where("key = ?", k).Assign(map[string]interface{}{"value": v}).FirstOrCreate(&model.Setting{Key: k}).Error; err != nil {
 				return err
 			}
 		}

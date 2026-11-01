@@ -9,6 +9,35 @@ import {
 } from "lucide-react";
 import { api, startPayment, type ShopOrder, type PaymentGateway } from "./api";
 import { money } from "./data";
+import { paymentLogo } from "./payments";
+
+export function PaymentLogo({
+  code,
+  logoUrl,
+  size = 28,
+}: {
+  code: string;
+  logoUrl?: string;
+  size?: number;
+}) {
+  const [failedSource, setFailedSource] = useState("");
+  const custom =
+    logoUrl && /^\/uploads\/[A-Za-z0-9_-]+\.(png|jpg|jpeg|gif)$/.test(logoUrl)
+      ? logoUrl
+      : "";
+  const source = custom && custom !== failedSource ? custom : paymentLogo(code);
+  return (
+    <img
+      src={source}
+      alt=""
+      width={size}
+      height={size}
+      onError={() => {
+        if (custom && source === custom) setFailedSource(custom);
+      }}
+    />
+  );
+}
 
 export function Modal({
   title,
@@ -233,12 +262,7 @@ export function PaymentAction({ order }: { order: ShopOrder }) {
                 checked={gateway === g.code}
                 onChange={() => setGateway(g.code)}
               />
-              <img
-                src={`/payments/${g.code === "dujiaopay" ? "dujiaopay.webp" : g.code + ".svg"}`}
-                width={28}
-                height={28}
-                alt=""
-              />
+              <PaymentLogo code={g.code} logoUrl={g.logo_url} />
               <span>
                 <strong>{g.label || g.name}</strong>
                 <small>{g.description || g.name}</small>
@@ -249,7 +273,7 @@ export function PaymentAction({ order }: { order: ShopOrder }) {
       )}
       {selected?.crypto && (
         <p className="payment-crypto-note">
-          需使用加密钱包，按收银台显示的币种、网络和金额付款。
+          请使用 USDT 钱包，确认收银台显示的网络和金额后再转账。
         </p>
       )}
       {error && (

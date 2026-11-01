@@ -135,6 +135,7 @@ export interface PaymentGateway {
   name: string;
   label: string;
   description: string;
+  logo_url: string;
   crypto: boolean;
 }
 
