@@ -1,0 +1,9 @@
+{
+  "name": "wybo-assets-tools",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "sharp": "^0.33.5"
+  }
+}

@@ -1,0 +1,29 @@
+# ---- Go ----
+backend/bin/
+backend/data/
+backend/uploads/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+
+# ---- Node ----
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+.cache/
+.npm-cache/
+.vite/
+
+# ---- 环境/密钥 ----
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+
+# ---- 系统 ----
+.DS_Store
+*.log

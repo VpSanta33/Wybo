@@ -1,0 +1,27 @@
+# Wybo 望月AI代充小铺 —— 后端配置模板
+# 环境变量优先级高于本文件（如 DB_DRIVER / DB_DSN / JWT_SECRET / SERVER_ADDR）
+
+server:
+  addr: ":8080"          # 监听地址
+  mode: "debug"          # debug | release
+
+db:
+  driver: "sqlite"       # sqlite（本地开发） | postgres / pgsql（正式环境）
+  dsn: "data/wybo.db"    # sqlite: 文件路径；postgres: host=127.0.0.1 user=postgres password=xxx dbname=wybo port=5432 sslmode=disable
+
+jwt:
+  secret: "change-me-in-production"
+  expire_hours: 72
+
+pay:
+  # 各网关密钥统一存数据库 gateways 表；此处仅作站点级默认值
+  return_url: "http://localhost:5173/orders"
+  notify_base: "http://localhost:8080/api/v1/pay/notify"
+
+mail:
+  # 支付成功卡密邮件通知（host 留空则禁用）
+  host: ""            # SMTP 服务器，如 smtp.example.com
+  port: "465"         # 465(SSL) / 587(STARTTLS)
+  user: ""            # 发件账号
+  pass: ""            # 发件密码/授权码
+  from: ""            # 发件人，如 "Wybo <noreply@example.com>"
