@@ -84,14 +84,16 @@ func (s *Service) CreateOrder(req CreateOrderReq) (*model.Order, error) {
 		return nil, errors.New("单次最多购买 99 份")
 	}
 
-	var available int64
-	if err := s.db.Model(&model.Card{}).
-		Where("product_id = ? AND status = ?", product.ID, model.CardAvailable).
-		Count(&available).Error; err != nil {
-		return nil, err
-	}
-	if available < int64(req.Quantity) {
-		return nil, ErrInsufficientStock
+	if product.DeliveryMode != model.DeliveryManual {
+		var available int64
+		if err := s.db.Model(&model.Card{}).
+			Where("product_id = ? AND status = ?", product.ID, model.CardAvailable).
+			Count(&available).Error; err != nil {
+			return nil, err
+		}
+		if available < int64(req.Quantity) {
+			return nil, ErrInsufficientStock
+		}
 	}
 
 	total := product.PriceCents * int64(req.Quantity)
@@ -155,6 +157,13 @@ func (s *Service) CreateOrder(req CreateOrderReq) (*model.Order, error) {
 	}
 
 	err = s.db.Transaction(func(tx *gorm.DB) error {
+		var current model.Product
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&current, product.ID).Error; err != nil {
+			return ErrProductNotFound
+		}
+		if !current.Enabled || current.DeliveryMode != product.DeliveryMode {
+			return errors.New("商品信息已更新，请刷新后重新下单")
+		}
 		if err := s.enforcePendingLimit(tx, req.Contact); err != nil {
 			return err
 		}
@@ -168,12 +177,15 @@ func (s *Service) CreateOrder(req CreateOrderReq) (*model.Order, error) {
 			Quantity:       req.Quantity,
 			UnitPriceCents: product.PriceCents,
 			UnitCostCents:  product.CostCents,
+			DeliveryMode:   product.DeliveryMode,
 		}
 		if err := tx.Create(item).Error; err != nil {
 			return err
 		}
-		if err := reserveCards(tx, order.ID, product.ID, req.Quantity); err != nil {
-			return err
+		if product.DeliveryMode != model.DeliveryManual {
+			if err := reserveCards(tx, order.ID, product.ID, req.Quantity); err != nil {
+				return err
+			}
 		}
 		if coupon != nil {
 			var fresh model.Coupon
@@ -399,6 +411,13 @@ func (s *Service) MarkPaid(orderNo, payOrderNo, gateway string, amountCents int6
 			return err
 		}
 
+		manual, err := orderNeedsManualDelivery(tx, order.ID)
+		if err != nil {
+			return err
+		}
+		if manual {
+			return queue()
+		}
 		deliverErr := tx.Transaction(func(tx2 *gorm.DB) error {
 			return claimOrderCards(tx2, order.ID)
 		})
@@ -424,6 +443,13 @@ func (s *Service) ManualDeliver(orderNo string) error {
 		}
 		if order.Status != model.OrderPaid {
 			return ErrOrderStatus
+		}
+		manual, err := orderNeedsManualDelivery(tx, order.ID)
+		if err != nil {
+			return err
+		}
+		if manual {
+			return errors.New("此订单为手工发货，请填写发货内容后确认发货")
 		}
 		if err := claimOrderCards(tx, order.ID); err != nil {
 			return err

@@ -99,11 +99,13 @@ func (s *Service) CreateUpgrade(no string, target uint, difference int64, reason
 		if e := tx.Create(child).Error; e != nil {
 			return e
 		}
-		if e := tx.Create(&model.OrderItem{OrderID: child.ID, ProductID: p.ID, ProductName: p.Name + " · 升级补差", Quantity: 1, UnitPriceCents: difference, UnitCostCents: p.CostCents}).Error; e != nil {
+		if e := tx.Create(&model.OrderItem{OrderID: child.ID, ProductID: p.ID, ProductName: p.Name + " · 升级补差", DeliveryMode: p.DeliveryMode, Quantity: 1, UnitPriceCents: difference, UnitCostCents: p.CostCents}).Error; e != nil {
 			return e
 		}
-		if e := reserveCards(tx, child.ID, p.ID, 1); e != nil {
-			return e
+		if p.DeliveryMode != model.DeliveryManual {
+			if e := reserveCards(tx, child.ID, p.ID, 1); e != nil {
+				return e
+			}
 		}
 		return tx.Create(&model.AfterSale{Number: "AS" + generateOrderNo(), OrderID: o.ID, OrderNo: no, Kind: "upgrade", Status: "waiting", ChildOrderID: &child.ID, ChildOrderNo: child.OrderNo, AmountCents: difference, Reason: reason}).Error
 	})

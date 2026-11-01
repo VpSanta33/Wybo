@@ -37,13 +37,13 @@ func (h *Handler) uploadBrandImage(c *gin.Context) {
 	}()
 	file, _, err := c.Request.FormFile("file")
 	if err != nil {
-		response.Error(c, 400, "请选择图片，Logo 不能超过 2 MB")
+		response.Error(c, 400, "请选择图片，图片不能超过 2 MB")
 		return
 	}
 	defer file.Close()
 	data, err := io.ReadAll(io.LimitReader(file, limit+1))
 	if err != nil || int64(len(data)) > limit {
-		response.Error(c, 400, "Logo 文件过大或读取失败")
+		response.Error(c, 400, "图片文件过大或读取失败")
 		return
 	}
 	cfg, format, err := image.DecodeConfig(bytes.NewReader(data))
@@ -52,7 +52,7 @@ func (h *Handler) uploadBrandImage(c *gin.Context) {
 		return
 	}
 	if cfg.Width < 1 || cfg.Height < 1 || cfg.Width > 4096 || cfg.Height > 4096 || int64(cfg.Width)*int64(cfg.Height) > 16*1024*1024 {
-		response.Error(c, 400, "Logo 尺寸不能超过 4096 × 4096")
+		response.Error(c, 400, "图片尺寸不能超过 4096 × 4096")
 		return
 	}
 	if _, _, err := image.Decode(bytes.NewReader(data)); err != nil {
@@ -68,14 +68,14 @@ func (h *Handler) uploadBrandImage(c *gin.Context) {
 	}
 	dst, err := os.CreateTemp(h.cfg.Upload.Dir, "payment-logo-*."+format)
 	if err != nil {
-		response.Error(c, 500, "保存 Logo 失败")
+		response.Error(c, 500, "保存图片失败")
 		return
 	}
 	_, writeErr := dst.Write(data)
 	closeErr := dst.Close()
 	if writeErr != nil || closeErr != nil {
 		_ = os.Remove(dst.Name())
-		response.Error(c, 500, "写入 Logo 失败")
+		response.Error(c, 500, "写入图片失败")
 		return
 	}
 	response.OK(c, gin.H{"url": "/uploads/" + filepath.Base(dst.Name())})

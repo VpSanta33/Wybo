@@ -102,7 +102,7 @@ func (s *Service) RefreshStockAlerts() {
 	for _, p := range products {
 		var a model.StockAlert
 		found := s.db.Where("product_id = ?", p.ID).First(&a).Error == nil
-		low := p.Enabled && p.Stock <= threshold
+		low := p.Enabled && p.DeliveryMode != model.DeliveryManual && p.Stock <= threshold
 		if !low {
 			if found && a.Status == "open" {
 				s.db.Model(&a).Updates(map[string]interface{}{"status": "resolved", "stock": p.Stock})

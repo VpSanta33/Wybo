@@ -109,7 +109,7 @@ func (s *Service) BuildDashboard(days int) (map[string]interface{}, error) {
 		return nil, err
 	}
 	threshold, _ := strconv.Atoi(s.setting("stock_threshold", "5"))
-	if err := s.db.Model(&model.Product{}).Where("enabled = ? AND stock <= ?", true, threshold).Count(&low).Error; err != nil {
+	if err := s.db.Model(&model.Product{}).Where("enabled = ? AND stock <= ? AND delivery_mode <> ?", true, threshold, model.DeliveryManual).Count(&low).Error; err != nil {
 		return nil, err
 	}
 	if err := s.db.Model(&model.Product{}).Count(&products).Error; err != nil {

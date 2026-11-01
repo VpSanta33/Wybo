@@ -46,7 +46,7 @@ func permissionFor(method, path string) string {
 		if strings.HasSuffix(p, "/refund") {
 			return "aftersales.refund"
 		}
-		if strings.HasSuffix(p, "/deliver") {
+		if strings.HasSuffix(p, "/deliver") || strings.HasSuffix(p, "/fulfill") {
 			return "inventory"
 		}
 		if method == "GET" {

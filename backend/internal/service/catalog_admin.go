@@ -29,6 +29,15 @@ func (s *Service) AdminCategories() ([]model.Category, error) {
 
 // CreateProduct 新增商品
 func (s *Service) CreateProduct(p *model.Product) error {
+	if p.DeliveryMode == "" {
+		p.DeliveryMode = model.DeliveryAuto
+	}
+	if p.DeliveryMode != model.DeliveryAuto && p.DeliveryMode != model.DeliveryManual {
+		return errors.New("请选择自动发货或手工发货")
+	}
+	if !validGatewayLogo(p.Cover) {
+		return errors.New("请上传有效的商品图片")
+	}
 	p.RedeemURL = strings.TrimSpace(p.RedeemURL)
 	if p.RedeemURL != "" && (len(p.RedeemURL) > 255 || !validHTTPURL(p.RedeemURL)) {
 		return errors.New("兑换地址须为有效的 HTTP(S) 链接，最多 255 字节")

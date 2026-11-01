@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/wybo/backend/internal/service"
 	"github.com/wybo/backend/pkg/response"
 )
 
@@ -23,6 +25,22 @@ func (h *Handler) AdminManualDeliver(c *gin.Context) {
 		return
 	}
 	h.svc.NotifyByEmail(c.Param("orderNo"))
+	response.OK(c, nil)
+}
+
+func (h *Handler) AdminManualFulfill(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 128*1024)
+	var req struct {
+		Lines []service.CardLine `json:"lines"`
+	}
+	if c.ShouldBindJSON(&req) != nil {
+		response.Error(c, 400, "请填写有效的发货内容")
+		return
+	}
+	if err := h.svc.FulfillManualOrder(c.Param("orderNo"), req.Lines); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
 	response.OK(c, nil)
 }
 

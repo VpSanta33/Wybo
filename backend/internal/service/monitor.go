@@ -156,7 +156,7 @@ func (s *Service) Readiness() (map[string]interface{}, error) {
 		if p.CostCents == nil {
 			uncosted++
 		}
-		if p.Stock <= 0 {
+		if p.Stock <= 0 && p.DeliveryMode != model.DeliveryManual {
 			empty++
 		}
 	}

@@ -109,7 +109,7 @@ export default function Storefront({
     catalog?.products.filter((p) => p.category_id === activeCategory?.id) ?? [];
   const product =
     products.find((p) => p.id === selectedId) ??
-    products.find((p) => p.stock > 0) ??
+    products.find((p) => p.delivery_mode === "manual" || p.stock > 0) ??
     products[0];
   useEffect(() => {
     if (product && !demo) {
@@ -117,7 +117,12 @@ export default function Storefront({
     }
   }, [product?.id, demo]);
   const pendingPrice = product ? pricePending(product) : false;
-  const maxQuantity = product ? Math.max(1, Math.min(product.stock, 99)) : 1;
+  const maxQuantity = product
+    ? Math.max(
+        1,
+        Math.min(product.delivery_mode === "manual" ? 99 : product.stock, 99),
+      )
+    : 1;
   const actualQuantity = Math.min(quantity, maxQuantity);
   const total = (product?.price_cents ?? 0) * actualQuantity;
 
@@ -134,7 +139,11 @@ export default function Storefront({
   }
 
   function chooseProduct(p: Product) {
-    if (busy || (p.stock <= 0 && !pricePending(p))) return;
+    if (
+      busy ||
+      (p.delivery_mode !== "manual" && p.stock <= 0 && !pricePending(p))
+    )
+      return;
     if (!demo) track("select", p.id);
     setSelectedId(p.id);
     setQuantity(1);
@@ -162,7 +171,13 @@ export default function Storefront({
 
   function reviewOrder(event: FormEvent) {
     event.preventDefault();
-    if (!product || pendingPrice || product.stock <= 0 || busy) return;
+    if (
+      !product ||
+      pendingPrice ||
+      (product.delivery_mode !== "manual" && product.stock <= 0) ||
+      busy
+    )
+      return;
     if (!validateEmail()) {
       document.getElementById("delivery-email")?.focus();
       return;
@@ -178,7 +193,13 @@ export default function Storefront({
   }
 
   async function placeOrder() {
-    if (!product || pendingPrice || product.stock <= 0 || busy) return;
+    if (
+      !product ||
+      pendingPrice ||
+      (product.delivery_mode !== "manual" && product.stock <= 0) ||
+      busy
+    )
+      return;
     if (!demo && !verification.ready) return;
     setBusy(true);
     setError("");
@@ -289,7 +310,11 @@ export default function Storefront({
             <Zap size={13} aria-hidden="true" />
             <span>自助选购</span>
             <span className="dot-separator" />
-            <span>支付后自动发货</span>
+            <span>
+              {product?.delivery_mode === "manual"
+                ? "付款后由店主手工发货"
+                : "支付后自动发货"}
+            </span>
           </div>
         </div>
 
@@ -347,7 +372,7 @@ export default function Storefront({
                   <div className="plan-options">
                     {products.map((p) => (
                       <label
-                        className={`plan-option ${p.id === product.id ? "is-selected" : ""} ${p.stock <= 0 && !pricePending(p) ? "is-unavailable" : ""} ${pricePending(p) ? "is-pending" : ""}`}
+                        className={`plan-option ${p.id === product.id ? "is-selected" : ""} ${p.delivery_mode !== "manual" && p.stock <= 0 && !pricePending(p) ? "is-unavailable" : ""} ${pricePending(p) ? "is-pending" : ""}`}
                         key={p.id}
                       >
                         <input
@@ -357,7 +382,12 @@ export default function Storefront({
                           aria-describedby={`plan-price-${p.id}`}
                           value={p.id}
                           checked={p.id === product.id}
-                          disabled={(p.stock <= 0 && !pricePending(p)) || busy}
+                          disabled={
+                            (p.delivery_mode !== "manual" &&
+                              p.stock <= 0 &&
+                              !pricePending(p)) ||
+                            busy
+                          }
                           onChange={() => chooseProduct(p)}
                         />
                         <span className="plan-radio" aria-hidden="true">
@@ -374,7 +404,7 @@ export default function Storefront({
                         <span className="plan-price" id={`plan-price-${p.id}`}>
                           {pricePending(p) ? (
                             <span className="pending-price">待定价</span>
-                          ) : p.stock <= 0 ? (
+                          ) : p.delivery_mode !== "manual" && p.stock <= 0 ? (
                             <span>暂时售罄</span>
                           ) : (
                             <>
@@ -433,7 +463,8 @@ export default function Storefront({
                           actualQuantity <= 1 ||
                           busy ||
                           pendingPrice ||
-                          product.stock <= 0
+                          (product.delivery_mode !== "manual" &&
+                            product.stock <= 0)
                         }
                       >
                         <Minus size={15} />
@@ -444,7 +475,12 @@ export default function Storefront({
                         min={1}
                         max={maxQuantity}
                         value={actualQuantity}
-                        disabled={busy || pendingPrice || product.stock <= 0}
+                        disabled={
+                          busy ||
+                          pendingPrice ||
+                          (product.delivery_mode !== "manual" &&
+                            product.stock <= 0)
+                        }
                         onChange={(e) =>
                           setQuantity(
                             Math.min(
@@ -467,7 +503,8 @@ export default function Storefront({
                           actualQuantity >= maxQuantity ||
                           busy ||
                           pendingPrice ||
-                          product.stock <= 0
+                          (product.delivery_mode !== "manual" &&
+                            product.stock <= 0)
                         }
                       >
                         <Plus size={15} />
@@ -490,7 +527,9 @@ export default function Storefront({
                   </span>
                   <span>
                     <PackageCheck size={14} aria-hidden="true" />
-                    付款后自动发卡
+                    {product.delivery_mode === "manual"
+                      ? "付款后手工发货"
+                      : "付款后自动发卡"}
                   </span>
                 </div>
 
@@ -550,12 +589,17 @@ export default function Storefront({
                   <button
                     className="review-button"
                     type="submit"
-                    disabled={busy || pendingPrice || product.stock <= 0}
+                    disabled={
+                      busy ||
+                      pendingPrice ||
+                      (product.delivery_mode !== "manual" && product.stock <= 0)
+                    }
                   >
                     <span>
                       {pendingPrice
                         ? "套餐待上架"
-                        : product.stock <= 0
+                        : product.delivery_mode !== "manual" &&
+                            product.stock <= 0
                           ? "暂时售罄"
                           : "确认订单"}
                     </span>

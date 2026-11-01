@@ -219,6 +219,12 @@ func TestAdminEntryAndPublicPrivacy(t *testing.T) {
 		if call("POST", "/api/v1/admin/settings/image", "", "/secret-console", rt).Code != 403 {
 			t.Fatal("site image upload bypassed settings permission", role)
 		}
+		if !service.Can(role, "inventory") && call("POST", "/api/v1/admin/orders/ORDER1/fulfill", `{}`, "/secret-console", rt).Code != 403 {
+			t.Fatal("manual fulfillment bypassed inventory permission", role)
+		}
+		if !service.Can(role, "catalog.write") && (call("POST", "/api/v1/admin/upload", "", "/secret-console", rt).Code != 403 || call("DELETE", "/api/v1/admin/products/1", "", "/secret-console", rt).Code != 403) {
+			t.Fatal("catalog mutation bypassed catalog permission", role)
+		}
 	}
 	db.Model(&model.Admin{}).Where("username = ?", "testadmin").Update("session_version", 1)
 	w = call("GET", "/api/v1/admin/dashboard", "", "/secret-console", token)

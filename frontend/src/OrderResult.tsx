@@ -40,6 +40,7 @@ export default function OrderResult({
   busy: boolean;
   cancelBusy: boolean;
 }) {
+  const manual = order.items?.some((item) => item.delivery_mode === "manual");
   const upgraded = order.after_sales?.some(
     (v) => v.kind === "upgrade" && v.status === "completed",
   );
@@ -50,7 +51,8 @@ export default function OrderResult({
         <>
           <div className="delivered-cards">
             <h3>
-              你的卡密 <span>点击右侧复制</span>
+              {manual ? "你的商品 / 发货内容" : "你的卡密"}{" "}
+              <span>点击右侧复制</span>
             </h3>
             {order.cards?.length ? (
               <div className="delivered-card-list">
@@ -68,7 +70,11 @@ export default function OrderResult({
                           `${card.code}${card.secret ? `\n${card.secret}` : ""}`,
                         )
                       }
-                      aria-label={`复制第${index + 1}张卡密`}
+                      aria-label={
+                        manual
+                          ? `复制第${index + 1}份发货内容`
+                          : `复制第${index + 1}张卡密`
+                      }
                     >
                       <Copy size={17} />
                     </button>
@@ -86,7 +92,11 @@ export default function OrderResult({
           {!!order.cards?.length && (
             <section className="redemption-section" aria-label="兑换与使用">
               <h3>下一步：兑换与使用</h3>
-              <p>复制卡密，打开对应兑换入口，按说明完成兑换。</p>
+              <p>
+                {manual
+                  ? "请按发货内容和商品说明使用；需要兑换的卡密可通过对应入口操作。"
+                  : "复制卡密，打开对应兑换入口，按说明完成兑换。"}
+              </p>
               {order.redemptions?.length ? (
                 order.redemptions.map((guide, i) => {
                   const url = redeemLink(guide.redeem_url);
@@ -144,7 +154,9 @@ export default function OrderResult({
       {order.status === "paid" && (
         <p className="soft-note" role="status">
           <LoaderCircle size={17} className="spin" />
-          支付成功，正在发放卡密。发货后会在这里显示卡密和兑换入口。
+          {manual
+            ? "支付成功，等待店主手工发货。发货内容会在这里显示，可通过订单售后联系店主。"
+            : "支付成功，正在发放卡密。发货后会在这里显示卡密和兑换入口。"}
         </p>
       )}
       {order.after_sales

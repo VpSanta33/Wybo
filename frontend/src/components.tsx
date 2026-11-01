@@ -131,7 +131,10 @@ export function OrderSummary({
           >
             {order.status === "completed"
               ? "支付成功 · 已发货"
-              : statuses[order.status] || order.status}
+              : order.status === "paid" &&
+                  order.items?.some((item) => item.delivery_mode === "manual")
+                ? "支付成功 · 等待手工发货"
+                : statuses[order.status] || order.status}
           </strong>
           <strong className="order-price">¥{money(order.total_cents)}</strong>
         </div>

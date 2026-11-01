@@ -76,7 +76,10 @@ export async function loadCatalog(signal?: AbortSignal): Promise<Catalog> {
         subtitle: p.description?.split("\n")[0] || "月兔为你挑选的数字好物",
         tags: /chatgpt\s*pro\s*(5|20|50)\s*x/i.test(p.name)
           ? ["Pro 系列", `${p.name.match(/(5|20|50)\s*x/i)?.[0]} 套餐`]
-          : ["自动发货", "数字商品"],
+          : [
+              p.delivery_mode === "manual" ? "手工发货" : "自动发货",
+              "数字商品",
+            ],
       };
     });
     return {
@@ -114,7 +117,11 @@ export interface ShopOrder {
   status: string;
   created_at: string;
   expired_at?: string;
-  items?: { product_name: string; quantity: number }[];
+  items?: {
+    product_name: string;
+    quantity: number;
+    delivery_mode?: "auto" | "manual";
+  }[];
   after_sales?: {
     kind: string;
     status: string;
@@ -199,7 +206,13 @@ export async function createOrder(
       total_cents: product.price_cents * quantity,
       status: "preview",
       created_at: new Date().toISOString(),
-      items: [{ product_name: product.name, quantity }],
+      items: [
+        {
+          product_name: product.name,
+          quantity,
+          delivery_mode: product.delivery_mode || "auto",
+        },
+      ],
     };
     previewOrders.set(order.order_no, { contact, order });
   } else {
@@ -224,7 +237,13 @@ export async function createOrder(
       ...response,
       status: "pending",
       created_at: new Date().toISOString(),
-      items: [{ product_name: product.name, quantity }],
+      items: [
+        {
+          product_name: product.name,
+          quantity,
+          delivery_mode: product.delivery_mode || "auto",
+        },
+      ],
     };
   }
   order.contact = contact;

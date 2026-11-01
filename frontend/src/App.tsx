@@ -564,7 +564,7 @@ function Guide({ onHelp, demo }: { onHelp: () => void; demo: boolean }) {
     {
       icon: Gift,
       title: "收下小美好",
-      text: "支付完成后自动发卡，在订单查询页领取卡密，按说明兑换。",
+      text: "自动发货商品付款后发卡；手工发货商品付款后等待店主处理。在订单页领取商品并查看使用说明。",
     },
   ];
   return (

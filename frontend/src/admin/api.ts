@@ -145,6 +145,7 @@ export interface AdminUser {
   role: string;
 }
 export interface AdminProduct {
+  delivery_mode: "auto" | "manual";
   id: number;
   category_id: number;
   name: string;

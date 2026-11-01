@@ -100,7 +100,7 @@ func (s *Service) Dashboard() (map[string]interface{}, error) {
 	s.db.Model(&model.Order{}).Where("status = ?", model.OrderPending).Count(&pendingOrders)
 
 	var lowStock int64
-	s.db.Model(&model.Product{}).Where("stock <= 10").Count(&lowStock)
+	s.db.Model(&model.Product{}).Where("stock <= 10 AND delivery_mode <> ?", model.DeliveryManual).Count(&lowStock)
 
 	return map[string]interface{}{
 		"today_orders":        todayOrders,

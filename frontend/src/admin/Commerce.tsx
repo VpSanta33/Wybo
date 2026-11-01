@@ -73,31 +73,15 @@ export function Orders({ notify }: { notify: (m: string) => void }) {
   const status = params.get("status") || "";
   const [page, setPage] = useState(1);
   const [detail, setDetail] = useState<string | null>(null);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState("");
   const q = useAdminQuery<{ list: AdminOrder[]; total: number }>(
     `/orders?status=${status}&page=${page}&size=20`,
   );
-  async function deliver(no: string) {
-    setBusy(no);
-    setError("");
-    try {
-      await adminApi(`/orders/${no}/deliver`, { method: "POST" });
-      notify("补发完成，已加入发货通知队列");
-      q.reload();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy("");
-    }
-  }
   return (
     <>
       <PageHeading
         title="订单管理"
         description="从一份期待到一笔成交，每一步都有迹可循。"
       />
-      {error && <Banner>{error}</Banner>}
       <section className="a-panel">
         <div className="a-list-toolbar">
           <h2>
@@ -184,11 +168,10 @@ export function Orders({ notify }: { notify: (m: string) => void }) {
                       {o.status === "paid" && can("inventory") && (
                         <button
                           className="a-table-button"
-                          disabled={!!busy}
-                          onClick={() => deliver(o.order_no)}
+                          onClick={() => setDetail(o.order_no)}
                         >
                           <PackageCheck size={14} />
-                          {busy === o.order_no ? "发货中…" : "补发"}
+                          发货处理
                         </button>
                       )}
                     </td>
@@ -211,6 +194,7 @@ export function Orders({ notify }: { notify: (m: string) => void }) {
       {detail && (
         <OrderDetail
           orderNo={detail}
+          notify={notify}
           onClose={() => {
             setDetail(null);
             q.reload();
@@ -223,9 +207,11 @@ export function Orders({ notify }: { notify: (m: string) => void }) {
 function OrderDetail({
   orderNo,
   onClose,
+  notify,
 }: {
   orderNo: string;
   onClose: () => void;
+  notify: (message: string) => void;
 }) {
   const q = useAdminQuery<{
     order: AdminOrder;
@@ -233,6 +219,7 @@ function OrderDetail({
       product_name: string;
       quantity: number;
       unit_price_cents: number;
+      delivery_mode?: "auto" | "manual";
     }[];
     cards: Card[];
   }>(`/orders/${orderNo}`);
@@ -241,6 +228,50 @@ function OrderDetail({
   const [revealing, setRevealing] = useState(false),
     [revealError, setRevealError] = useState("");
   const show = Object.keys(secrets).length > 0;
+  const manual = q.data?.items.some((item) => item.delivery_mode === "manual");
+  const quantity =
+    q.data?.items.reduce((sum, item) => sum + item.quantity, 0) || 0;
+  const [delivery, setDelivery] = useState("");
+  const [sending, setSending] = useState(false);
+  const [deliveryError, setDeliveryError] = useState("");
+  const [confirmDelivery, setConfirmDelivery] = useState(false);
+  async function fulfill(event: FormEvent) {
+    event.preventDefault();
+    if (sending) return;
+    setDeliveryError("");
+    const lines = delivery
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const split = line.indexOf("----");
+        return split < 0
+          ? { code: line, secret: "" }
+          : {
+              code: line.slice(0, split).trim(),
+              secret: line.slice(split + 4).trim(),
+            };
+      });
+    if (manual && lines.length !== quantity) {
+      setDeliveryError(`此订单需要 ${quantity} 份发货内容，请每份填写一行。`);
+      return;
+    }
+    setSending(true);
+    try {
+      await adminApi(`/orders/${orderNo}/${manual ? "fulfill" : "deliver"}`, {
+        method: "POST",
+        ...(manual ? { body: JSON.stringify({ lines }) } : {}),
+      });
+      setDelivery("");
+      setConfirmDelivery(false);
+      q.reload();
+      notify("发货完成，已加入发货通知队列");
+    } catch (e) {
+      setDeliveryError((e as Error).message);
+    } finally {
+      setSending(false);
+    }
+  }
   async function reveal() {
     if (show) {
       setSecrets({});
@@ -263,7 +294,12 @@ function OrderDetail({
     }
   }
   return (
-    <Modal title="订单详情" onClose={onClose}>
+    <Modal
+      title="订单详情"
+      onClose={() => {
+        if (!sending) onClose();
+      }}
+    >
       <div className="a-editor">
         <span className="a-eyebrow">ORDER DETAIL</span>
         <h2>订单详情</h2>
@@ -311,14 +347,67 @@ function OrderDetail({
                 <div className="a-detail-line" key={i}>
                   <strong>{x.product_name}</strong>
                   <span>
-                    ×{x.quantity} · {yuan(x.unit_price_cents)}
+                    ×{x.quantity} · {yuan(x.unit_price_cents)} ·{" "}
+                    {x.delivery_mode === "manual" ? "手工发货" : "自动发货"}
                   </span>
                 </div>
               ))}
+              {q.data.order.status === "paid" && can("inventory") && (
+                <form className="a-manual-delivery" onSubmit={fulfill}>
+                  <h3>{manual ? "手工发货" : "库存补发"}</h3>
+                  {manual ? (
+                    <Field
+                      label="发货内容"
+                      hint={`共 ${quantity} 份，每份一行；可填写卡密、账号或处理结果，账号密码使用“账号----密码”。每份内容和密码各不超过 255 字节。`}
+                    >
+                      <textarea
+                        required
+                        rows={4}
+                        maxLength={51000}
+                        value={delivery}
+                        disabled={sending}
+                        autoComplete="off"
+                        spellCheck={false}
+                        onChange={(e) => {
+                          setDelivery(e.target.value);
+                          setConfirmDelivery(false);
+                        }}
+                        placeholder="每份商品的发货内容，填写后顾客可在订单中查看"
+                      />
+                    </Field>
+                  ) : (
+                    <p className="a-hint">
+                      从可售库存重新分配卡密，库存不足时请先补货。
+                    </p>
+                  )}
+                  {deliveryError && <Banner>{deliveryError}</Banner>}
+                  <label className="a-check">
+                    <input
+                      type="checkbox"
+                      required
+                      checked={confirmDelivery}
+                      disabled={sending}
+                      onChange={(e) => setConfirmDelivery(e.target.checked)}
+                    />
+                    我已核对订单与发货内容，确认发送给顾客
+                  </label>
+                  <button
+                    className="a-button primary"
+                    disabled={sending || !confirmDelivery}
+                  >
+                    <PackageCheck size={16} />
+                    {sending
+                      ? "发货中…"
+                      : manual
+                        ? "确认手工发货"
+                        : "确认库存补发"}
+                  </button>
+                </form>
+              )}
               {q.data.cards.length > 0 && (
                 <>
                   <div className="a-list-toolbar">
-                    <h3>已发卡密</h3>
+                    <h3>{manual ? "已发货内容" : "已发卡密"}</h3>
                     {can("cards.reveal") && (
                       <button
                         className="a-button"

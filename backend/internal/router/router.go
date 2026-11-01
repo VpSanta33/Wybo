@@ -120,6 +120,7 @@ func New(db *gorm.DB, cfg *config.Config, logger *zap.Logger) *gin.Engine {
 			admin.POST("/notifications/:id/retry", h.AdminRetryNotification)
 			admin.POST("/orders/:orderNo/refund", h.AdminRefund)
 			admin.POST("/orders/:orderNo/deliver", h.AdminManualDeliver)
+			admin.POST("/orders/:orderNo/fulfill", h.AdminManualFulfill)
 			admin.GET("/cards", h.AdminCards)
 			admin.POST("/cards/import", h.AdminImportCards)
 			admin.POST("/cards/:id/disable", h.AdminDisableCard)

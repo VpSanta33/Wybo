@@ -20,6 +20,7 @@ func (h *Handler) AdminUpdateProduct(c *gin.Context) {
 		"price_cents": true, "original_price_cents": true, "redeem_url": true,
 		"cost_cents":   true,
 		"redeem_guide": true, "sort": true, "enabled": true,
+		"delivery_mode": true,
 	}
 	updates := map[string]interface{}{}
 	for k, v := range req {

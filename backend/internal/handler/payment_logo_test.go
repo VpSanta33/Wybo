@@ -18,14 +18,26 @@ import (
 	"github.com/wybo/backend/internal/config"
 )
 
-func TestPaymentLogoUploadValidatesContentsAndLimits(t *testing.T) {
+func TestRasterUploadValidatesContentsAndLimits(t *testing.T) {
+	for _, kind := range []string{"payment", "site", "product"} {
+		t.Run(kind, func(t *testing.T) { testRasterUpload(t, kind) })
+	}
+}
+func testRasterUpload(t *testing.T, kind string) {
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{}
 	cfg.Upload.Dir = t.TempDir()
 	cfg.Upload.MaxSize = 2 * 1024 * 1024
 	h := &Handler{cfg: cfg}
 	r := gin.New()
-	r.POST("/logo", h.AdminPaymentLogo)
+	switch kind {
+	case "site":
+		r.POST("/logo", h.AdminSiteImage)
+	case "product":
+		r.POST("/logo", h.AdminUpload)
+	default:
+		r.POST("/logo", h.AdminPaymentLogo)
+	}
 	upload := func(name string, data []byte) *httptest.ResponseRecorder {
 		t.Helper()
 		var body bytes.Buffer

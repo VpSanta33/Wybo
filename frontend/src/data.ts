@@ -10,6 +10,7 @@ export type ProductArt =
   | "game";
 
 export interface Product {
+  delivery_mode?: "auto" | "manual";
   id: number;
   category_id: number;
   name: string;

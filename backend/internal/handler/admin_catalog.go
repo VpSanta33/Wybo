@@ -42,6 +42,7 @@ func (h *Handler) AdminCreateProduct(c *gin.Context) {
 		Name               string `json:"name"`
 		Description        string `json:"description"`
 		Cover              string `json:"cover"`
+		DeliveryMode       string `json:"delivery_mode"`
 		PriceCents         int64  `json:"price_cents"`
 		CostCents          *int64 `json:"cost_cents"`
 		OriginalPriceCents int64  `json:"original_price_cents"`
@@ -59,7 +60,7 @@ func (h *Handler) AdminCreateProduct(c *gin.Context) {
 	}
 	p := &model.Product{
 		CategoryID: req.CategoryID, Name: req.Name, Description: req.Description,
-		Cover: req.Cover, PriceCents: req.PriceCents, OriginalPriceCents: req.OriginalPriceCents,
+		Cover: req.Cover, DeliveryMode: req.DeliveryMode, PriceCents: req.PriceCents, OriginalPriceCents: req.OriginalPriceCents,
 		CostCents: req.CostCents,
 		RedeemURL: req.RedeemURL, RedeemGuide: req.RedeemGuide, Sort: req.Sort, Enabled: true,
 	}

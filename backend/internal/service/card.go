@@ -11,8 +11,8 @@ import (
 
 // CardLine 卡密导入行（单码：仅 Code；账号+密码：Code=账号, Secret=密码）
 type CardLine struct {
-	Code   string
-	Secret string
+	Code   string `json:"code"`
+	Secret string `json:"secret"`
 }
 
 // ImportCardsReq 导入入参

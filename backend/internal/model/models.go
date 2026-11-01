@@ -42,7 +42,13 @@ type Category struct {
 
 // ============ 商品 ============
 
+const (
+	DeliveryAuto   = "auto"
+	DeliveryManual = "manual"
+)
+
 type Product struct {
+	DeliveryMode       string    `gorm:"size:16;not null;default:auto" json:"delivery_mode"`
 	ID                 uint      `gorm:"primaryKey" json:"id"`
 	CategoryID         uint      `gorm:"index;not null" json:"category_id"`
 	Name               string    `gorm:"size:128;not null" json:"name"`
@@ -131,6 +137,7 @@ type Order struct {
 // ============ 订单明细 ============
 
 type OrderItem struct {
+	DeliveryMode   string `gorm:"size:16;not null;default:auto" json:"delivery_mode"` // 下单时的发货方式快照
 	ID             uint   `gorm:"primaryKey" json:"id"`
 	OrderID        uint   `gorm:"index;not null" json:"order_id"`
 	ProductID      uint   `gorm:"index;not null" json:"product_id"`
