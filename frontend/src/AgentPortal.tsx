@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { LogOut, Copy, Moon, ArrowLeft, HandCoins } from "lucide-react";
-import { BunnyMark } from "./Illustrations";
+import { SiteLogo, useSite } from "./Site";
 import { api } from "./api";
 import { yuan, type Agent } from "./admin/api";
 import { Banner, Busy, Empty, Field, Status, shortDate } from "./admin/ui";
@@ -32,6 +32,7 @@ type Portal = {
   }[];
 };
 export default function AgentPortal() {
+  const { site } = useSite();
   const [token, setToken] = useState(() => sessionStorage.getItem(key) || ""),
     [data, setData] = useState<Portal | null>(null),
     [code, setCode] = useState(""),
@@ -40,9 +41,7 @@ export default function AgentPortal() {
     [loading, setLoading] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
-  useEffect(() => {
-    document.title = "Wybo · 代理工作台";
-  }, []);
+
   useEffect(() => {
     if (!token) return;
     const ctrl = new AbortController();
@@ -86,9 +85,10 @@ export default function AgentPortal() {
     <div className="a-root a-agent-portal">
       <header className="a-agent-header">
         <Link to="/" className="a-brand">
-          <BunnyMark />
+          <SiteLogo url={site.site_logo} />
           <span>
-            Wybo<b>.</b>
+            {site.site_brand}
+            <b>.</b>
             <small>伙伴工作台</small>
           </span>
         </Link>

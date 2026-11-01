@@ -52,8 +52,10 @@ import { Banner, Busy } from "./ui";
 const Dashboard = lazy(() => import("./Dashboard"));
 import Products from "./Products";
 import { Orders, Inventory, Agents } from "./Commerce";
-import { Payments, Settings, Notifications, Security } from "./Settings";
+import { Payments, Notifications, Security } from "./Settings";
 import "./admin.css";
+import { SiteLogo, useSite } from "../Site";
+import { Settings } from "./SiteSettings";
 import { AccessContext, StepUp } from "./access";
 import {
   Team,
@@ -164,7 +166,7 @@ const navigation = [
     permission: "reconcile",
   },
   {
-    label: "邮件与推送",
+    label: "站点设置",
     path: "/settings",
     icon: Mail,
     permission: "settings",
@@ -198,6 +200,7 @@ const navigation = [
 ];
 
 function Login({ onLogin }: { onLogin: () => void }) {
+  const { site } = useSite();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -242,11 +245,12 @@ function Login({ onLogin }: { onLogin: () => void }) {
           <br />
           让月兔陪你，照顾小铺的每一天。
         </p>
-        <small>望月小铺 · 商家工作台</small>
+        <small>{site.site_name} · 商家工作台</small>
       </div>
       <section className="a-login-card">
         <span className="a-login-mark">
-          <BunnyMark /> Wybo<span>.</span>
+          <SiteLogo url={site.site_logo} /> {site.site_brand}
+          <span>.</span>
         </span>
         <h2>欢迎回到小铺</h2>
         <p>登录商家后台，开始今天的好生意。</p>
@@ -301,9 +305,7 @@ function Login({ onLogin }: { onLogin: () => void }) {
 }
 export default function AdminApp() {
   const base = adminBase();
-  useEffect(() => {
-    document.title = "Wybo · 商家工作台";
-  }, []);
+  const { site } = useSite();
   const [entry, setEntry] = useState<boolean | null>(null);
   const [error, setError] = useState("");
   const [logged, setLogged] = useState(!!token());
@@ -493,10 +495,11 @@ export default function AdminApp() {
             </button>
           )}
           <Link to={base} className="a-brand">
-            <BunnyMark />
+            <SiteLogo url={site.site_logo} />
             <span>
-              Wybo<b>.</b>
-              <small>望月小铺 · 商家后台</small>
+              {site.site_brand}
+              <b>.</b>
+              <small>{site.site_name} · 商家后台</small>
             </span>
           </Link>
           <span className="a-nav-label">小铺工作台</span>
@@ -674,7 +677,8 @@ export default function AdminApp() {
             </Suspense>
             <footer className="a-footer">
               <span>
-                Wybo<span className="a-muted"> · 望月小铺</span>
+                {site.site_brand}
+                <span className="a-muted"> · {site.site_name}</span>
               </span>
               <span>
                 认真记录每一份美好 <Moon size={12} />

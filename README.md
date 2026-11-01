@@ -110,6 +110,8 @@ npm run dev
 - **DujiaoPay**：HMAC API、独立 Webhook 密钥、幂等下单。
 - **BEpusdt**：create-transaction 下单、JSON MD5 回调。
 
+网站名称、Logo / 浏览器图标、默认兑换入口可在「站点设置 → 基本信息」修改；Cloudflare Turnstile 在「下单防护」中自行填写域名及密钥，默认关闭。见 [站点设置与人机验证](docs/站点设置与人机验证.md)。
+
 配置步骤、利润口径、Resend、代理、2FA 和本地恢复工具见 [docs/后台管理.md](docs/后台管理.md)。商户密钥和邮件域名仍需自行配置，未进行真实收款或邮件发送。
 
 ## 🔄 核心业务流程

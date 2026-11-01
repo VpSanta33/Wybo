@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter, useLocation } from "react-router-dom";
 import App from "./App";
 import "./styles.css";
+import { SiteProvider } from "./Site";
 
 const AgentPortal = lazy(() => import("./AgentPortal"));
 const AdminApp = lazy(() => import("./admin/AdminApp"));
@@ -25,7 +26,9 @@ function Entry() {
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <Entry />
+      <SiteProvider>
+        <Entry />
+      </SiteProvider>
     </BrowserRouter>
   </React.StrictMode>,
 );

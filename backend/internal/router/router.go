@@ -145,6 +145,7 @@ func New(db *gorm.DB, cfg *config.Config, logger *zap.Logger) *gin.Engine {
 			admin.DELETE("/announcements/:id", h.AdminDeleteAnnouncement)
 			admin.GET("/settings", h.AdminGetSettings)
 			admin.PUT("/settings", h.AdminUpdateSettings)
+			admin.POST("/settings/image", h.AdminSiteImage)
 			admin.POST("/upload", h.AdminUpload)
 		}
 	}

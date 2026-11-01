@@ -31,20 +31,10 @@ import { BunnyMark } from "./Illustrations";
 import OrderResult from "./OrderResult";
 import { ErrorMessage, Modal } from "./components";
 import Storefront from "./Storefront";
-
-function Brand({ name }: { name?: string }) {
-  return (
-    <Link className="store-brand" to="/" aria-label="Wybo 望月小铺首页">
-      <BunnyMark />
-      <span>
-        Wybo<span className="brand-period">.</span>
-      </span>
-      <span className="brand-chinese">{name || "望月小铺"}</span>
-    </Link>
-  );
-}
+import { SiteBrand, useSite } from "./Site";
 
 function App() {
+  const { site } = useSite();
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [info, setInfo] = useState<"help" | "terms" | "privacy" | null>(null);
   const [toast, setToast] = useState("");
@@ -88,10 +78,6 @@ function App() {
   }, [location.pathname]);
 
   useEffect(() => {
-    if (catalog?.site?.site_name)
-      document.title = catalog.site.site_name + " · Wybo";
-  }, [catalog?.site?.site_name]);
-  useEffect(() => {
     if (!toast) return;
     const timer = window.setTimeout(() => setToast(""), 3200);
     return () => clearTimeout(timer);
@@ -113,7 +99,7 @@ function App() {
       </a>
       {!isHome && (
         <header className="store-header container">
-          <Brand name={catalog?.site?.site_name} />
+          <SiteBrand />
           <nav className="inner-nav" aria-label="主导航">
             <NavLink to="/">选购商品</NavLink>
             <NavLink to="/orders">我的订单</NavLink>
@@ -166,8 +152,8 @@ function App() {
       </main>
       <footer className="store-footer container">
         <span>
-          © {new Date().getFullYear()} Wybo
-          <span className="footer-moon">一点月光，刚好喜欢。</span>
+          © {new Date().getFullYear()} {site.site_name}
+          <span className="footer-moon">{site.site_footer}</span>
         </span>
         <div>
           <Link to="/guide">购买指南</Link>
@@ -260,6 +246,12 @@ function App() {
                   <p>
                     演示订单与联系方式仅保存在当前标签页内存中，刷新后失效。正式下单信息会发送到本站订单接口。
                   </p>
+                  {site.turnstile_enabled === "true" && (
+                    <p>
+                      下单时使用 Cloudflare Turnstile 验证访问者，验证数据与访问
+                      IP 会发送至 Cloudflare，用于减少机器人恶意下单。
+                    </p>
+                  )}
                 </>
               )}
             </div>

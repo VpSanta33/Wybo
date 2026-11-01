@@ -108,6 +108,28 @@ func TestAdminEntryAndPublicPrivacy(t *testing.T) {
 	if !strings.Contains(w.Body.String(), `"code":0`) {
 		t.Fatal("authenticated dashboard rejected")
 	}
+	if call("POST", "/api/v1/admin/settings/image", "", "/secret-console", "").Code != 401 {
+		t.Fatal("site image upload missing authentication")
+	}
+	// Direct API calls must pass Turnstile before reserving any stock or creating an order.
+	if err := svc.UpdateSettings(map[string]string{"turnstile_enabled": "true", "turnstile_site_key": "public-test-key", "turnstile_secret_key": "private-cf-test-secret", "site_url": "https://shop.example.test"}); err != nil {
+		t.Fatal(err)
+	}
+	var before int64
+	db.Model(&model.Order{}).Count(&before)
+	w = call("POST", "/api/v1/orders", fmt.Sprintf(`{"product_id":%d,"contact":"buyer@example.test"}`, p.ID), "", "")
+	var after int64
+	db.Model(&model.Order{}).Count(&after)
+	if !strings.Contains(w.Body.String(), `"code":403`) || before != after {
+		t.Fatal("unverified API order accepted")
+	}
+	w = call("GET", "/api/v1/site", "", "", "")
+	if strings.Contains(w.Body.String(), "private-cf-test-secret") || !strings.Contains(w.Body.String(), "public-test-key") {
+		t.Fatal("Turnstile public configuration privacy")
+	}
+	if err := svc.UpdateSettings(map[string]string{"turnstile_enabled": "false"}); err != nil {
+		t.Fatal(err)
+	}
 	if call("POST", "/api/v1/admin/gateways/epay/logo", "", "/secret-console", "").Code != 401 {
 		t.Fatal("logo upload missing authentication")
 	}
@@ -193,6 +215,9 @@ func TestAdminEntryAndPublicPrivacy(t *testing.T) {
 		}
 		if call("POST", "/api/v1/admin/gateways/epay/logo", "", "/secret-console", rt).Code != 403 {
 			t.Fatal("logo upload bypassed payment write permission", role)
+		}
+		if call("POST", "/api/v1/admin/settings/image", "", "/secret-console", rt).Code != 403 {
+			t.Fatal("site image upload bypassed settings permission", role)
 		}
 	}
 	db.Model(&model.Admin{}).Where("username = ?", "testadmin").Update("session_version", 1)

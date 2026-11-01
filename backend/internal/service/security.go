@@ -256,6 +256,9 @@ func (s *Service) secretConfig(config string) (map[string]string, error) {
 	return m, err
 }
 func sensitiveKey(k string) bool {
+	if k == "turnstile_site_key" {
+		return false
+	}
 	return strings.Contains(k, "secret") || strings.Contains(k, "key") || strings.Contains(k, "token") || k == "key"
 }
 func dailyVisitor(secret, day, ip, ua string) string {

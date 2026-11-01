@@ -188,6 +188,7 @@ export async function createOrder(
   contact: string,
   coupon: string,
   demo: boolean,
+  turnstileToken = "",
 ): Promise<ShopOrder> {
   if (pricePending(product))
     throw new Error("这份套餐尚未定价，暂时无法下单。");
@@ -215,6 +216,7 @@ export async function createOrder(
         email: contact.includes("@") ? contact : "",
         coupon_code: coupon,
         agent_code: agentCode(),
+        turnstile_token: turnstileToken,
         ...attribution(),
       }),
     });

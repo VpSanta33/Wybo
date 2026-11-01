@@ -17,6 +17,14 @@ import (
 
 // AdminPaymentLogo stores raster logos; merchant configuration is saved separately.
 func (h *Handler) AdminPaymentLogo(c *gin.Context) {
+	h.uploadBrandImage(c)
+}
+
+func (h *Handler) AdminSiteImage(c *gin.Context) {
+	h.uploadBrandImage(c)
+}
+
+func (h *Handler) uploadBrandImage(c *gin.Context) {
 	limit := int64(2 * 1024 * 1024)
 	if h.cfg.Upload.MaxSize > 0 && h.cfg.Upload.MaxSize < limit {
 		limit = h.cfg.Upload.MaxSize

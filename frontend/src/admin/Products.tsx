@@ -184,7 +184,7 @@ export function ProductEditor({
         </Field>
         <Field
           label="兑换地址"
-          hint="留空使用“邮件与推送 → 站点信息”中的默认兑换地址；单独填写可覆盖，订单页和发货邮件同步生效"
+          hint="留空使用“站点设置 → 基本信息”中的默认兑换地址；单独填写可覆盖，订单页和发货邮件同步生效"
         >
           <input
             type="url"

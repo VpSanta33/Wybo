@@ -1,10 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
   Check,
-  CreditCard,
   ExternalLink,
   KeyRound,
-  Mail,
   RefreshCw,
   Save,
   ShieldCheck,
@@ -202,8 +200,8 @@ export function Payments({ notify }: { notify: (m: string) => void }) {
         <div>
           <h3>统一回调与跳转</h3>
           <p>
-            在“邮件与推送”页面设置公网 API 回调基础地址和付款返回地址。Stripe
-            Webhook 订阅
+            在“站点设置 → 支付地址”设置公网 API
+            回调基础地址和付款返回地址。Stripe Webhook 订阅
             checkout.session.completed、checkout.session.async_payment_succeeded。
           </p>
           <code>
@@ -525,216 +523,6 @@ function GatewayEditor({
         </div>
       </form>
     </Modal>
-  );
-}
-export function Settings({ notify }: { notify: (m: string) => void }) {
-  const q = useAdminQuery<Record<string, string>>("/settings");
-  if (q.loading) return <Busy />;
-  if (q.error) return <QueryError error={q.error} reload={q.reload} />;
-  return <SettingsForm initial={q.data || {}} notify={notify} />;
-}
-function SettingsForm({
-  initial,
-  notify,
-}: {
-  initial: Record<string, string>;
-  notify: (m: string) => void;
-}) {
-  const [v, setV] = useState(initial);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const set = (k: string, value: string) => setV((s) => ({ ...s, [k]: value }));
-  function input(k: string, label: string, hint?: string, secret = false) {
-    return (
-      <Field label={label} hint={hint}>
-        <input
-          type={secret ? "password" : "text"}
-          autoComplete="off"
-          value={v[k] || ""}
-          onChange={(e) => set(k, e.target.value)}
-        />
-      </Field>
-    );
-  }
-  async function save(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      const allowed = [
-        "site_name",
-        "site_desc",
-        "announcement",
-        "customer_service",
-        "default_redeem_url",
-        "resend_enabled",
-        "resend_api_key",
-        "resend_from",
-        "order_push_enabled",
-        "order_notify_email",
-        "order_webhook_url",
-        "order_webhook_secret",
-        "pay_notify_base",
-        "pay_return_url",
-      ];
-      await adminApi("/settings", {
-        method: "PUT",
-        body: JSON.stringify(
-          Object.fromEntries(
-            allowed.filter((k) => k in v).map((k) => [k, v[k]]),
-          ),
-        ),
-      });
-      notify("站点、邮件与推送配置已保存");
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <>
-      <PageHeading title="邮件与推送" description="成交的好消息，及时送达。" />
-      <form onSubmit={save} className="a-settings-form">
-        {error && <Banner>{error}</Banner>}
-        <section className="a-panel a-settings-panel">
-          <div className="a-settings-intro">
-            <i className="a-icon-blue">
-              <Mail size={22} />
-            </i>
-            <h2>Resend 邮件</h2>
-            <p>付款发货后，为顾客发送卡密邮件。</p>
-            <a
-              href="https://resend.com/domains"
-              target="_blank"
-              rel="noreferrer"
-            >
-              管理已验证域名 <ExternalLink size={13} />
-            </a>
-          </div>
-          <div>
-            <label className="a-switch-row">
-              <span>
-                <strong>启用邮件通知</strong>
-                <small>需要 Resend API Key 和已验证发件域名</small>
-              </span>
-              <input
-                type="checkbox"
-                role="switch"
-                checked={v.resend_enabled === "true"}
-                onChange={(e) =>
-                  set("resend_enabled", String(e.target.checked))
-                }
-              />
-            </label>
-            {input(
-              "resend_api_key",
-              "Resend API Key",
-              "已保存密钥显示为 ********；留空沿用。",
-              true,
-            )}
-            {input(
-              "resend_from",
-              "发件邮箱",
-              "例如：望月小铺 <orders@example.com>",
-            )}
-          </div>
-        </section>
-        <section className="a-panel a-settings-panel">
-          <div className="a-settings-intro">
-            <i className="a-icon-violet">
-              <Webhook size={22} />
-            </i>
-            <h2>成交订单推送</h2>
-            <p>向店主发送成交金额、成本与销售利润，记录发送状态并自动重试。</p>
-          </div>
-          <div>
-            <label className="a-switch-row">
-              <span>
-                <strong>启用成交推送</strong>
-                <small>支持店主邮件与 Webhook，可分别配置</small>
-              </span>
-              <input
-                type="checkbox"
-                role="switch"
-                checked={v.order_push_enabled === "true"}
-                onChange={(e) =>
-                  set("order_push_enabled", String(e.target.checked))
-                }
-              />
-            </label>
-            {input(
-              "order_notify_email",
-              "店主接收邮箱",
-              "店主邮件需要同时启用 Resend",
-            )}
-            {input(
-              "order_webhook_url",
-              "Webhook 地址",
-              "留空则不发送 Webhook；接收端应验证 X-Wybo-Signature",
-            )}
-            {input(
-              "order_webhook_secret",
-              "Webhook 签名密钥",
-              "建议设置随机长密钥；留空沿用已有密钥。",
-              true,
-            )}
-          </div>
-        </section>
-        <section className="a-panel a-settings-panel">
-          <div className="a-settings-intro">
-            <i className="a-icon-green">
-              <CreditCard size={22} />
-            </i>
-            <h2>支付地址</h2>
-            <p>用于支付平台发送回调与顾客付款后返回小铺。</p>
-          </div>
-          <div>
-            {input(
-              "pay_notify_base",
-              "公网回调基础地址",
-              "例如：https://shop.example.com/api/v1/pay/notify，不含渠道代码",
-            )}
-            {input(
-              "pay_return_url",
-              "付款返回地址",
-              "例如：https://shop.example.com/orders",
-            )}
-          </div>
-        </section>
-        <section className="a-panel a-settings-panel">
-          <div className="a-settings-intro">
-            <h2>站点信息</h2>
-            <p>管理前台店铺信息与公告。</p>
-          </div>
-          <div>
-            <div className="a-form-grid">
-              {input("site_name", "店铺名称")}
-              {input("customer_service", "客服联系方式")}
-            </div>
-            {input("site_desc", "店铺简介")}
-            {input("announcement", "店铺公告")}
-            <Field
-              label="默认兑换地址"
-              hint="未单独配置兑换地址的商品会使用此入口，同时显示在订单页和发货邮件；留空可关闭默认入口。"
-            >
-              <input
-                type="url"
-                maxLength={255}
-                value={v.default_redeem_url || ""}
-                onChange={(e) => set("default_redeem_url", e.target.value)}
-              />
-            </Field>
-          </div>
-        </section>
-        <div className="a-form-actions">
-          <button className="a-button primary" disabled={busy}>
-            <Save size={16} />
-            {busy ? "保存中…" : "保存所有设置"}
-          </button>
-        </div>
-      </form>
-    </>
   );
 }
 export function Notifications({ notify }: { notify: (m: string) => void }) {

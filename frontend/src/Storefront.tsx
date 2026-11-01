@@ -30,10 +30,13 @@ import {
 } from "lucide-react";
 import { track, createOrder, type Catalog, type ShopOrder } from "./api";
 import { money, type Product } from "./data";
-import { BunnyMark } from "./Illustrations";
+import { SiteBrand } from "./Site";
 import ProductVisual, { BrandImage, ProductThumbnail } from "./ProductVisual";
 import { pricePending, productBrand } from "./productBrands";
 import { ErrorMessage, Modal, OrderSummary, PaymentAction } from "./components";
+import CheckoutVerification, {
+  type VerificationState,
+} from "./CheckoutVerification";
 
 function categoryPresentation(name = "") {
   if (/claude/i.test(name))
@@ -80,6 +83,11 @@ export default function Storefront({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [order, setOrder] = useState<ShopOrder | null>(null);
+  const [verification, setVerification] = useState<VerificationState>({
+    ready: false,
+    token: "",
+  });
+  const [verificationRevision, setVerificationRevision] = useState(0);
   const resultRef = useRef<HTMLHeadingElement>(null);
   const demo = catalog?.demo ?? true;
   const categories =
@@ -165,11 +173,13 @@ export default function Storefront({
     }
     setError("");
     if (product && !demo) track("select", product.id);
+    setVerification({ ready: false, token: "" });
     setReview(true);
   }
 
   async function placeOrder() {
     if (!product || pendingPrice || product.stock <= 0 || busy) return;
+    if (!demo && !verification.ready) return;
     setBusy(true);
     setError("");
     try {
@@ -180,10 +190,13 @@ export default function Storefront({
           email.trim(),
           coupon.trim(),
           demo,
+          verification.token,
         ),
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "订单创建失败，请稍后重试。");
+      setVerification({ ready: false, token: "" });
+      setVerificationRevision((v) => v + 1);
     } finally {
       setBusy(false);
     }
@@ -192,15 +205,7 @@ export default function Storefront({
   return (
     <>
       <header className="store-header container">
-        <Link className="store-brand" to="/" aria-label="Wybo 望月小铺首页">
-          <BunnyMark />
-          <span>
-            Wybo<span className="brand-period">.</span>
-          </span>
-          <span className="brand-chinese">
-            {catalog?.site?.site_name || "望月小铺"}
-          </span>
-        </Link>
+        <SiteBrand />
         <div className="product-tabs" role="tablist" aria-label="选择商品类别">
           {categories.length ? (
             categories.map((c, index) => {
@@ -651,10 +656,16 @@ export default function Storefront({
                 </p>
               )}
               {error && <ErrorMessage>{error}</ErrorMessage>}
+              {!demo && (
+                <CheckoutVerification
+                  key={verificationRevision}
+                  onChange={setVerification}
+                />
+              )}
               <button
                 type="button"
                 className="button button-primary full-width"
-                disabled={busy}
+                disabled={busy || (!demo && !verification.ready)}
                 onClick={placeOrder}
               >
                 {busy ? (

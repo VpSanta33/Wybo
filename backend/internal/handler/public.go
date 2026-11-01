@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -73,16 +74,18 @@ func (h *Handler) Announcements(c *gin.Context) {
 
 // CreateOrder 创建订单
 func (h *Handler) CreateOrder(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 16*1024)
 	var req struct {
-		SessionID  string `json:"session_id"`
-		Source     string `json:"source"`
-		Campaign   string `json:"campaign"`
-		ProductID  uint   `json:"product_id"`
-		Quantity   int    `json:"quantity"`
-		Contact    string `json:"contact"`
-		Email      string `json:"email"`
-		CouponCode string `json:"coupon_code"`
-		AgentCode  string `json:"agent_code"`
+		SessionID      string `json:"session_id"`
+		Source         string `json:"source"`
+		Campaign       string `json:"campaign"`
+		ProductID      uint   `json:"product_id"`
+		Quantity       int    `json:"quantity"`
+		Contact        string `json:"contact"`
+		Email          string `json:"email"`
+		CouponCode     string `json:"coupon_code"`
+		AgentCode      string `json:"agent_code"`
+		TurnstileToken string `json:"turnstile_token"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, 400, "参数错误")
@@ -90,6 +93,10 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 	}
 	if req.ProductID == 0 || req.Contact == "" {
 		response.Error(c, 400, "商品ID与联系方式必填")
+		return
+	}
+	if err := h.svc.VerifyCheckout(c.Request.Context(), req.TurnstileToken, c.ClientIP()); err != nil {
+		response.Error(c, 403, err.Error())
 		return
 	}
 	order, err := h.svc.CreateOrder(service.CreateOrderReq{

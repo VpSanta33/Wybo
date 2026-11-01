@@ -249,6 +249,47 @@ input[type="radio"] {
   gap: 11px;
   white-space: nowrap;
 }
+.site-logo {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.store-brand > span:first-of-type {
+  max-width: 12ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.brand-chinese {
+  max-width: 14em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.checkout-verification {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 12px;
+  margin: 14px 0;
+  background: #f8faff;
+}
+.verification-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.turnstile-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+  min-height: 0;
+}
+.verification-error {
+  color: #aa3a3a;
+  font-size: 12px;
+  line-height: 1.7;
+}
 .store-brand > svg {
   width: 34px;
   height: 34px;
