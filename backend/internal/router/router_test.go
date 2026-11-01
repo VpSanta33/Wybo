@@ -38,7 +38,7 @@ func TestAdminEntryAndPublicPrivacy(t *testing.T) {
 		t.Fatal(err)
 	}
 	cost := int64(10500)
-	p := model.Product{Name: "Plus", CategoryID: 1, PriceCents: 11500, CostCents: &cost, Enabled: true}
+	p := model.Product{Name: "Plus", CategoryID: 1, PriceCents: 11500, CostCents: &cost, Enabled: true, RedeemURL: "https://redeem.example.test/activate", RedeemGuide: "order-specific-redemption-instructions"}
 	db.Create(&p)
 	svc.UpdateSettings(map[string]string{"resend_api_key": "re_private_api_test"})
 	db.Create(&model.Setting{Key: "admin_path", Value: "/secret-console"})
@@ -68,7 +68,7 @@ func TestAdminEntryAndPublicPrivacy(t *testing.T) {
 	}
 	for _, path := range []string{"/api/v1/orders/ORDER1", "/api/v1/orders/ORDER1?contact=wrong"} {
 		w := call("GET", path, "", "", "")
-		if strings.Contains(w.Body.String(), "private-card-value") {
+		if strings.Contains(w.Body.String(), "private-card-value") || strings.Contains(w.Body.String(), "order-specific-redemption-instructions") {
 			t.Fatal("card leaked without contact")
 		}
 	}
@@ -76,6 +76,15 @@ func TestAdminEntryAndPublicPrivacy(t *testing.T) {
 	if !strings.Contains(w.Body.String(), "private-card-value") || strings.Contains(w.Body.String(), "cost_cents") {
 		t.Fatal("owner lookup incorrect")
 	}
+	if !strings.Contains(w.Body.String(), "https://redeem.example.test/activate") || !strings.Contains(w.Body.String(), "order-specific-redemption-instructions") {
+		t.Fatal("completed order missing redemption destination")
+	}
+	db.Model(&order).Update("status", model.OrderPending)
+	w = call("GET", "/api/v1/orders/ORDER1?contact=private-contact", "", "", "")
+	if strings.Contains(w.Body.String(), `"redemptions"`) || strings.Contains(w.Body.String(), "private-card-value") {
+		t.Fatal("unpaid order disclosed delivery material")
+	}
+	db.Model(&order).Update("status", model.OrderCompleted)
 	if call("POST", "/api/v1/admin/entry", `{"path":"/admin"}`, "", "").Code != 404 {
 		t.Fatal("old entry accepted")
 	}

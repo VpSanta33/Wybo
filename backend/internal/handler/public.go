@@ -122,6 +122,14 @@ func (h *Handler) GetOrder(c *gin.Context) {
 	items, _ := h.svc.OrderItems(order.ID)
 	data["items"] = items
 	data["after_sales"] = h.svc.CustomerAfterSales(order.ID)
+	if order.Status == model.OrderPaid || order.Status == model.OrderCompleted {
+		redemptions, err := h.svc.OrderRedemptions(order.ID)
+		if err != nil {
+			response.Error(c, 500, "兑换说明读取失败，请稍后重试")
+			return
+		}
+		data["redemptions"] = redemptions
+	}
 	if order.Status == model.OrderCompleted {
 		cards, _ := h.svc.OrderCards(order.ID)
 		data["cards"] = cards

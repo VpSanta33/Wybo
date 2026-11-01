@@ -3,12 +3,21 @@ package service
 import (
 	"errors"
 	"math"
+	"strings"
 
 	"github.com/wybo/backend/internal/model"
 )
 
 // UpdateProduct 更新商品（仅白名单字段，由 handler 过滤）
 func (s *Service) UpdateProduct(id uint, updates map[string]interface{}) error {
+	if raw, ok := updates["redeem_url"]; ok {
+		value, valid := raw.(string)
+		value = strings.TrimSpace(value)
+		if !valid || (value != "" && (len(value) > 255 || !validHTTPURL(value))) {
+			return errors.New("兑换地址须为有效的 HTTP(S) 链接，最多 255 字节")
+		}
+		updates["redeem_url"] = value
+	}
 	for _, key := range []string{"price_cents", "cost_cents", "original_price_cents"} {
 		if value, ok := updates[key]; ok {
 			var number float64

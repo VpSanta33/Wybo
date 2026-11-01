@@ -100,6 +100,23 @@ func (s *Service) sendNotification(ctx context.Context, job model.Notification) 
 			}
 			b.WriteString("\n")
 		}
+		guides, err := s.OrderRedemptions(o.ID)
+		if err != nil {
+			return err
+		}
+		b.WriteString("\n兑换与使用：\n")
+		for _, guide := range guides {
+			fmt.Fprintf(&b, "\n%s\n", guide.ProductName)
+			if guide.RedeemURL != "" {
+				fmt.Fprintf(&b, "兑换入口：%s\n", guide.RedeemURL)
+			}
+			if guide.RedeemGuide != "" {
+				fmt.Fprintln(&b, guide.RedeemGuide)
+			}
+			if guide.RedeemURL == "" && guide.RedeemGuide == "" {
+				b.WriteString("请回到小铺查询订单，通过订单售后联系店主获取使用说明。\n")
+			}
+		}
 		b.WriteString("\n请妥善保管商品信息。\nWybo · 望月小铺")
 		return s.sendResend(ctx, o.Email, "您的商品已送达 · Wybo", b.String(), key)
 	}

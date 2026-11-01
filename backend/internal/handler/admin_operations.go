@@ -125,18 +125,12 @@ func publicProduct(p model.Product) gin.H {
 	return gin.H{"id": p.ID, "category_id": p.CategoryID, "name": p.Name, "description": p.Description, "cover": p.Cover, "price_cents": p.PriceCents, "original_price_cents": p.OriginalPriceCents, "redeem_url": p.RedeemURL, "redeem_guide": p.RedeemGuide, "stock": p.Stock, "sales": p.Sales, "enabled": p.Enabled, "sort": p.Sort}
 }
 func (h *Handler) PublicGateways(c *gin.Context) {
-	list, err := h.svc.ListGateways()
+	list, err := h.svc.CustomerGateways()
 	if err != nil {
 		response.Error(c, 500, "读取失败")
 		return
 	}
-	out := []gin.H{}
-	for _, g := range list {
-		if g.Enabled {
-			out = append(out, gin.H{"code": g.Code, "name": g.Name})
-		}
-	}
-	response.OK(c, out)
+	response.OK(c, list)
 }
 func (h *Handler) AdminNotifications(c *gin.Context) {
 	rows, err := h.svc.Notifications()

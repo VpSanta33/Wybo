@@ -55,6 +55,7 @@ export function ProductEditor({
   const [description, setDescription] = useState(product?.description || "");
   const [cover, setCover] = useState(product?.cover || "");
   const [guide, setGuide] = useState(product?.redeem_guide || "");
+  const [redeemUrl, setRedeemUrl] = useState(product?.redeem_url || "");
   const [enabled, setEnabled] = useState(product?.enabled ?? true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -79,6 +80,7 @@ export function ProductEditor({
           cost_cents: toCents(cost),
           price_cents: toCents(price),
           redeem_guide: guide,
+          redeem_url: redeemUrl.trim(),
           enabled,
         }),
       });
@@ -180,7 +182,22 @@ export function ProductEditor({
             onChange={(e) => setDescription(e.target.value)}
           />
         </Field>
-        <Field label="兑换说明">
+        <Field
+          label="兑换地址"
+          hint="支付成功后显示“前往兑换”按钮，也会附在发货邮件中；请填写实际兑换平台地址"
+        >
+          <input
+            type="url"
+            maxLength={255}
+            value={redeemUrl}
+            onChange={(e) => setRedeemUrl(e.target.value)}
+            placeholder="https://你的兑换平台地址"
+          />
+        </Field>
+        <Field
+          label="兑换说明"
+          hint="说明如何使用卡密、需要登录哪个账号，以及兑换步骤"
+        >
           <textarea
             rows={2}
             value={guide}

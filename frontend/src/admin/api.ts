@@ -151,6 +151,7 @@ export interface AdminProduct {
   price_cents: number;
   cost_cents: number | null;
   original_price_cents: number;
+  redeem_url: string;
   redeem_guide: string;
   stock: number;
   sales: number;

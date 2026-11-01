@@ -293,6 +293,7 @@ type notificationTransport func(*http.Request) (*http.Response, error)
 func (f notificationTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 func TestResendDeliveryAndMerchantPayloads(t *testing.T) {
 	s, db, p := operationsFixture(t)
+	must(t, s.UpdateProduct(p.ID, map[string]interface{}{"redeem_url": "https://redeem.example.test/activate", "redeem_guide": "paste-your-code-on-the-redemption-page"}))
 	must(t, s.UpdateSettings(map[string]string{"resend_enabled": "true", "resend_api_key": "re_test_only", "resend_from": "orders@example.test", "order_push_enabled": "true", "order_notify_email": "merchant@example.test"}))
 	o, err := s.CreateOrder(CreateOrderReq{ProductID: p.ID, Contact: "buyer@example.test", Email: "buyer@example.test"})
 	must(t, err)
@@ -317,6 +318,9 @@ func TestResendDeliveryAndMerchantPayloads(t *testing.T) {
 		} else if body.To[0] == "buyer@example.test" {
 			if !strings.Contains(body.Text, "TEST-") {
 				t.Error("delivery email missing card")
+			}
+			if !strings.Contains(body.Text, "https://redeem.example.test/activate") || !strings.Contains(body.Text, "paste-your-code-on-the-redemption-page") {
+				t.Error("delivery email missing redemption destination or instructions")
 			}
 		} else if !strings.Contains(body.Text, "10.00") || strings.Contains(body.Text, "TEST-") {
 			t.Error("merchant notification profit or card privacy wrong")

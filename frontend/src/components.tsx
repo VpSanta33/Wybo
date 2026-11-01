@@ -7,7 +7,7 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
-import { api, startPayment, type ShopOrder } from "./api";
+import { api, startPayment, type ShopOrder, type PaymentGateway } from "./api";
 import { money } from "./data";
 
 export function Modal({
@@ -86,10 +86,60 @@ const statuses: Record<string, string> = {
 export function OrderSummary({
   order,
   onCopy,
+  compact = false,
 }: {
   order: ShopOrder;
   onCopy: (value: string) => void;
+  compact?: boolean;
 }) {
+  if (compact) {
+    return (
+      <div className="compact-order-summary">
+        <div className="order-overview">
+          <strong
+            className={`order-status status-${order.status}`}
+            role="status"
+          >
+            {order.status === "completed"
+              ? "支付成功 · 已发货"
+              : statuses[order.status] || order.status}
+          </strong>
+          <strong className="order-price">¥{money(order.total_cents)}</strong>
+        </div>
+        {order.items?.map((item, i) => (
+          <p className="order-product-line" key={i}>
+            <strong>{item.product_name}</strong>
+            <span>× {item.quantity}</span>
+          </p>
+        ))}
+        <details className="order-metadata">
+          <summary>
+            订单详情<span>{order.order_no}</span>
+          </summary>
+          <div>
+            <span>订单号</span>
+            <code>{order.order_no}</code>
+            <button
+              className="icon-button"
+              type="button"
+              onClick={() => onCopy(order.order_no)}
+              aria-label="复制订单号"
+            >
+              <Copy size={16} />
+            </button>
+          </div>
+          <div>
+            <span>下单时间</span>
+            <time>
+              {new Date(order.created_at).toLocaleString("zh-CN", {
+                hour12: false,
+              })}
+            </time>
+          </div>
+        </details>
+      </div>
+    );
+  }
   return (
     <div className="order-summary">
       <div>
@@ -135,15 +185,15 @@ export function OrderSummary({
 export function PaymentAction({ order }: { order: ShopOrder }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [gateways, setGateways] = useState<
-    { code: string; name: string }[] | null
-  >(null);
+  const [gateways, setGateways] = useState<PaymentGateway[] | null>(null);
   const [gateway, setGateway] = useState("");
   const [revision, setRevision] = useState(0);
   useEffect(() => {
     const ctrl = new AbortController();
     setError("");
-    api<{ code: string; name: string }[]>("/gateways", { signal: ctrl.signal })
+    setGateways(null);
+    setGateway("");
+    api<PaymentGateway[]>("/gateways", { signal: ctrl.signal })
       .then((rows) => {
         setGateways(rows);
         setGateway(rows[0]?.code || "");
@@ -153,6 +203,7 @@ export function PaymentAction({ order }: { order: ShopOrder }) {
       });
     return () => ctrl.abort();
   }, [revision]);
+  const selected = gateways?.find((g) => g.code === gateway);
   async function pay() {
     setBusy(true);
     setError("");
@@ -167,28 +218,39 @@ export function PaymentAction({ order }: { order: ShopOrder }) {
   }
   return (
     <>
-      {gateways && gateways.length > 1 && (
-        <div className="form-field">
-          <label htmlFor={"payment-" + order.order_no}>支付方式</label>
-          <select
-            id={"payment-" + order.order_no}
-            value={gateway}
-            onChange={(e) => setGateway(e.target.value)}
-            style={{
-              width: "100%",
-              padding: 12,
-              border: "1px solid #dde4f0",
-              borderRadius: 10,
-              marginBottom: 12,
-            }}
-          >
-            {gateways.map((g) => (
-              <option key={g.code} value={g.code}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-        </div>
+      {!!gateways?.length && (
+        <fieldset className="payment-options" disabled={busy}>
+          <legend>选择支付方式</legend>
+          {gateways.map((g) => (
+            <label
+              className={`payment-choice ${gateway === g.code ? "is-selected" : ""}`}
+              key={g.code}
+            >
+              <input
+                type="radio"
+                name={"payment-" + order.order_no}
+                value={g.code}
+                checked={gateway === g.code}
+                onChange={() => setGateway(g.code)}
+              />
+              <img
+                src={`/payments/${g.code === "dujiaopay" ? "dujiaopay.webp" : g.code + ".svg"}`}
+                width={28}
+                height={28}
+                alt=""
+              />
+              <span>
+                <strong>{g.label || g.name}</strong>
+                <small>{g.description || g.name}</small>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+      )}
+      {selected?.crypto && (
+        <p className="payment-crypto-note">
+          需使用加密钱包，按收银台显示的币种、网络和金额付款。
+        </p>
       )}
       {error && (
         <ErrorMessage>
@@ -208,6 +270,7 @@ export function PaymentAction({ order }: { order: ShopOrder }) {
         </p>
       )}
       <button
+        type="button"
         className="button button-primary full-width"
         onClick={pay}
         disabled={busy || !gateway}

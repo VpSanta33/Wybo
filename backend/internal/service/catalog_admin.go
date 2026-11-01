@@ -29,6 +29,10 @@ func (s *Service) AdminCategories() ([]model.Category, error) {
 
 // CreateProduct 新增商品
 func (s *Service) CreateProduct(p *model.Product) error {
+	p.RedeemURL = strings.TrimSpace(p.RedeemURL)
+	if p.RedeemURL != "" && (len(p.RedeemURL) > 255 || !validHTTPURL(p.RedeemURL)) {
+		return errors.New("兑换地址须为有效的 HTTP(S) 链接，最多 255 字节")
+	}
 	if strings.TrimSpace(p.Name) == "" || len(p.Name) > 128 || p.PriceCents < 0 || p.PriceCents > 10000000000 || p.OriginalPriceCents < 0 || p.OriginalPriceCents > 10000000000 || (p.CostCents != nil && (*p.CostCents < 0 || *p.CostCents > 10000000000)) {
 		return errors.New("商品名称、成本或售价不正确")
 	}

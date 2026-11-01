@@ -122,6 +122,20 @@ export interface ShopOrder {
     amount_cents: number;
   }[];
   cards?: { code: string; secret?: string }[];
+  redemptions?: {
+    product_id: number;
+    product_name: string;
+    redeem_url: string;
+    redeem_guide: string;
+  }[];
+}
+
+export interface PaymentGateway {
+  code: string;
+  name: string;
+  label: string;
+  description: string;
+  crypto: boolean;
 }
 
 interface RecentOrder {
@@ -218,6 +232,7 @@ export async function createOrder(
 export async function queryOrder(
   orderNo: string,
   contact: string,
+  signal?: AbortSignal,
 ): Promise<ShopOrder> {
   if (orderNo.startsWith("DEMO-")) {
     const record = previewOrders.get(orderNo);
@@ -229,6 +244,7 @@ export async function queryOrder(
   }
   const order = await api<ShopOrder>(
     `/orders/${encodeURIComponent(orderNo)}?contact=${encodeURIComponent(contact)}`,
+    { signal },
   );
   return { ...order, contact };
 }

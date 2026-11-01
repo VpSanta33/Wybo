@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock3,
-  Copy,
   Gift,
   Headphones,
   LoaderCircle,
@@ -29,8 +28,8 @@ import {
 } from "./api";
 import { faqs } from "./data";
 import { BunnyMark } from "./Illustrations";
-import SupportTickets from "./SupportTickets";
-import { ErrorMessage, Modal, OrderSummary, PaymentAction } from "./components";
+import OrderResult from "./OrderResult";
+import { ErrorMessage, Modal } from "./components";
 import Storefront from "./Storefront";
 
 function Brand({ name }: { name?: string }) {
@@ -294,14 +293,56 @@ function Orders({ onCopy }: { onCopy: (value: string) => void }) {
   const [order, setOrder] = useState<ShopOrder | null>(null);
   const [history] = useState(recentOrders);
   const [cancelBusy, setCancelBusy] = useState(false);
-  async function lookup(event?: FormEvent) {
+  const resultRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    if (order?.order_no) resultRef.current?.focus({ preventScroll: true });
+  }, [order?.order_no]);
+
+  useEffect(() => {
+    if (
+      !order ||
+      busy ||
+      cancelBusy ||
+      !["pending", "paid"].includes(order.status)
+    )
+      return;
+    const ctrl = new AbortController();
+    let fetching = false;
+    const timer = window.setInterval(async () => {
+      if (document.visibilityState !== "visible" || fetching) return;
+      fetching = true;
+      try {
+        const current = await queryOrder(
+          order.order_no,
+          order.contact || "",
+          ctrl.signal,
+        );
+        if (!ctrl.signal.aborted)
+          setOrder((previous) =>
+            previous?.order_no === current.order_no ? current : previous,
+          );
+      } catch {
+        /* Keep the last known state and retry; never infer payment success locally. */
+      } finally {
+        fetching = false;
+      }
+    }, 6000);
+    return () => {
+      ctrl.abort();
+      window.clearInterval(timer);
+    };
+  }, [order?.order_no, order?.status, order?.contact, busy, cancelBusy]);
+
+  async function lookup(event?: FormEvent, number = orderNo) {
     event?.preventDefault();
-    if (!orderNo.trim() || !contact.trim() || busy) return;
+    if (!number.trim() || !contact.trim() || busy) return;
     setBusy(true);
     setError("");
-    setOrder(null);
     try {
-      setOrder(await queryOrder(orderNo.trim(), contact.trim()));
+      const next = await queryOrder(number.trim(), contact.trim());
+      setOrder(next);
+      setOrderNo(next.order_no);
     } catch (e) {
       setError(e instanceof Error ? e.message : "查询失败，请重试。");
     } finally {
@@ -331,245 +372,164 @@ function Orders({ onCopy }: { onCopy: (value: string) => void }) {
         回小铺逛逛
       </Link>
       <div className="page-intro">
-        <span className="eyebrow">FIND YOUR LITTLE HAPPINESS</span>
         <h1>
-          每一份美好，都有迹可循<span>✧</span>
+          我的订单 <Sparkles size={22} aria-hidden="true" />
         </h1>
-        <p>填好你的小凭证，让月兔帮你找回订单与卡密。</p>
+        <p>查询付款状态、领取卡密，找到对应的兑换入口。</p>
       </div>
       <div className="order-page-layout">
-        <div className="query-card">
-          <div className="query-card-heading">
-            <span className="benefit-icon lavender">
-              <PackageCheck size={24} />
-            </span>
-            <div>
-              <h2>找一找，我的订单</h2>
-              <p>无需登录，有订单号就能安心找回。</p>
-            </div>
-          </div>
-          <form onSubmit={lookup}>
-            <div className="form-field">
-              <label htmlFor="query-order">
-                订单号 <span className="required">*</span>
-              </label>
-              <input
-                id="query-order"
-                value={orderNo}
-                onChange={(e) => {
-                  setOrderNo(e.target.value);
-                  setOrder(null);
-                  setError("");
-                }}
-                required
-                maxLength={64}
-                placeholder="输入购买时的订单号"
-                autoComplete="off"
-              />
-            </div>
-            <div className="form-field">
-              <label htmlFor="query-contact">
-                下单时的联系方式 <span className="required">*</span>
-              </label>
-              <input
-                id="query-contact"
-                value={contact}
-                onChange={(e) => {
-                  setContact(e.target.value);
-                  setOrder(null);
-                  setError("");
-                }}
-                required
-                maxLength={128}
-                placeholder="邮箱 / QQ / 其他联系方式"
-                autoComplete="email"
-              />
-              <small>需要与下单时填写的信息完全一致哦。</small>
+        <div className="order-query-column">
+          <div className={`query-card ${order ? "has-result" : ""}`}>
+            <div className="query-card-heading">
+              <span className="benefit-icon lavender">
+                <PackageCheck size={22} />
+              </span>
+              <div>
+                <h2>{order ? "已找到你的订单" : "查询订单"}</h2>
+                <p>
+                  {order
+                    ? "卡密和兑换入口见查询结果"
+                    : "凭订单号与下单联系方式查询"}
+                </p>
+              </div>
             </div>
             {error && <ErrorMessage>{error}</ErrorMessage>}
-            <button
-              className="button button-primary full-width"
-              disabled={busy}
-            >
-              {busy ? (
-                <LoaderCircle className="spin" size={18} />
-              ) : (
-                <Search size={18} />
-              )}
-              {busy ? "小兔正在寻找…" : "找回我的小美好"}
-              <ArrowRight size={17} />
-            </button>
-          </form>
-          {order && (
-            <div className="query-result" aria-live="polite">
-              <h3>
-                <CheckCircle2 size={18} />
-                找到你的订单啦
-              </h3>
-              <OrderSummary order={order} onCopy={onCopy} />
-
-              {order.after_sales
-                ?.filter((v) => v.kind === "upgrade")
-                .map((v) => (
-                  <div className="soft-note" key={v.child_order_no}>
-                    <span>
-                      {v.status === "completed"
-                        ? "已完成升级；原卡已被替换。"
-                        : v.status === "canceled"
-                          ? "升级补差订单已关闭。"
-                          : "有一笔升级补差订单等待付款。"}
-                      <br />
-                      补差订单：{v.child_order_no}
-                    </span>
-                    <button
-                      className="text-button"
-                      onClick={async () => {
-                        try {
-                          setOrder(
-                            await queryOrder(v.child_order_no, contact.trim()),
-                          );
-                          setOrderNo(v.child_order_no);
-                        } catch (e) {
-                          setError((e as Error).message);
-                        }
-                      }}
-                    >
-                      查看补差订单
-                    </button>
-                  </div>
-                ))}
-              {order.after_sales
-                ?.filter((v) => v.kind !== "upgrade")
-                .map((v, i) => (
-                  <p className="soft-note" key={`${v.kind}-${i}`}>
-                    {v.kind === "replacement"
-                      ? "此订单已换发卡密，下方为当前有效卡密。"
-                      : "此订单已登记售后退款。"}
-                  </p>
-                ))}
-              {order.status === "preview" && (
-                <p className="soft-note">
-                  <Sparkles size={17} />
-                  演示订单仅用于体验，不产生付款或真实卡密。
-                </p>
-              )}
-              {order.status === "completed" && (
-                <div className="delivered-cards">
-                  <h3>你的卡密，请好好收下</h3>
-                  {order.cards?.length ? (
-                    order.cards.map((card, index) => (
-                      <div className="delivered-card" key={index}>
-                        <code>
-                          {card.code}
-                          {card.secret ? `\n密码：${card.secret}` : ""}
-                        </code>
-                        <button
-                          className="icon-button"
-                          onClick={() =>
-                            onCopy(
-                              `${card.code}${card.secret ? `\n${card.secret}` : ""}`,
-                            )
-                          }
-                          aria-label={`复制第${index + 1}张卡密`}
-                        >
-                          <Copy size={17} />
-                        </button>
-                      </div>
-                    ))
-                  ) : (
-                    <p>
-                      {order.after_sales?.some(
-                        (v) => v.kind === "upgrade" && v.status === "completed",
-                      )
-                        ? "原卡已升级，请查看补差订单获取新卡密。"
-                        : "卡密正在准备中，请稍后刷新订单状态。"}
-                    </p>
-                  )}
+            <details className="order-query-form" open={!order}>
+              <summary>
+                查询其他订单<span>展开查询表单</span>
+              </summary>
+              <form onSubmit={lookup}>
+                <div className="form-field">
+                  <label htmlFor="query-order">
+                    订单号 <span className="required">*</span>
+                  </label>
+                  <input
+                    id="query-order"
+                    value={orderNo}
+                    onChange={(e) => {
+                      setOrderNo(e.target.value);
+                      setOrder(null);
+                      setError("");
+                    }}
+                    required
+                    maxLength={64}
+                    placeholder="输入购买时的订单号"
+                    autoComplete="off"
+                  />
                 </div>
-              )}
-              {order.status === "pending" && (
-                <>
-                  <PaymentAction order={order} />
-                  <button
-                    className="cancel-order"
-                    onClick={cancel}
-                    disabled={cancelBusy}
-                  >
-                    {cancelBusy ? "正在取消…" : "取消这笔订单"}
-                  </button>
-                </>
-              )}
-              {["pending", "paid", "refunding"].includes(order.status) && (
+                <div className="form-field">
+                  <label htmlFor="query-contact">
+                    下单时的联系方式 <span className="required">*</span>
+                  </label>
+                  <input
+                    id="query-contact"
+                    value={contact}
+                    onChange={(e) => {
+                      setContact(e.target.value);
+                      setOrder(null);
+                      setError("");
+                    }}
+                    required
+                    maxLength={128}
+                    placeholder="邮箱 / QQ / 其他联系方式"
+                    autoComplete="email"
+                    aria-describedby="query-contact-hint"
+                  />
+                  <small id="query-contact-hint">
+                    须与下单时填写的信息完全一致。
+                  </small>
+                </div>
                 <button
-                  className="button button-secondary full-width refresh-order"
-                  onClick={() => lookup()}
-                  disabled={busy}
+                  className="button button-primary full-width"
+                  disabled={busy || cancelBusy}
                 >
-                  刷新订单状态
+                  {busy ? (
+                    <LoaderCircle className="spin" size={18} />
+                  ) : (
+                    <Search size={18} />
+                  )}
+                  {busy ? "正在查询…" : "查询订单"}
+                  <ArrowRight size={17} />
                 </button>
-              )}
-              {order.status !== "preview" && (
-                <SupportTickets
-                  key={order.order_no}
-                  orderNo={order.order_no}
-                  contact={order.contact || contact.trim()}
-                />
-              )}
-            </div>
-          )}
-        </div>
-        <aside className="order-aside">
-          <div className="order-bunny">
-            <BunnyMark />
-            <span>别着急，美好不会走丢。</span>
+              </form>
+            </details>
           </div>
-          <h2>
-            <Clock3 size={18} />
-            最近的小期待
-          </h2>
-          <p className="muted">只记录当前浏览器中的最近订单。</p>
-          {history.length ? (
-            <div className="recent-orders">
-              {history.map((item) => (
-                <button
-                  key={item.order_no}
-                  onClick={() => {
-                    setOrderNo(item.order_no);
-                    setOrder(null);
-                    setError("");
-                    document.getElementById("query-contact")?.focus();
-                  }}
-                >
-                  <span className="recent-icon">
-                    <ShoppingBag size={18} />
-                  </span>
-                  <span>
-                    <strong>{item.name}</strong>
-                    <small>{item.order_no}</small>
-                  </span>
-                  <ChevronRight size={16} />
-                </button>
-              ))}
-            </div>
+          <details className="order-history" open={!order}>
+            <summary>
+              <Clock3 size={16} aria-hidden="true" />
+              最近订单
+              <span>
+                {history.length ? `${history.length} 笔` : "当前浏览器"}
+              </span>
+            </summary>
+            {history.length ? (
+              <div className="recent-orders">
+                {history.map((item) => (
+                  <button
+                    key={item.order_no}
+                    disabled={busy || cancelBusy}
+                    onClick={() => {
+                      setOrderNo(item.order_no);
+                      setOrder(null);
+                      setError("");
+                      document.getElementById("query-contact")?.focus();
+                    }}
+                  >
+                    <ShoppingBag size={17} aria-hidden="true" />
+                    <span>
+                      <strong>{item.name}</strong>
+                      <small>{item.order_no}</small>
+                    </span>
+                    <ChevronRight size={16} aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p>这里会显示本浏览器最近创建的订单。</p>
+            )}
+            <p className="order-aside-note">
+              <ShieldCheck size={14} aria-hidden="true" />
+              仅保存订单记录，不保存联系方式。
+            </p>
+          </details>
+        </div>
+        <section
+          className={`query-result-card ${!order ? "is-empty" : ""}`}
+          aria-label="订单查询结果"
+          aria-busy={busy}
+        >
+          {order ? (
+            <>
+              <div className="query-result-heading">
+                <h2 ref={resultRef} tabIndex={-1}>
+                  订单查询结果
+                </h2>
+                {["pending", "paid"].includes(order.status) && (
+                  <span>状态自动更新</span>
+                )}
+              </div>
+              <OrderResult
+                order={order}
+                onCopy={onCopy}
+                busy={busy}
+                cancelBusy={cancelBusy}
+                onRefresh={() => lookup()}
+                onCancel={cancel}
+                onViewOrder={(number) => lookup(undefined, number)}
+              />
+            </>
           ) : (
-            <div className="recent-empty">
-              <Mail size={29} strokeWidth={1.3} />
-              <p>
-                还没有留下购物足迹。
-                <br />
-                第一份小美好，正等你发现。
-              </p>
-              <Link to="/" className="text-link">
-                去挑选喜欢的
-                <ArrowRight size={15} />
-              </Link>
+            <div className="order-lookup-empty">
+              <BunnyMark />
+              <h2>找到订单，也找到下一步</h2>
+              <p>输入订单信息后，即可查看支付状态、卡密和兑换说明。</p>
+              <span>
+                <ShieldCheck size={15} aria-hidden="true" />
+                无需登录，验证信息后即可领取
+              </span>
             </div>
           )}
-          <p className="order-aside-note">
-            <ShieldCheck size={15} />
-            联系方式不保存在浏览器订单历史中。
-          </p>
-        </aside>
+        </section>
       </div>
     </section>
   );
