@@ -34,6 +34,25 @@ export interface Catalog {
   site?: Record<string, string>;
 }
 
+type CatalogProduct = Omit<Product, "kind" | "art" | "subtitle" | "tags">;
+
+async function loadAllProducts(signal?: AbortSignal) {
+  const products = new Map<number, CatalogProduct>();
+  const agent = encodeURIComponent(agentCode());
+  for (let page = 1; ; page += 1) {
+    const result = await api<{ list: CatalogProduct[]; total: number }>(
+      `/products?page=${page}&size=100&agent=${agent}`,
+      { signal },
+    );
+    const previousSize = products.size;
+    for (const product of result.list) products.set(product.id, product);
+    if (products.size >= result.total || result.list.length === 0) break;
+    if (products.size === previousSize)
+      throw new Error("商品列表已更新，请刷新页面重新加载。");
+  }
+  return [...products.values()];
+}
+
 export async function loadCatalog(signal?: AbortSignal): Promise<Catalog> {
   if (env.VITE_DEMO_MODE === "true")
     return {
@@ -44,10 +63,7 @@ export async function loadCatalog(signal?: AbortSignal): Promise<Catalog> {
     };
   try {
     const [products, categories, announcements, site] = await Promise.all([
-      api<{ list: Omit<Product, "kind" | "art" | "subtitle" | "tags">[] }>(
-        `/products?size=100&agent=${encodeURIComponent(agentCode())}`,
-        { signal },
-      ),
+      loadAllProducts(signal),
       api<Category[]>("/categories", { signal }),
       api<{ title: string; content: string }[]>("/announcements", {
         signal,
@@ -56,7 +72,7 @@ export async function loadCatalog(signal?: AbortSignal): Promise<Catalog> {
         () => ({}) as Record<string, string>,
       ),
     ]);
-    const enriched = products.list.map((p) => {
+    const enriched = products.map((p) => {
       const name = p.name.toLowerCase();
       const art: Product["art"] = name.includes("claude")
         ? "sun"

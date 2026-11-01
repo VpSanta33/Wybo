@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useCallback,
   useRef,
   useState,
   type FormEvent,
@@ -12,6 +13,8 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CreditCard,
   Gamepad2,
   Headphones,
@@ -29,7 +32,7 @@ import {
   Zap,
 } from "lucide-react";
 import { track, createOrder, type Catalog, type ShopOrder } from "./api";
-import { money, type Product } from "./data";
+import { money, type Category, type Product } from "./data";
 import { SiteBrand } from "./Site";
 import ProductVisual, { BrandImage, ProductThumbnail } from "./ProductVisual";
 import { pricePending, productBrand } from "./productBrands";
@@ -59,6 +62,185 @@ function compactPlanName(name: string) {
       ? name.slice(brand.name.length).trim()
       : name;
   return label.replace(/\s*会员\s*·\s*/, " · ").replace(/^[·\s]+/, "") || name;
+}
+
+function CategoryNavigation({
+  categories,
+  activeId,
+  disabled,
+  onSelect,
+}: {
+  categories: Category[];
+  activeId?: number;
+  disabled: boolean;
+  onSelect: (id: number) => void;
+}) {
+  const navigationRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [scroll, setScroll] = useState({
+    overflow: false,
+    back: false,
+    next: false,
+  });
+  const signature = JSON.stringify(categories);
+  const measure = useCallback(() => {
+    const navigation = navigationRef.current;
+    const viewport = viewportRef.current;
+    const list = listRef.current;
+    if (!navigation || !viewport || !list) return;
+    const next = {
+      overflow: list.scrollWidth > navigation.clientWidth - 10 + 1,
+      back: viewport.scrollLeft > 1,
+      next:
+        viewport.scrollLeft + viewport.clientWidth < viewport.scrollWidth - 1,
+    };
+    setScroll((current) =>
+      current.overflow === next.overflow &&
+      current.back === next.back &&
+      current.next === next.next
+        ? current
+        : next,
+    );
+  }, []);
+  const revealActive = useCallback((smooth = false) => {
+    const viewport = viewportRef.current;
+    const active = listRef.current?.querySelector<HTMLButtonElement>(
+      '[aria-selected="true"]',
+    );
+    if (!viewport || !active) return;
+    const frame = viewport.getBoundingClientRect();
+    const tab = active.getBoundingClientRect();
+    if (tab.left < frame.left + 5 || tab.right > frame.right - 5) {
+      viewport.scrollTo({
+        left:
+          viewport.scrollLeft +
+          tab.left -
+          frame.left -
+          (viewport.clientWidth - tab.width) / 2,
+        behavior:
+          smooth &&
+          !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+            ? "smooth"
+            : "auto",
+      });
+    }
+  }, []);
+  useEffect(() => {
+    const observer = new ResizeObserver(() => {
+      measure();
+      revealActive();
+    });
+    for (const element of [
+      navigationRef.current,
+      viewportRef.current,
+      listRef.current,
+    ]) {
+      if (element) observer.observe(element);
+    }
+    measure();
+    return () => observer.disconnect();
+  }, [signature, measure, revealActive]);
+  useEffect(() => {
+    revealActive(true);
+  }, [activeId, signature, revealActive]);
+
+  function browse(direction: number) {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    viewport.scrollBy({
+      left: direction * Math.max(120, viewport.clientWidth * 0.8),
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
+  }
+  function categoryKey(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    let next = index;
+    if (event.key === "ArrowRight") next = (index + 1) % categories.length;
+    else if (event.key === "ArrowLeft")
+      next = (index - 1 + categories.length) % categories.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = categories.length - 1;
+    else return;
+    event.preventDefault();
+    onSelect(categories[next].id);
+    document
+      .getElementById(`category-${categories[next].id}`)
+      ?.focus({ preventScroll: true });
+  }
+  return (
+    <div
+      ref={navigationRef}
+      className={`category-navigation${scroll.overflow ? " is-overflowing" : ""}`}
+    >
+      {scroll.overflow && (
+        <button
+          type="button"
+          className="category-scroll-button"
+          aria-label="向左浏览商品分类"
+          aria-controls="store-category-tabs"
+          disabled={!scroll.back}
+          onClick={() => browse(-1)}
+        >
+          <ChevronLeft size={18} aria-hidden="true" />
+        </button>
+      )}
+      <div ref={viewportRef} className="product-tabs" onScroll={measure}>
+        <div
+          ref={listRef}
+          className="product-tabs-list"
+          role="tablist"
+          aria-label="选择商品类别"
+          id="store-category-tabs"
+        >
+          {categories.length ? (
+            categories.map((c, index) => {
+              const Icon = categoryPresentation(c.name).icon;
+              const active = c.id === activeId;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  role="tab"
+                  id={`category-${c.id}`}
+                  aria-selected={active}
+                  aria-controls="store-product-panel"
+                  tabIndex={active ? 0 : -1}
+                  disabled={disabled}
+                  onClick={() => onSelect(c.id)}
+                  onKeyDown={(event) => categoryKey(event, index)}
+                  className={active ? "is-active" : ""}
+                  title={c.name}
+                >
+                  {productBrand(c.name) ? (
+                    <BrandImage name={c.name} />
+                  ) : (
+                    <Icon size={17} aria-hidden="true" />
+                  )}
+                  <span>{c.name}</span>
+                </button>
+              );
+            })
+          ) : (
+            <span className="tabs-loading">正在准备小美好…</span>
+          )}
+        </div>
+      </div>
+      {scroll.overflow && (
+        <button
+          type="button"
+          className="category-scroll-button"
+          aria-label="向右浏览商品分类"
+          aria-controls="store-category-tabs"
+          disabled={!scroll.next}
+          onClick={() => browse(1)}
+        >
+          <ChevronRight size={18} aria-hidden="true" />
+        </button>
+      )}
+    </div>
+  );
 }
 
 export default function Storefront({
@@ -150,19 +332,6 @@ export default function Storefront({
     setError("");
   }
 
-  function categoryKey(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-    let next = index;
-    if (event.key === "ArrowRight") next = (index + 1) % categories.length;
-    else if (event.key === "ArrowLeft")
-      next = (index - 1 + categories.length) % categories.length;
-    else if (event.key === "Home") next = 0;
-    else if (event.key === "End") next = categories.length - 1;
-    else return;
-    event.preventDefault();
-    chooseCategory(categories[next].id);
-    document.getElementById(`category-${categories[next].id}`)?.focus();
-  }
-
   function validateEmail() {
     const invalid = !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
     setEmailError(invalid ? "请填写完整的邮箱地址，例如 you@example.com" : "");
@@ -227,38 +396,12 @@ export default function Storefront({
     <>
       <header className="store-header container">
         <SiteBrand />
-        <div className="product-tabs" role="tablist" aria-label="选择商品类别">
-          {categories.length ? (
-            categories.map((c, index) => {
-              const Icon = categoryPresentation(c.name).icon;
-              const active = c.id === activeCategory?.id;
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  role="tab"
-                  id={`category-${c.id}`}
-                  aria-selected={active}
-                  aria-controls="store-product-panel"
-                  tabIndex={active ? 0 : -1}
-                  disabled={busy}
-                  onClick={() => chooseCategory(c.id)}
-                  onKeyDown={(e) => categoryKey(e, index)}
-                  className={active ? "is-active" : ""}
-                >
-                  {productBrand(c.name) ? (
-                    <BrandImage name={c.name} />
-                  ) : (
-                    <Icon size={17} aria-hidden="true" />
-                  )}
-                  <span>{c.name}</span>
-                </button>
-              );
-            })
-          ) : (
-            <span className="tabs-loading">正在准备小美好…</span>
-          )}
-        </div>
+        <CategoryNavigation
+          categories={categories}
+          activeId={activeCategory?.id}
+          disabled={busy}
+          onSelect={chooseCategory}
+        />
         <div className="store-header-actions">
           <button
             className="language-button"
@@ -298,12 +441,18 @@ export default function Storefront({
             <h2>{product?.name ?? activeCategory?.name ?? "望月小铺"}</h2>
             <p>{categoryPresentation(activeCategory?.name).caption}</p>
             <div className="showcase-pagination" aria-hidden="true">
-              {(categories.length ? categories : [0, 1, 2, 3]).map((c, i) => (
-                <span
-                  className={i === categoryIndex ? "current" : ""}
-                  key={typeof c === "number" ? c : c.id}
-                />
-              ))}
+              {categories.length > 7 ? (
+                <small>
+                  {categoryIndex + 1} / {categories.length}
+                </small>
+              ) : (
+                (categories.length ? categories : [0, 1, 2, 3]).map((c, i) => (
+                  <span
+                    className={i === categoryIndex ? "current" : ""}
+                    key={typeof c === "number" ? c : c.id}
+                  />
+                ))
+              )}
             </div>
           </div>
           <div className="showcase-footnote">
