@@ -149,7 +149,7 @@ func (h *Handler) RecordFunnel(c *gin.Context) {
 		response.Error(c, 400, "参数错误")
 		return
 	}
-	reply(c, nil, h.svc.RecordFunnel(v.Session, v.Kind, v.Product, v.Source, v.Campaign))
+	reply(c, nil, h.publicService(c).RecordFunnel(v.Session, v.Kind, v.Product, v.Source, v.Campaign))
 }
 func (h *Handler) AdminFunnel(c *gin.Context) {
 	days, _ := strconv.Atoi(c.Query("days"))

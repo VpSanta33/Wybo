@@ -10,6 +10,8 @@ HELPER="$SCRIPT_DIR/deploy/render.py"
 STATE=/etc/wybo/deployment.json
 APP_ROOT=/opt/wybo
 DOMAIN=""
+STATION_ROOT=""
+CF_CREDENTIALS=""
 EMAIL=""
 ADMIN_USER=""
 OUTPUT_DIR=""
@@ -35,6 +37,8 @@ usage() {
 
   --domain DOMAIN      站点域名，例如 shop.example.com（不含 https://）
   --email EMAIL        Let's Encrypt 证书联系邮箱
+  --station-root ROOT  分站根域名，例如 example.com，开通 *.example.com
+  --cf-dns-credentials FILE  Cloudflare DNS API Token 的 Certbot INI 文件
   --admin-user NAME    首次管理员用户名，默认 admin
   --source-dir PATH    项目源码根目录，默认脚本所在目录
   --yes               不询问部署确认，并同意 Let's Encrypt 订阅协议
@@ -51,10 +55,11 @@ USAGE
 if [[ ${1:-} =~ ^(install|update|status|backup)$ ]]; then ACTION=$1; shift; fi
 while (($#)); do
   case "$1" in
-    --domain|--email|--admin-user|--source-dir|--output-dir)
+    --domain|--email|--admin-user|--source-dir|--output-dir|--station-root|--cf-dns-credentials)
       (($# >= 2)) || die "$1 缺少参数"
       case "$1" in
         --domain) DOMAIN=$2 ;; --email) EMAIL=$2 ;; --admin-user) ADMIN_USER=$2 ;;
+        --station-root) STATION_ROOT=$2 ;; --cf-dns-credentials) CF_CREDENTIALS=$2 ;;
         --source-dir) SOURCE_DIR=$2 ;; --output-dir) OUTPUT_DIR=$2 ;;
       esac
       shift 2 ;;
@@ -98,6 +103,9 @@ if [[ -f "$STATE" && $DRY_RUN == 0 ]]; then
   [[ -z "$EMAIL" || "$EMAIL" == "$old_email" ]] || die '证书邮箱与已有部署不同；请先按文档修改证书账户邮箱'
   EMAIL=$old_email
   ADMIN_USER=$old_admin
+  old_root=$(get_state station_root)
+  [[ -z "$STATION_ROOT" || -z "$old_root" || "$STATION_ROOT" == "$old_root" ]] || die "已有分站根域名不同，请按迁移文档处理"
+  STATION_ROOT=${STATION_ROOT:-$old_root}
 elif [[ "$ACTION" == update && $DRY_RUN == 0 ]]; then
   die 'update 需要已有部署；首次请使用 install'
 fi
@@ -111,13 +119,14 @@ if [[ -z "$EMAIL" ]]; then
   read -r -p '证书联系邮箱：' EMAIL
 fi
 ADMIN_USER=${ADMIN_USER:-admin}
-python3 "$HELPER" validate --domain "$DOMAIN" --email "$EMAIL" --admin-user "$ADMIN_USER"
+python3 "$HELPER" validate --domain "$DOMAIN" --email "$EMAIL" --admin-user "$ADMIN_USER" --station-root "$STATION_ROOT"
 [[ -f "$SOURCE_DIR/backend/go.mod" && -f "$SOURCE_DIR/frontend/package-lock.json" ]] || die '--source-dir 必须是包含 backend 和 frontend 的完整项目'
 
 if ((DRY_RUN)); then
   OUTPUT_DIR=${OUTPUT_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/wybo-preview.XXXXXXXX")}
   mkdir -p "$OUTPUT_DIR"
   python3 "$HELPER" init --state "$OUTPUT_DIR/deployment.json" --domain "$DOMAIN" --email "$EMAIL" --admin-user "$ADMIN_USER"
+  if [[ -n "$STATION_ROOT" ]]; then python3 "$HELPER" stations --state "$OUTPUT_DIR/deployment.json" --root "$STATION_ROOT"; fi
   python3 "$HELPER" render --state "$OUTPUT_DIR/deployment.json" --output "$OUTPUT_DIR"
   install -m 700 "$SCRIPT_DIR/deploy/backup.sh" "$OUTPUT_DIR/wybo-backup"
   log "配置预览已生成：${OUTPUT_DIR}（未改动系统，凭据仅供预览）"
@@ -151,11 +160,20 @@ if ((ASSUME_YES == 0)); then
   [[ "$answer" == y || "$answer" == Y ]] || exit 0
 fi
 
+if [[ -n "$STATION_ROOT" ]]; then
+  if [[ -n "$CF_CREDENTIALS" ]]; then
+    python3 "$SCRIPT_DIR/deploy/station_credentials.py" "$CF_CREDENTIALS"
+  else
+    [[ -f /etc/wybo/cloudflare.ini ]] || die '首次启用分站需提供 --cf-dns-credentials FILE'
+    python3 "$SCRIPT_DIR/deploy/station_credentials.py" /etc/wybo/cloudflare.ini
+  fi
+fi
 STEP=安装系统依赖
 export DEBIAN_FRONTEND=noninteractive
 apt-get -o DPkg::Lock::Timeout=120 update
 apt-get -o DPkg::Lock::Timeout=120 install -y --no-install-recommends \
   ca-certificates curl xz-utils openssl python3 rsync nginx postgresql postgresql-contrib certbot util-linux tzdata
+if [[ -n "$STATION_ROOT" ]]; then apt-get -o DPkg::Lock::Timeout=120 install -y --no-install-recommends python3-certbot-dns-cloudflare; fi
 systemctl enable --now postgresql nginx
 postgres_listen=$(runuser -u postgres -- psql -XwAt --host=/var/run/postgresql --port=5432 --username=postgres --dbname postgres -c 'SHOW listen_addresses')
 python3 "$HELPER" check-postgres --listen "$postgres_listen"
@@ -236,6 +254,14 @@ PGPASSWORD="$DB_PASSWORD" psql -Xw -h 127.0.0.1 -p 5432 -U wybo --dbname wybo --
 unset DB_PASSWORD
 
 STEP=生成服务配置
+if [[ -n "$STATION_ROOT" ]]; then
+  if [[ -n "$CF_CREDENTIALS" ]]; then
+    python3 "$SCRIPT_DIR/deploy/station_credentials.py" "$CF_CREDENTIALS" /etc/wybo/cloudflare.ini
+  fi
+  [[ -f /etc/wybo/cloudflare.ini && ! -L /etc/wybo/cloudflare.ini ]] || die '启用分站需要 --cf-dns-credentials FILE；文件内填写 dns_cloudflare_api_token'
+  python3 "$SCRIPT_DIR/deploy/station_credentials.py" /etc/wybo/cloudflare.ini
+  python3 "$HELPER" stations --state "$STATE" --root "$STATION_ROOT"
+fi
 RENDER_DIR=$(mktemp -d /etc/wybo/.render.XXXXXXXX)
 python3 "$HELPER" render --state "$STATE" --output "$RENDER_DIR"
 if [[ -L "$APP_ROOT/current" ]]; then
@@ -271,8 +297,14 @@ if command -v ufw >/dev/null && LC_ALL=C ufw status | grep '^Status: active$' >/
   ufw allow 80/tcp
   ufw allow 443/tcp
 fi
-certbot certonly --webroot -w /var/www/letsencrypt --domain "$DOMAIN" --cert-name "$DOMAIN" \
-  --email "$EMAIL" --agree-tos --non-interactive --keep-until-expiring
+if [[ -n "$STATION_ROOT" ]]; then
+  certbot certonly --dns-cloudflare --dns-cloudflare-credentials /etc/wybo/cloudflare.ini \
+    --dns-cloudflare-propagation-seconds 60 --domain "$STATION_ROOT" --domain "*.$STATION_ROOT" --cert-name "$DOMAIN" \
+    --email "$EMAIL" --agree-tos --non-interactive --keep-until-expiring --renew-with-new-domains
+else
+  certbot certonly --webroot -w /var/www/letsencrypt --domain "$DOMAIN" --cert-name "$DOMAIN" \
+    --email "$EMAIL" --agree-tos --non-interactive --keep-until-expiring
+fi
 install -m 644 "$RENDER_DIR/nginx-https.conf" /etc/nginx/sites-available/wybo.conf
 nginx -t
 systemctl reload nginx

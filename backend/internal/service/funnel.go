@@ -20,6 +20,9 @@ func (s *Service) eventVisitor(id string) string {
 		return ""
 	}
 	h := hmac.New(sha256.New, []byte(s.cfg.JWT.Secret+":funnel"))
+	if s.station != nil {
+		h.Write([]byte("station:" + s.station.Slug + ":"))
+	}
 	h.Write([]byte(time.Now().In(businessLocation()).Format("2006-01-02") + ":" + id))
 	return hex.EncodeToString(h.Sum(nil))
 }
@@ -57,7 +60,11 @@ func (s *Service) RecordFunnel(session, kind string, product uint, source, campa
 	} else {
 		product = 0
 	}
-	return s.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.FunnelEvent{Day: time.Now().In(businessLocation()).Format("2006-01-02"), Visitor: visitor, Kind: kind, ProductID: product, Source: cleanSource(source), Campaign: cleanCampaign(campaign)}).Error
+	var stationID *uint
+	if s.station != nil {
+		stationID = &s.station.ID
+	}
+	return s.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.FunnelEvent{StationID: stationID, Day: time.Now().In(businessLocation()).Format("2006-01-02"), Visitor: visitor, Kind: kind, ProductID: product, Source: cleanSource(source), Campaign: cleanCampaign(campaign)}).Error
 }
 
 // A daily browser session is the cohort unit. Only sessions with a recorded visit enter the funnel.

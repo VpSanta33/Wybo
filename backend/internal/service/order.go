@@ -45,6 +45,15 @@ func generateOrderNo() string {
 
 // CreateOrder 创建订单（校验库存 + 应用优惠券 + 落库订单明细）
 func (s *Service) CreateOrder(req CreateOrderReq) (*model.Order, error) {
+	if err := s.stationCanSell(); err != nil {
+		return nil, err
+	}
+	if s.station != nil && req.CouponCode != "" {
+		return nil, errors.New("分站暂不支持主站优惠券")
+	}
+	if s.station != nil {
+		req.AgentCode = ""
+	}
 	if err := s.CloseExpiredOrders(); err != nil {
 		return nil, err
 	}
@@ -76,6 +85,16 @@ func (s *Service) CreateOrder(req CreateOrderReq) (*model.Order, error) {
 		if s.db.Where("agent_id = ? AND product_id = ?", agent.ID, product.ID).First(&price).Error == nil {
 			product.PriceCents = price.PriceCents
 		}
+	}
+	var stationGrant *model.StationProduct
+	if s.station != nil {
+		stationGrant, err = s.stationProduct(product.ID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if product.PriceCents <= 0 {
+		return nil, ErrProductUnpriced
 	}
 	if req.Quantity <= 0 {
 		req.Quantity = 1
@@ -151,6 +170,18 @@ func (s *Service) CreateOrder(req CreateOrderReq) (*model.Order, error) {
 		order.CommissionBps = agent.CommissionBps
 		order.CommissionCents = order.TotalCents * agent.CommissionBps / 10000
 	}
+	if s.station != nil {
+		wholesale := stationGrant.WholesaleCents * int64(req.Quantity)
+		order.StationID = &s.station.ID
+		order.WholesaleCents = &wholesale
+		order.StationHost = s.StationURL(*s.station)
+		order.StationFeePolicy = "platform"
+		order.StationMarginCents = order.TotalCents - wholesale
+		order.AgentID = &s.station.AgentID
+		order.AgentName = s.station.SiteName
+		order.CommissionBps = 0
+		order.CommissionCents = order.StationMarginCents
+	}
 	if coupon != nil {
 		order.CouponID = &coupon.ID
 		order.CouponState = "held"
@@ -163,6 +194,17 @@ func (s *Service) CreateOrder(req CreateOrderReq) (*model.Order, error) {
 		}
 		if !current.Enabled || current.DeliveryMode != product.DeliveryMode {
 			return errors.New("商品信息已更新，请刷新后重新下单")
+		}
+		if s.station != nil {
+			var st model.Station
+			var grant model.StationProduct
+			var a model.Agent
+			if tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&st, s.station.ID).Error != nil || st.Status != "active" || tx.First(&a, st.AgentID).Error != nil || !a.Enabled {
+				return errors.New("店铺暂停营业")
+			}
+			if tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("station_id = ? AND product_id = ?", st.ID, product.ID).First(&grant).Error != nil || !grant.Authorized || !grant.Listed || grant.WholesaleCents != stationGrant.WholesaleCents || grant.RetailCents != product.PriceCents {
+				return errors.New("供货或售价已更新，请刷新后重试")
+			}
 		}
 		if err := s.enforcePendingLimit(tx, req.Contact); err != nil {
 			return err
@@ -259,7 +301,7 @@ func (s *Service) getValidCoupon(code string, totalCents int64) (*model.Coupon, 
 // GetOrder 按单号查询订单
 func (s *Service) GetOrder(orderNo string) (*model.Order, error) {
 	var o model.Order
-	if err := s.db.Where("order_no = ?", orderNo).First(&o).Error; err != nil {
+	if err := s.orderScope(s.db).Where("order_no = ?", orderNo).First(&o).Error; err != nil {
 		return nil, ErrOrderNotFound
 	}
 	return &o, nil

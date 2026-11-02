@@ -49,6 +49,12 @@ def load_state(path):
     for key, length in (("db_password", 64), ("jwt_secret", 96), ("admin_password", 32)):
         if not re.fullmatch(r"[0-9a-f]{%d}" % length, state.get(key, "")):
             raise ValueError("部署凭据损坏：" + key)
+    root = state.get("station_root", "")
+    if root:
+        validate(root, state["email"], state["admin_user"])
+        if state["domain"] != root and not (state["domain"].endswith("." + root) and state["domain"].count(".") == root.count(".") + 1):
+            raise ValueError("分站根域名须为主站域名或主站的直接父域名")
+    state.setdefault("station_root", "")
     return state
 
 
@@ -61,7 +67,7 @@ def init_state(path, domain, email, admin_user):
             raise ValueError("已有部署配置不同，拒绝覆盖凭据")
         return state
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    state = dict(version=1, domain=domain, email=email, admin_user=admin_user,
+    state = dict(version=1, station_root="", domain=domain, email=email, admin_user=admin_user,
                  db_password=secrets.token_hex(32), jwt_secret=secrets.token_hex(48),
                  admin_password=secrets.token_hex(16))
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -180,7 +186,7 @@ def render(state, output):
     domain = state["domain"]
     url = "https://" + domain
     config = {
-        "server": {"addr": "127.0.0.1:8080", "mode": "release", "trusted_proxies": ["127.0.0.1", "::1"]},
+        "server": {"public_host": domain,"station_root":state.get("station_root", ""),"addr": "127.0.0.1:8080", "mode": "release", "trusted_proxies": ["127.0.0.1", "::1"]},
         "db": {"driver": "postgres"}, "jwt": {"expire_hours": 24},
         "pay": {"return_url": url + "/orders", "notify_base": url + "/api/v1/pay/notify"},
         "upload": {"dir": "/var/lib/wybo/uploads", "max_size": 5 * 1024 * 1024},
@@ -188,6 +194,7 @@ def render(state, output):
     # JSON is also valid YAML; values are quoted by a real serializer.
     env = {
         "TZ": "Asia/Shanghai", "SERVER_ADDR": "127.0.0.1:8080", "SERVER_MODE": "release",
+        "SERVER_PUBLIC_HOST":domain,"SERVER_STATION_ROOT":state.get("station_root", ""),
         "DB_DRIVER": "postgres",
         "DB_DSN": f"host=127.0.0.1 port=5432 user=wybo password={state['db_password']} dbname=wybo sslmode=disable TimeZone=Asia/Shanghai",
         "JWT_SECRET": state["jwt_secret"], "ADMIN_USERNAME": state["admin_user"],
@@ -208,12 +215,17 @@ def render(state, output):
 JWT_SECRET 保存在 /etc/wybo/wybo.env 和 deployment.json；与数据库一起备份。
 该密钥也用于加密支付、邮件与 TOTP 配置，不可直接重新生成或替换。
 """
+    server_names = domain + (" *." + state["station_root"] if state.get("station_root") else "")
+    https = HTTPS_TEMPLATE.replace("@DOMAIN@",domain).replace("server_name " + domain + ";", "server_name " + server_names + ";")
+    # Preserve the matched shop hostname instead of redirecting every shop to the main site.
+    if state.get("station_root"):
+        https = https.replace("return 308 https://" + domain + "$request_uri;", "return 308 https://$host$request_uri;")
     files = {
         "config.yaml": (json.dumps(config, ensure_ascii=False, indent=2) + "\n", 0o640),
         "wybo.env": ("".join(f'{key}="{value}"\n' for key, value in env.items()), 0o600),
         "credentials.txt": (credentials, 0o600),
         "nginx-http.conf": (HTTP_TEMPLATE.replace("@DOMAIN@", domain), 0o644),
-        "nginx-https.conf": (HTTPS_TEMPLATE.replace("@DOMAIN@", domain), 0o644),
+        "nginx-https.conf": (https, 0o644),
         "wybo.service": (SYSTEMD_SERVICE, 0o644),
         "cert-renew-hook": ("#!/bin/sh\nset -eu\n/usr/sbin/nginx -t\n/bin/systemctl reload nginx\n", 0o755),
         "wybo-backup.service": ("[Unit]\nDescription=Wybo PostgreSQL and configuration backup\nAfter=postgresql.service\n\n[Service]\nType=oneshot\nUMask=0077\nExecStart=/usr/local/sbin/wybo-backup\n", 0o644),
@@ -282,6 +294,8 @@ def main():
         p = sub.add_parser(command)
         for name in ("domain", "email", "admin-user"):
             p.add_argument("--" + name, required=True)
+        if command == "validate":
+            p.add_argument("--station-root",default="")
         if command == "init":
             p.add_argument("--state", required=True)
     for command in ("get", "render", "database-sql", "site-sql"):
@@ -291,6 +305,9 @@ def main():
             p.add_argument("--key", required=True)
         if command == "render":
             p.add_argument("--output", required=True)
+    p = sub.add_parser("stations")
+    p.add_argument("--state",required=True)
+    p.add_argument("--root",required=True)
     p = sub.add_parser("version")
     p.add_argument("--kind", choices=("node", "go"), required=True)
     p.add_argument("--metadata", required=True)
@@ -311,8 +328,27 @@ def main():
     p.add_argument("--url", required=True)
     p.add_argument("--seconds", type=int, default=90)
     args = parser.parse_args()
-    if args.command in ("validate", "init"):
+    if args.command == "stations":
+        state = load_state(args.state)
+        validate(args.root,state["email"],state["admin_user"])
+        if state.get("station_root") and state["station_root"] != args.root:
+            raise ValueError("已有分站根域名不同，迁移请先按文档安排，禁止覆盖")
+        if state["domain"] != args.root and not (state["domain"].endswith("."+args.root) and state["domain"].count(".") == args.root.count(".")+1):
+            raise ValueError("分站根域名须为主站域名或主站的直接父域名")
+        state["station_root"] = args.root
+        path = Path(args.state)
+        temporary = path.with_name(path.name + ".stations.tmp")
+        fd=os.open(temporary,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+        with os.fdopen(fd,"w") as stream:
+            json.dump(state,stream,ensure_ascii=False,indent=2)
+            stream.write("\n")
+        os.replace(temporary,path)
+    elif args.command in ("validate", "init"):
         validate(args.domain, args.email, args.admin_user)
+        if args.command == "validate" and args.station_root:
+            validate(args.station_root,args.email,args.admin_user)
+            if args.domain != args.station_root and not (args.domain.endswith("."+args.station_root) and args.domain.count(".") == args.station_root.count(".")+1):
+                raise ValueError("分站根域名须为主站域名或主站的直接父域名")
         if args.command == "init":
             init_state(args.state, args.domain, args.email, args.admin_user)
     elif args.command in ("get", "render", "database-sql", "site-sql"):

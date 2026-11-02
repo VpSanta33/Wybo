@@ -185,7 +185,11 @@ func (s *Service) RecordVisit(path, source, ip, ua string) error {
 		host = parsed.Hostname()
 	}
 	day := time.Now().In(businessLocation()).Format("2006-01-02")
-	return s.db.Create(&model.Visit{Day: day, Path: path, Source: host, Visitor: dailyVisitor(s.cfg.JWT.Secret, day, ip, ua)}).Error
+	var stationID *uint
+	if s.station != nil {
+		stationID = &s.station.ID
+	}
+	return s.db.Create(&model.Visit{StationID: stationID, Day: day, Path: path, Source: host, Visitor: dailyVisitor(s.cfg.JWT.Secret, day, ip, ua)}).Error
 }
 func (s *Service) AgentForCode(code string) (*model.Agent, error) {
 	if strings.TrimSpace(code) == "" {
@@ -194,6 +198,13 @@ func (s *Service) AgentForCode(code string) (*model.Agent, error) {
 	var a model.Agent
 	if err := s.db.Where("code = ? AND enabled = ?", code, true).First(&a).Error; err != nil {
 		return nil, errors.New("代理链接无效或已停用")
+	}
+	var stations int64
+	if err := s.db.Model(&model.Station{}).Where("agent_id = ?", a.ID).Count(&stations).Error; err != nil {
+		return nil, err
+	}
+	if stations > 0 {
+		return nil, errors.New("请通过代理分站访问商品")
 	}
 	return &a, nil
 }

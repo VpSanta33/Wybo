@@ -3,6 +3,7 @@ package service
 import (
 	"github.com/wybo/backend/internal/config"
 	"github.com/wybo/backend/internal/mail"
+	"github.com/wybo/backend/internal/model"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"net/http"
@@ -10,6 +11,8 @@ import (
 
 // Service 业务层，聚合数据访问与核心业务编排
 type Service struct {
+	station       *model.Station
+	publicScope   bool
 	db            *gorm.DB
 	cfg           *config.Config
 	logger        *zap.Logger

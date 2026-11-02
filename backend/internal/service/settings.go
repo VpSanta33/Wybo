@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-var allowedSettings = map[string]bool{"site_brand": true, "site_logo": true, "site_favicon": true, "site_footer": true, "turnstile_enabled": true, "turnstile_site_key": true, "turnstile_secret_key": true, "default_redeem_url": true, "site_url": true, "backup_retention_days": true, "runtime_alert_email": true, "stock_threshold": true, "stock_alert_email": true, "backup_interval_hours": true, "reconcile_enabled": true, "site_name": true, "site_desc": true, "announcement": true, "customer_service": true, "resend_enabled": true, "resend_api_key": true, "resend_from": true, "order_push_enabled": true, "order_notify_email": true, "order_webhook_url": true, "order_webhook_secret": true, "pay_notify_base": true, "pay_return_url": true}
+var allowedSettings = map[string]bool{"station_apply_enabled": true, "site_brand": true, "site_logo": true, "site_favicon": true, "site_footer": true, "turnstile_enabled": true, "turnstile_site_key": true, "turnstile_secret_key": true, "default_redeem_url": true, "site_url": true, "backup_retention_days": true, "runtime_alert_email": true, "stock_threshold": true, "stock_alert_email": true, "backup_interval_hours": true, "reconcile_enabled": true, "site_name": true, "site_desc": true, "announcement": true, "customer_service": true, "resend_enabled": true, "resend_api_key": true, "resend_from": true, "order_push_enabled": true, "order_notify_email": true, "order_webhook_url": true, "order_webhook_secret": true, "pay_notify_base": true, "pay_return_url": true}
 
 func (s *Service) GetSettings() (map[string]string, error) {
 	var rows []model.Setting
@@ -55,7 +55,7 @@ func (s *Service) UpdateSettings(values map[string]string) error {
 		if (k == "site_name" || k == "site_brand") && (!validGatewayDisplayName(v) || v == "") {
 			return errors.New("网站名称和品牌名称须为 1–60 个字，不能包含换行")
 		}
-		if k == "turnstile_enabled" && v != "true" && v != "false" {
+		if (k == "turnstile_enabled" || k == "station_apply_enabled") && v != "true" && v != "false" {
 			return errors.New("人机验证开关无效")
 		}
 		if len(v) > 4096 {

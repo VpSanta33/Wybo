@@ -78,5 +78,11 @@ func (h *Handler) uploadBrandImage(c *gin.Context) {
 		response.Error(c, 500, "写入图片失败")
 		return
 	}
-	response.OK(c, gin.H{"url": "/uploads/" + filepath.Base(dst.Name())})
+	path := "/uploads/" + filepath.Base(dst.Name())
+	if err := h.publicService(c).RegisterStationUpload(path); err != nil {
+		_ = os.Remove(dst.Name())
+		response.Error(c, 500, "保存图片归属失败")
+		return
+	}
+	response.OK(c, gin.H{"url": path})
 }

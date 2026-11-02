@@ -112,6 +112,11 @@ function App() {
         </header>
       )}
       <main id="main-content" ref={mainRef} tabIndex={-1}>
+        {site.is_station === "true" && site.station_status !== "active" && (
+          <p className="container" role="status">
+            店铺暂停营业，已有订单仍可查询及申请售后。
+          </p>
+        )}
         <Routes>
           <Route
             path="/"
@@ -156,6 +161,8 @@ function App() {
           <span className="footer-moon">{site.site_footer}</span>
         </span>
         <div>
+          {site.station_apply_enabled === "true" &&
+            site.is_station !== "true" && <Link to="/apply">申请代理分站</Link>}
           <Link to="/guide">购买指南</Link>
           <button onClick={() => setInfo("privacy")}>隐私说明</button>
           <button

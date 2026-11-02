@@ -38,6 +38,7 @@ import {
   MessagesSquare,
   Database,
   Boxes,
+  Store,
 } from "lucide-react";
 import { BunnyMark } from "../Illustrations";
 import {
@@ -49,6 +50,7 @@ import {
   type AdminUser,
 } from "./api";
 import { Banner, Busy } from "./ui";
+const Stations = lazy(() => import("./Stations"));
 const Dashboard = lazy(() => import("./Dashboard"));
 import Products from "./Products";
 import { Orders, Inventory, Agents } from "./Commerce";
@@ -75,6 +77,12 @@ import {
   Tickets,
 } from "./Operations";
 const navigation = [
+  {
+    label: "代理分站",
+    path: "/stations",
+    icon: Store,
+    permission: "stations.manage",
+  },
   {
     label: "经营概览",
     path: "",
@@ -579,6 +587,10 @@ export default function AdminApp() {
             {error && <Banner>{error}</Banner>}
             <Suspense fallback={<Busy />}>
               <Routes>
+                <Route
+                  path={base + "/stations"}
+                  element={<Stations notify={setToast} />}
+                />
                 <Route
                   path={base + "/readiness"}
                   element={<Readiness notify={setToast} />}

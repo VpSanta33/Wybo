@@ -14,6 +14,7 @@ Wybo 是一个面向数字商品、卡密和 AI 会员服务的销售平台，�
 | 支付管理 | Stripe、易支付、DujiaoPay、BEpusdt，支持设置对外名称与上传 Logo |
 | 经营报表 | 销售额、商品成本、销售利润、经营净收益、访问流量、转化与 CSV 导出 |
 | 营销与售后 | 优惠券、公告、售后工单、人工补卡、升级补差与退款处理 |
+| 代理分站 | 独立子域名店铺与后台、申请审核、独立品牌、商品授权、供货差价与结算 |
 | 分销代理 | 代理资料、专属价格、推广链接、订单归属、佣金与结算记录 |
 | 邮件通知 | Resend 发货邮件、成交推送、运营提醒与失败重试 |
 | 站点与安全 | 品牌设置、兑换说明、自定义后台入口、密码修改、可选 2FA、角色权限、操作审计与 Cloudflare Turnstile |
@@ -59,6 +60,8 @@ sudo cat /etc/wybo/credentials.txt
 默认后台入口为 `https://shop.example.com/admin`。登录后可修改密码及后台访问地址；2FA 由用户在后台安全设置中自行绑定，部署脚本不会自动开启。
 
 首次部署会创建新的 PostgreSQL 数据库，不会自动迁移本地 SQLite 数据。完整步骤、文件位置与恢复方法见 [原生部署指南](docs/原生部署.md)。
+
+分站模式的 DNS、泛域名 HTTPS、申请审核和结算操作见 [代理分站指南](docs/代理分站.md)。已有部署可通过更新脚本启用，保留原有数据库和凭据。
 
 ## 更新版本
 
@@ -160,6 +163,8 @@ VITE_DEMO_MODE=true npm run dev
 | --- | --- |
 | `SERVER_ADDR` | 后端监听地址 |
 | `SERVER_MODE` | 运行模式 |
+| `SERVER_PUBLIC_HOST` | 主站域名；启用分站后用于区分主站与已登记的分站 |
+| `SERVER_STATION_ROOT` | 分站根域名，需同时配置泛域名 DNS 与 HTTPS |
 | `DB_DRIVER` | 数据库类型，`sqlite` 或 `postgres` |
 | `DB_DSN` | SQLite 文件路径或 PostgreSQL 连接串 |
 | `JWT_SECRET` | 登录签名及敏感配置加密密钥，生产环境使用稳定的随机密钥 |
@@ -212,6 +217,7 @@ npm run build
 ## 文档
 
 - [原生部署与更新](docs/原生部署.md)
+- [代理分站](docs/代理分站.md)
 - [后台管理](docs/后台管理.md)
 - [支付渠道配置指南](docs/支付渠道配置指南.md)
 - [站点设置与人机验证](docs/站点设置与人机验证.md)

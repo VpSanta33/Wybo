@@ -8,6 +8,8 @@ import (
 
 // ServerConfig HTTP 服务配置
 type ServerConfig struct {
+	PublicHost     string   `mapstructure:"public_host"`
+	StationRoot    string   `mapstructure:"station_root"`
 	Addr           string   `mapstructure:"addr"`
 	TrustedProxies []string `mapstructure:"trusted_proxies"`
 	Mode           string   `mapstructure:"mode"`
@@ -71,6 +73,10 @@ func Load() *Config {
 	v.AddConfigPath("./configs")
 	v.AddConfigPath(".")
 
+	v.SetDefault("server.public_host", "")
+	v.SetDefault("server.station_root", "")
+	_ = v.BindEnv("server.public_host", "SERVER_PUBLIC_HOST")
+	_ = v.BindEnv("server.station_root", "SERVER_STATION_ROOT")
 	// 默认值
 	v.SetDefault("server.addr", ":8080")
 	v.SetDefault("server.trusted_proxies", []string{})

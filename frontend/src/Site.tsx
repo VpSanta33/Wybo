@@ -18,16 +18,33 @@ const defaults: Record<string, string> = {
   site_desc: "ChatGPT · Claude · Grok 会员充值，支付成功自动发放卡密",
   site_footer: "一点月光，刚好喜欢。",
 };
-const SiteContext = createContext({ site: defaults, refresh: async () => {} });
+const SiteContext = createContext({
+  site: defaults,
+  refresh: async () => {},
+  loading: true,
+  error: "",
+});
 export const useSite = () => useContext(SiteContext);
 export function SiteProvider({ children }: { children: ReactNode }) {
   const [site, setSite] = useState(defaults);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const { pathname } = useLocation();
   const refresh = useCallback(async () => {
     try {
       setSite({ ...defaults, ...(await api<Record<string, string>>("/site")) });
-    } catch {
-      /* Keep the last loaded branding during a connection failure. */
+      setError("");
+    } catch (e) {
+      setError(
+        (import.meta as ImportMeta & { env: Record<string, string> }).env
+          .VITE_DEMO_MODE === "true"
+          ? ""
+          : e instanceof Error
+            ? e.message
+            : "站点信息加载失败",
+      );
+    } finally {
+      setLoading(false);
     }
   }, []);
   useEffect(() => {
@@ -39,11 +56,15 @@ export function SiteProvider({ children }: { children: ReactNode }) {
     const consolePage = !["/", "/orders", "/guide"].includes(pathname);
     document.title =
       site.site_name +
-      (pathname === "/agent"
-        ? " · 代理工作台"
-        : consolePage
-          ? " · 商家工作台"
-          : "");
+      (pathname === "/apply"
+        ? " · 分站申请"
+        : site.is_station === "true" && consolePage
+          ? " · 分站工作台"
+          : pathname === "/agent"
+            ? " · 代理工作台"
+            : consolePage
+              ? " · 商家工作台"
+              : "");
     document
       .querySelector('meta[name="description"]')
       ?.setAttribute("content", site.site_desc);
@@ -54,7 +75,7 @@ export function SiteProvider({ children }: { children: ReactNode }) {
     }
   }, [site, pathname]);
   return (
-    <SiteContext.Provider value={{ site, refresh }}>
+    <SiteContext.Provider value={{ site, refresh, loading, error }}>
       {children}
     </SiteContext.Provider>
   );

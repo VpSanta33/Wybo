@@ -100,6 +100,11 @@ const (
 )
 
 type Order struct {
+	StationID            *uint  `gorm:"index" json:"station_id"`
+	WholesaleCents       *int64 `json:"wholesale_cents"`
+	StationHost          string `json:"station_host"`
+	StationFeePolicy     string `json:"station_fee_policy"`
+	StationMarginCents   int64  `gorm:"default:0" json:"station_margin_cents"`
 	CouponState          string `json:"-"`
 	Visitor              string `gorm:"index" json:"-"`
 	Source               string `json:"source"`
@@ -236,6 +241,7 @@ type Setting struct {
 
 // Visitor identifiers are daily HMAC hashes; raw IPs and emails are not retained.
 type Visit struct {
+	StationID *uint     `gorm:"index" json:"station_id"`
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	Day       string    `gorm:"size:10;index" json:"day"`
 	Visitor   string    `gorm:"size:64;index" json:"-"`
@@ -245,17 +251,21 @@ type Visit struct {
 }
 
 type Agent struct {
-	CommissionBps  int64     `gorm:"default:0" json:"commission_bps"`
-	SettlementDays int       `gorm:"default:7" json:"settlement_days"`
-	PasswordHash   string    `json:"-"`
-	SessionVersion int64     `gorm:"default:0" json:"-"`
-	ID             uint      `gorm:"primaryKey" json:"id"`
-	Name           string    `gorm:"size:64;not null" json:"name"`
-	Code           string    `gorm:"size:32;uniqueIndex;not null" json:"code"`
-	Contact        string    `gorm:"size:128" json:"contact"`
-	Enabled        bool      `json:"enabled"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	TOTPSecret     string     `json:"-"`
+	TOTPPending    string     `json:"-"`
+	TOTPExpiresAt  *time.Time `json:"-"`
+	LastTOTPStep   int64      `gorm:"default:0" json:"-"`
+	CommissionBps  int64      `gorm:"default:0" json:"commission_bps"`
+	SettlementDays int        `gorm:"default:7" json:"settlement_days"`
+	PasswordHash   string     `json:"-"`
+	SessionVersion int64      `gorm:"default:0" json:"-"`
+	ID             uint       `gorm:"primaryKey" json:"id"`
+	Name           string     `gorm:"size:64;not null" json:"name"`
+	Code           string     `gorm:"size:32;uniqueIndex;not null" json:"code"`
+	Contact        string     `gorm:"size:254" json:"contact"`
+	Enabled        bool       `json:"enabled"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 }
 type AgentPrice struct {
 	ID         uint  `gorm:"primaryKey" json:"id"`

@@ -99,6 +99,11 @@ func (s *Service) OrderRedemptions(orderID uint) ([]OrderRedemption, error) {
 		Joins("LEFT JOIN products ON products.id = order_items.product_id").
 		Where("order_items.order_id = ?", orderID).Order("order_items.id ASC").Scan(&rows).Error
 	defaultURL := strings.TrimSpace(s.setting("default_redeem_url", defaultRedeemURL))
+	var order model.Order
+	var st model.Station
+	if s.db.First(&order, orderID).Error == nil && order.StationID != nil && s.db.First(&st, *order.StationID).Error == nil && st.RedeemURL != "" {
+		defaultURL = st.RedeemURL
+	}
 	if !validHTTPURL(defaultURL) {
 		defaultURL = ""
 	}
@@ -106,6 +111,14 @@ func (s *Service) OrderRedemptions(orderID uint) ([]OrderRedemption, error) {
 		rows[i].RedeemURL = strings.TrimSpace(rows[i].RedeemURL)
 		if rows[i].RedeemURL == "" {
 			rows[i].RedeemURL = defaultURL
+		}
+		if st.ID > 0 {
+			if st.RedeemURL != "" {
+				rows[i].RedeemURL = st.RedeemURL
+			}
+			if st.RedeemGuide != "" {
+				rows[i].RedeemGuide = st.RedeemGuide
+			}
 		}
 		if !validHTTPURL(rows[i].RedeemURL) {
 			rows[i].RedeemURL = ""

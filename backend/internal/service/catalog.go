@@ -8,7 +8,11 @@ import (
 // ListCategories 分类列表
 func (s *Service) ListCategories() ([]model.Category, error) {
 	var list []model.Category
-	err := s.db.Where("enabled = ?", true).Order("sort asc, id asc").Find(&list).Error
+	q := s.db.Where("enabled = ?", true)
+	if s.station != nil {
+		q = q.Where("id IN (?)", s.db.Model(&model.Product{}).Select("category_id").Where("enabled = ? AND id IN (?)", true, s.db.Model(&model.StationProduct{}).Select("product_id").Where("station_id = ? AND authorized = ? AND listed = ? AND wholesale_cents > 0 AND retail_cents >= wholesale_cents", s.station.ID, true, true)))
+	}
+	err := q.Order("sort asc, id asc").Find(&list).Error
 	return list, err
 }
 
@@ -17,6 +21,9 @@ func (s *Service) ListProducts(categoryID uint, keyword string, page, size int) 
 	var list []model.Product
 	var total int64
 	q := s.db.Model(&model.Product{}).Where("enabled = ?", true)
+	if s.station != nil {
+		q = q.Where("id IN (?)", s.db.Model(&model.StationProduct{}).Select("product_id").Where("station_id = ? AND authorized = ? AND listed = ? AND wholesale_cents > 0 AND retail_cents >= wholesale_cents", s.station.ID, true, true))
+	}
 	if categoryID > 0 {
 		q = q.Where("category_id = ?", categoryID)
 	}
@@ -27,6 +34,16 @@ func (s *Service) ListProducts(categoryID uint, keyword string, page, size int) 
 		return nil, 0, err
 	}
 	err := q.Order("sort asc, id desc").Offset((page - 1) * size).Limit(size).Find(&list).Error
+	if err == nil && s.station != nil {
+		for i := range list {
+			grant, e := s.stationProduct(list[i].ID)
+			if e != nil {
+				return nil, 0, e
+			}
+			list[i].PriceCents = grant.RetailCents
+			list[i].OriginalPriceCents = 0
+		}
+	}
 	return list, total, err
 }
 
@@ -36,11 +53,26 @@ func (s *Service) GetProduct(id uint) (*model.Product, error) {
 	if err := s.db.First(&p, id).Error; err != nil {
 		return nil, err
 	}
+	if s.station != nil {
+		g, e := s.stationProduct(id)
+		if e != nil {
+			return nil, e
+		}
+		p.PriceCents = g.RetailCents
+		p.OriginalPriceCents = 0
+	}
 	return &p, nil
 }
 
 // ListAnnouncements 公告列表
 func (s *Service) ListAnnouncements() ([]model.Announcement, error) {
+	if s.station != nil {
+		rows := []model.Announcement{}
+		if s.station.Announcement != "" {
+			rows = append(rows, model.Announcement{Title: s.station.SiteName, Content: s.station.Announcement, Enabled: true})
+		}
+		return rows, nil
+	}
 	var list []model.Announcement
 	err := s.db.Where("enabled = ?", true).Order("sort asc, id desc").Find(&list).Error
 	return list, err
@@ -76,5 +108,5 @@ func (s *Service) SiteInfo() map[string]string {
 	if defaults["turnstile_enabled"] != "true" {
 		defaults["turnstile_site_key"] = ""
 	}
-	return defaults
+	return s.stationSiteInfo(defaults)
 }

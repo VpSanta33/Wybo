@@ -298,6 +298,9 @@ export default function Storefront({
       track("visit");
     }
   }, [product?.id, demo]);
+  const paused =
+    catalog?.site?.is_station === "true" &&
+    catalog?.site?.station_status !== "active";
   const pendingPrice = product ? pricePending(product) : false;
   const maxQuantity = product
     ? Math.max(
@@ -342,6 +345,7 @@ export default function Storefront({
     event.preventDefault();
     if (
       !product ||
+      paused ||
       pendingPrice ||
       (product.delivery_mode !== "manual" && product.stock <= 0) ||
       busy
@@ -364,6 +368,7 @@ export default function Storefront({
   async function placeOrder() {
     if (
       !product ||
+      paused ||
       pendingPrice ||
       (product.delivery_mode !== "manual" && product.stock <= 0) ||
       busy
@@ -611,6 +616,7 @@ export default function Storefront({
                         disabled={
                           actualQuantity <= 1 ||
                           busy ||
+                          paused ||
                           pendingPrice ||
                           (product.delivery_mode !== "manual" &&
                             product.stock <= 0)
@@ -626,6 +632,7 @@ export default function Storefront({
                         value={actualQuantity}
                         disabled={
                           busy ||
+                          paused ||
                           pendingPrice ||
                           (product.delivery_mode !== "manual" &&
                             product.stock <= 0)
@@ -651,6 +658,7 @@ export default function Storefront({
                         disabled={
                           actualQuantity >= maxQuantity ||
                           busy ||
+                          paused ||
                           pendingPrice ||
                           (product.delivery_mode !== "manual" &&
                             product.stock <= 0)
@@ -682,27 +690,29 @@ export default function Storefront({
                   </span>
                 </div>
 
-                {!demo && !pendingPrice && (
-                  <details className="coupon-disclosure">
-                    <summary>
-                      <Ticket size={14} aria-hidden="true" />
-                      使用优惠码
-                      <ChevronDown size={14} aria-hidden="true" />
-                    </summary>
-                    <label className="sr-only" htmlFor="purchase-coupon">
-                      优惠码
-                    </label>
-                    <input
-                      id="purchase-coupon"
-                      placeholder="输入优惠码"
-                      value={coupon}
-                      disabled={busy}
-                      maxLength={32}
-                      onChange={(e) => setCoupon(e.target.value)}
-                    />
-                    <small>优惠以最终订单金额为准。</small>
-                  </details>
-                )}
+                {!demo &&
+                  !pendingPrice &&
+                  catalog?.site?.is_station !== "true" && (
+                    <details className="coupon-disclosure">
+                      <summary>
+                        <Ticket size={14} aria-hidden="true" />
+                        使用优惠码
+                        <ChevronDown size={14} aria-hidden="true" />
+                      </summary>
+                      <label className="sr-only" htmlFor="purchase-coupon">
+                        优惠码
+                      </label>
+                      <input
+                        id="purchase-coupon"
+                        placeholder="输入优惠码"
+                        value={coupon}
+                        disabled={busy}
+                        maxLength={32}
+                        onChange={(e) => setCoupon(e.target.value)}
+                      />
+                      <small>优惠以最终订单金额为准。</small>
+                    </details>
+                  )}
                 <div className="purchase-agreement">
                   <label>
                     <input
@@ -740,17 +750,20 @@ export default function Storefront({
                     type="submit"
                     disabled={
                       busy ||
+                      paused ||
                       pendingPrice ||
                       (product.delivery_mode !== "manual" && product.stock <= 0)
                     }
                   >
                     <span>
-                      {pendingPrice
-                        ? "套餐待上架"
-                        : product.delivery_mode !== "manual" &&
-                            product.stock <= 0
-                          ? "暂时售罄"
-                          : "确认订单"}
+                      {paused
+                        ? "店铺暂停营业"
+                        : pendingPrice
+                          ? "套餐待上架"
+                          : product.delivery_mode !== "manual" &&
+                              product.stock <= 0
+                            ? "暂时售罄"
+                            : "确认订单"}
                     </span>
                     <ArrowRight size={18} aria-hidden="true" />
                   </button>

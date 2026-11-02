@@ -81,6 +81,9 @@ func (s *Service) CreateUpgrade(no string, target uint, difference int64, reason
 		if tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("order_no = ?", no).First(&o).Error != nil {
 			return ErrOrderNotFound
 		}
+		if o.StationID != nil {
+			return errors.New("分站升级请通过新订单处理，避免改变原订单供货及分润账目")
+		}
 		if o.Status != model.OrderCompleted || activeUpgrade(tx, o.ID) {
 			return errors.New("订单状态不允许升级，或已有升级申请")
 		}

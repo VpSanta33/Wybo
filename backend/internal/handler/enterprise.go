@@ -145,7 +145,7 @@ func (h *Handler) AdminPrepareRestore(c *gin.Context) {
 	reply(c, v, e)
 }
 func (h *Handler) CustomerTickets(c *gin.Context) {
-	v, e := h.svc.CustomerTickets(c.Param("orderNo"), c.Query("contact"))
+	v, e := h.publicService(c).CustomerTickets(c.Param("orderNo"), c.Query("contact"))
 	reply(c, v, e)
 }
 func (h *Handler) CustomerCreateTicket(c *gin.Context) {
@@ -158,7 +158,7 @@ func (h *Handler) CustomerCreateTicket(c *gin.Context) {
 		response.Error(c, 400, "参数错误")
 		return
 	}
-	v, e := h.svc.CreateTicket(c.Param("orderNo"), req.Contact, req.Subject, req.Content)
+	v, e := h.publicService(c).CreateTicket(c.Param("orderNo"), req.Contact, req.Subject, req.Content)
 	reply(c, v, e)
 }
 func (h *Handler) CustomerReplyTicket(c *gin.Context) {
@@ -170,7 +170,7 @@ func (h *Handler) CustomerReplyTicket(c *gin.Context) {
 		response.Error(c, 400, "参数错误")
 		return
 	}
-	reply(c, nil, h.svc.ReplyTicket(c.Param("number"), req.Content, "open", false, false, c.Param("orderNo"), req.Contact))
+	reply(c, nil, h.publicService(c).ReplyTicket(c.Param("number"), req.Content, "open", false, false, c.Param("orderNo"), req.Contact))
 }
 func (h *Handler) AdminTickets(c *gin.Context) {
 	v, e := h.svc.AdminTickets(c.Param("number"))

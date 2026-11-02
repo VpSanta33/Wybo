@@ -151,6 +151,7 @@ func (s *Service) sendNotification(ctx context.Context, job model.Notification) 
 	return nil
 }
 func (s *Service) ProcessNotifications(ctx context.Context) {
+	s.processStationInvitations(ctx)
 	var jobs []model.Notification
 	now := time.Now()
 	s.db.Where("status = ? AND next_attempt_at <= ?", "pending", now).Order("id ASC").Limit(20).Find(&jobs)

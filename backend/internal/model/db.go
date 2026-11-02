@@ -68,6 +68,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&Coupon{},
 		&Announcement{},
 		&Setting{},
+		&Station{}, &StationProduct{}, &StationApplication{}, &StationInvitation{}, &StationAudit{}, &StationUpload{},
 		&Visit{}, &Agent{}, &AgentPrice{}, &Notification{},
 		&Supplier{}, &Purchase{}, &PurchasePayment{}, &AfterSale{}, &HealthAlert{}, &Diagnostic{}, &FunnelEvent{},
 		&InventoryBatch{}, &CheckoutAttempt{}, &PaymentIssue{}, &Refund{}, &Settlement{}, &StockAlert{}, &AuditLog{}, &Backup{}, &Ticket{}, &TicketMessage{},

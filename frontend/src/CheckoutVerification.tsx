@@ -43,13 +43,15 @@ function loadTurnstile() {
 export type VerificationState = { ready: boolean; token: string };
 export default function CheckoutVerification({
   onChange,
+  action = "checkout",
 }: {
   onChange: (state: VerificationState) => void;
+  action?: "checkout" | "station_apply";
 }) {
   const container = useRef<HTMLDivElement>(null);
   const callback = useRef(onChange);
   callback.current = onChange;
-  const [status, setStatus] = useState("正在检查下单验证…");
+  const [status, setStatus] = useState("正在检查人机验证…");
   const [required, setRequired] = useState(true);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
@@ -61,7 +63,7 @@ export default function CheckoutVerification({
     callback.current({ ready: false, token: "" });
     setError("");
     setRequired(true);
-    setStatus("正在检查下单验证…");
+    setStatus("正在检查人机验证…");
     api<Record<string, string>>("/site", {
       signal: AbortSignal.any([ctrl.signal, AbortSignal.timeout(10000)]),
     })
@@ -73,13 +75,13 @@ export default function CheckoutVerification({
           return;
         }
         if (!site.turnstile_site_key)
-          throw new Error("下单验证配置不完整，请联系店主。");
+          throw new Error("人机验证配置不完整，请联系店主。");
         setStatus("请完成人机验证");
         turnstile = await loadTurnstile();
         if (!active || !container.current) return;
         widget = turnstile.render(container.current, {
           sitekey: site.turnstile_site_key,
-          action: "checkout",
+          action,
           theme: "light",
           size: "compact",
           language: "zh-cn",
@@ -87,7 +89,7 @@ export default function CheckoutVerification({
           callback: (token: string) => {
             if (active) {
               setError("");
-              setStatus("验证通过，可以提交订单");
+              setStatus("验证通过，可以提交");
               callback.current({ ready: true, token });
             }
           },
@@ -117,7 +119,7 @@ export default function CheckoutVerification({
         if (active && !ctrl.signal.aborted) {
           setError(
             e.name === "TimeoutError"
-              ? "加载下单验证超时，请重新加载。"
+              ? "加载人机验证超时，请重新加载。"
               : e.message,
           );
           callback.current({ ready: false, token: "" });
@@ -128,12 +130,12 @@ export default function CheckoutVerification({
       ctrl.abort();
       if (widget !== undefined) turnstile?.remove(widget);
     };
-  }, [revision]);
+  }, [revision, action]);
   return (
     <section
       className="checkout-verification"
       hidden={!required}
-      aria-label="下单人机验证"
+      aria-label={action === "station_apply" ? "申请人机验证" : "下单人机验证"}
     >
       <p className="verification-status" role="status">
         <ShieldCheck size={15} />

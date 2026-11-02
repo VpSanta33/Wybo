@@ -71,6 +71,7 @@ type Diagnostic struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 type FunnelEvent struct {
+	StationID *uint     `gorm:"index" json:"station_id"`
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	Day       string    `gorm:"index;uniqueIndex:funnel_event" json:"day"`
 	Visitor   string    `gorm:"uniqueIndex:funnel_event" json:"-"`

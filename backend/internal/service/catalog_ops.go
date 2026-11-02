@@ -85,7 +85,7 @@ func (s *Service) DeleteProduct(id uint) error {
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&p, id).Error; err != nil {
 			return errors.New("商品不存在")
 		}
-		for _, table := range []interface{}{&model.OrderItem{}, &model.Card{}, &model.InventoryBatch{}, &model.Purchase{}, &model.AgentPrice{}} {
+		for _, table := range []interface{}{&model.OrderItem{}, &model.Card{}, &model.InventoryBatch{}, &model.Purchase{}, &model.AgentPrice{}, &model.StationProduct{}} {
 			var count int64
 			if err := tx.Model(table).Where("product_id = ?", id).Count(&count).Error; err != nil {
 				return err

@@ -18,12 +18,12 @@ import (
 
 // Site 站点信息
 func (h *Handler) Site(c *gin.Context) {
-	response.OK(c, h.svc.SiteInfo())
+	response.OK(c, h.publicService(c).SiteInfo())
 }
 
 // Categories 分类列表
 func (h *Handler) Categories(c *gin.Context) {
-	list, err := h.svc.ListCategories()
+	list, err := h.publicService(c).ListCategories()
 	if err != nil {
 		response.Error(c, 500, "查询失败")
 		return
@@ -35,12 +35,12 @@ func (h *Handler) Categories(c *gin.Context) {
 func (h *Handler) Products(c *gin.Context) {
 	categoryID, _ := strconv.Atoi(c.Query("category_id"))
 	page, size := pageSize(c)
-	list, total, err := h.svc.ListProducts(uint(categoryID), c.Query("keyword"), page, size)
+	list, total, err := h.publicService(c).ListProducts(uint(categoryID), c.Query("keyword"), page, size)
 	if err != nil {
 		response.Error(c, 500, "查询失败")
 		return
 	}
-	if err := h.svc.AgentPrices(c.Query("agent"), list); err != nil {
+	if err := h.publicService(c).ApplyPublicAgentPrices(c.Query("agent"), list); err != nil {
 		response.Error(c, 400, err.Error())
 		return
 	}
@@ -54,7 +54,7 @@ func (h *Handler) Products(c *gin.Context) {
 // ProductDetail 商品详情
 func (h *Handler) ProductDetail(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
-	p, err := h.svc.GetProduct(uint(id))
+	p, err := h.publicService(c).GetProduct(uint(id))
 	if err != nil || !p.Enabled {
 		response.Error(c, 404, "商品不存在")
 		return
@@ -64,7 +64,7 @@ func (h *Handler) ProductDetail(c *gin.Context) {
 
 // Announcements 公告列表
 func (h *Handler) Announcements(c *gin.Context) {
-	list, err := h.svc.ListAnnouncements()
+	list, err := h.publicService(c).ListAnnouncements()
 	if err != nil {
 		response.Error(c, 500, "查询失败")
 		return
@@ -95,11 +95,11 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 		response.Error(c, 400, "商品ID与联系方式必填")
 		return
 	}
-	if err := h.svc.VerifyCheckout(c.Request.Context(), req.TurnstileToken, c.ClientIP()); err != nil {
+	if err := h.publicService(c).VerifyCheckout(c.Request.Context(), req.TurnstileToken, c.ClientIP()); err != nil {
 		response.Error(c, 403, err.Error())
 		return
 	}
-	order, err := h.svc.CreateOrder(service.CreateOrderReq{
+	order, err := h.publicService(c).CreateOrder(service.CreateOrderReq{
 		SessionID: req.SessionID, Source: req.Source, Campaign: req.Campaign, ProductID: req.ProductID, Quantity: req.Quantity, Contact: req.Contact, Email: req.Email, CouponCode: req.CouponCode, AgentCode: req.AgentCode,
 	})
 	if err != nil {
@@ -113,7 +113,7 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 func (h *Handler) GetOrder(c *gin.Context) {
 	orderNo := c.Param("orderNo")
 	contact := c.Query("contact")
-	order, err := h.svc.GetOrder(orderNo)
+	order, err := h.publicService(c).GetOrder(orderNo)
 	if err != nil {
 		response.Error(c, 404, "订单不存在")
 		return
@@ -126,11 +126,11 @@ func (h *Handler) GetOrder(c *gin.Context) {
 		"order_no": order.OrderNo, "status": order.Status, "total_cents": order.TotalCents,
 		"created_at": order.CreatedAt, "expired_at": order.ExpiredAt,
 	}
-	items, _ := h.svc.OrderItems(order.ID)
+	items, _ := h.publicService(c).OrderItems(order.ID)
 	data["items"] = items
-	data["after_sales"] = h.svc.CustomerAfterSales(order.ID)
+	data["after_sales"] = h.publicService(c).CustomerAfterSales(order.ID)
 	if order.Status == model.OrderPaid || order.Status == model.OrderCompleted {
-		redemptions, err := h.svc.OrderRedemptions(order.ID)
+		redemptions, err := h.publicService(c).OrderRedemptions(order.ID)
 		if err != nil {
 			response.Error(c, 500, "兑换说明读取失败，请稍后重试")
 			return
@@ -138,7 +138,7 @@ func (h *Handler) GetOrder(c *gin.Context) {
 		data["redemptions"] = redemptions
 	}
 	if order.Status == model.OrderCompleted {
-		cards, _ := h.svc.OrderCards(order.ID)
+		cards, _ := h.publicService(c).OrderCards(order.ID)
 		data["cards"] = cards
 	}
 	response.OK(c, data)
@@ -153,12 +153,12 @@ func (h *Handler) CancelOrder(c *gin.Context) {
 		response.Error(c, 400, "缺少联系方式")
 		return
 	}
-	order, err := h.svc.GetOrder(c.Param("orderNo"))
+	order, err := h.publicService(c).GetOrder(c.Param("orderNo"))
 	if err != nil || req.Contact == "" || order.Contact != req.Contact {
 		response.Error(c, 404, "订单不存在")
 		return
 	}
-	if err := h.svc.CancelOrder(c.Param("orderNo")); err != nil {
+	if err := h.publicService(c).CancelOrder(c.Param("orderNo")); err != nil {
 		response.Error(c, 500, "取消失败")
 		return
 	}
@@ -181,7 +181,7 @@ func (h *Handler) Pay(c *gin.Context) {
 		response.Error(c, 400, err.Error())
 		return
 	}
-	order, err := h.svc.GetOrder(orderNo)
+	order, err := h.publicService(c).GetOrder(orderNo)
 	if err != nil {
 		response.Error(c, 404, "订单不存在")
 		return
@@ -194,7 +194,7 @@ func (h *Handler) Pay(c *gin.Context) {
 		response.Error(c, 400, "订单状态不可支付")
 		return
 	}
-	notifyBase, returnURL := h.svc.PayURLs()
+	notifyBase, returnURL := h.publicService(c).OrderPayURLs(order)
 	if u, err := url.Parse(returnURL); err == nil {
 		q := u.Query()
 		q.Set("order_no", orderNo)
@@ -209,7 +209,7 @@ func (h *Handler) Pay(c *gin.Context) {
 			"return_url": returnURL,
 		},
 	}
-	resp, err := h.svc.CreateCheckout(c.Request.Context(), req.Gateway, createReq)
+	resp, err := h.publicService(c).CreateCheckout(c.Request.Context(), req.Gateway, createReq)
 	if err != nil {
 		response.Error(c, 500, "下单失败: "+err.Error())
 		return
@@ -254,6 +254,9 @@ func (h *Handler) PayNotify(c *gin.Context) {
 // PayReturn 支付同步跳转
 func (h *Handler) PayReturn(c *gin.Context) {
 	_, returnURL := h.svc.PayURLs()
+	if o, e := h.svc.GetOrder(c.Query("out_trade_no")); e == nil {
+		_, returnURL = h.svc.OrderPayURLs(o)
+	}
 	u, err := url.Parse(returnURL)
 	if err != nil {
 		c.Status(400)
@@ -273,7 +276,7 @@ func (h *Handler) Query(c *gin.Context) {
 		response.Error(c, 400, "缺少订单号或联系方式")
 		return
 	}
-	order, err := h.svc.GetOrder(orderNo)
+	order, err := h.publicService(c).GetOrder(orderNo)
 	if err != nil {
 		response.Error(c, 404, "订单不存在")
 		return
@@ -286,6 +289,6 @@ func (h *Handler) Query(c *gin.Context) {
 		response.Error(c, 400, "订单尚未完成出卡")
 		return
 	}
-	cards, _ := h.svc.OrderCards(order.ID)
+	cards, _ := h.publicService(c).OrderCards(order.ID)
 	response.OK(c, gin.H{"order_no": order.OrderNo, "status": order.Status, "cards": cards})
 }

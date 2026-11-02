@@ -15,6 +15,13 @@ const turnstileVerifyURL = "https://challenges.cloudflare.com/turnstile/v0/sitev
 
 // VerifyCheckout runs before order creation, including direct API requests.
 func (s *Service) VerifyCheckout(ctx context.Context, token, ip string) error {
+	return s.verifyChallenge(ctx, token, ip, "checkout")
+}
+
+func (s *Service) VerifyStationApplication(ctx context.Context, token, ip string) error {
+	return s.verifyChallenge(ctx, token, ip, "station_apply")
+}
+func (s *Service) verifyChallenge(ctx context.Context, token, ip, action string) error {
 	if s.setting("turnstile_enabled", "false") != "true" {
 		return nil
 	}
@@ -48,7 +55,11 @@ func (s *Service) VerifyCheckout(ctx context.Context, token, ip string) error {
 	if res.StatusCode != http.StatusOK || json.NewDecoder(io.LimitReader(res.Body, 64*1024)).Decode(&result) != nil {
 		return errors.New("人机验证服务暂时不可用，请稍后重试")
 	}
-	if !result.Success || !strings.EqualFold(strings.TrimSuffix(result.Hostname, "."), strings.TrimSuffix(site.Hostname(), ".")) || result.Action != "checkout" {
+	expectedHost := site.Hostname()
+	if s.station != nil {
+		expectedHost = s.stationHost(*s.station)
+	}
+	if !result.Success || !strings.EqualFold(strings.TrimSuffix(result.Hostname, "."), strings.TrimSuffix(expectedHost, ".")) || result.Action != action {
 		return errors.New("人机验证未通过或已过期，请重新验证")
 	}
 	return nil

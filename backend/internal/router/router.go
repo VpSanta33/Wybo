@@ -26,6 +26,7 @@ func New(db *gorm.DB, cfg *config.Config, logger *zap.Logger) *gin.Engine {
 	r.Static("/uploads", cfg.Upload.Dir)
 
 	api := r.Group("/api/v1")
+	api.Use(h.StorefrontScope)
 	{
 		// 公开接口
 		api.GET("/site", h.Site)
@@ -51,6 +52,26 @@ func New(db *gorm.DB, cfg *config.Config, logger *zap.Logger) *gin.Engine {
 
 		api.POST("/events", middleware.RateLimit(60, time.Minute), h.RecordFunnel)
 
+		api.POST("/station/apply", middleware.RateLimit(3, time.Hour), h.StationApply)
+		api.POST("/station/activate", middleware.RateLimit(8, time.Minute), h.StationActivate)
+		api.POST("/station/login", middleware.RateLimit(10, time.Minute), h.StationLogin)
+		station := api.Group("/station/admin")
+		station.Use(h.StationAuth)
+		{
+			station.GET("/dashboard", h.StationDashboard)
+			station.GET("/products", h.StationProducts)
+			station.PUT("/products/:id", h.StationProduct)
+			station.PUT("/settings", h.StationBrand)
+			station.GET("/orders", h.StationOrders)
+			station.GET("/tickets", h.StationTickets)
+			station.GET("/tickets/:number", h.StationTickets)
+			station.POST("/tickets/:number/replies", h.StationReply)
+			station.POST("/settlements", middleware.RateLimit(5, time.Minute), h.StationSettlement)
+			station.POST("/upload", middleware.RateLimit(20, time.Hour), h.AdminSiteImage)
+			station.PUT("/security", middleware.RateLimit(10, time.Minute), h.StationSecurity)
+			station.POST("/security/totp/setup", middleware.RateLimit(5, time.Minute), h.StationTOTPSetup)
+			station.POST("/security/totp/enable", middleware.RateLimit(5, time.Minute), h.StationTOTPEnable)
+		}
 		// 管理端
 		admin := api.Group("/admin")
 		admin.POST("/entry", middleware.RateLimit(30, time.Minute), h.AdminEntry)
@@ -62,6 +83,15 @@ func New(db *gorm.DB, cfg *config.Config, logger *zap.Logger) *gin.Engine {
 		admin.Use(h.AdminStepUp)
 		{
 			admin.POST("/confirm", middleware.RateLimit(10, time.Minute), h.AdminConfirm)
+			admin.GET("/stations", h.AdminStations)
+			admin.POST("/stations", h.AdminStationCreate)
+			admin.PUT("/stations/:id", h.AdminStationUpdate)
+			admin.PUT("/stations/:id/status", h.AdminStationStatus)
+			admin.GET("/stations/:id/products", h.AdminStationProducts)
+			admin.PUT("/stations/:id/products", h.AdminStationProduct)
+			admin.POST("/stations/:id/invite", h.AdminStationInvite)
+			admin.POST("/stations/:id/reset-2fa", h.AdminStationResetTOTP)
+			admin.POST("/station-applications/:id/reject", h.AdminStationReject)
 			admin.GET("/readiness", h.AdminReadiness)
 			admin.POST("/readiness/https", middleware.RateLimit(6, time.Minute), h.AdminTestHTTPS)
 			admin.POST("/readiness/email", middleware.RateLimit(3, time.Minute), h.AdminTestEmail)

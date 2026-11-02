@@ -33,6 +33,10 @@ func (s *Service) AgentLogin(code, password string) (string, error) {
 	if s.db.Where("code = ? AND enabled = ?", code, true).First(&a).Error != nil || a.PasswordHash == "" || bcrypt.CompareHashAndPassword([]byte(a.PasswordHash), []byte(password)) != nil {
 		return "", errors.New("代理码或密码不正确")
 	}
+	var stations int64
+	if s.db.Model(&model.Station{}).Where("agent_id = ?", a.ID).Count(&stations).Error != nil || stations > 0 || a.TOTPSecret != "" {
+		return "", errors.New("请从分站专属后台登录")
+	}
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"sub": a.ID, "version": a.SessionVersion, "aud": "agent", "exp": time.Now().Add(8 * time.Hour).Unix()}).SignedString([]byte(s.cfg.JWT.Secret + ":agent"))
 }
 func (s *Service) AgentToken(raw string) (uint, error) {

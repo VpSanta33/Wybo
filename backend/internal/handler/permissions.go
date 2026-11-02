@@ -14,6 +14,8 @@ func permissionFor(method, path string) string {
 		return "self"
 	}
 	switch {
+	case strings.HasPrefix(p, "/stations") || strings.HasPrefix(p, "/station-applications"):
+		return "stations.manage"
 	case strings.HasPrefix(p, "/staff"):
 		return "staff"
 	case strings.HasPrefix(p, "/readiness"):
@@ -115,7 +117,7 @@ func needsConfirm(method, path string) bool {
 	if method == "GET" {
 		return false
 	}
-	return strings.HasSuffix(path, "/payment") || strings.HasSuffix(path, "/cleanup") || strings.HasSuffix(path, "/cancel") || strings.Contains(path, "/staff") || strings.HasSuffix(path, "/refund") || strings.HasSuffix(path, "/paid") || strings.HasSuffix(path, "/password")
+	return strings.HasSuffix(path, "/invite") || strings.HasSuffix(path, "/reset-2fa") || strings.HasSuffix(path, "/payment") || strings.HasSuffix(path, "/cleanup") || strings.HasSuffix(path, "/cancel") || strings.Contains(path, "/staff") || strings.HasSuffix(path, "/refund") || strings.HasSuffix(path, "/paid") || strings.HasSuffix(path, "/password")
 }
 func (h *Handler) AdminStepUp(c *gin.Context) {
 	if needsConfirm(c.Request.Method, c.FullPath()) && !h.svc.ValidateConfirm(c.GetUint("admin_id"), c.GetHeader("X-Admin-Confirm"), c.Request.URL.Path) {

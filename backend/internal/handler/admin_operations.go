@@ -90,7 +90,7 @@ func (h *Handler) RecordVisit(c *gin.Context) {
 		response.Error(c, 400, "参数错误")
 		return
 	}
-	if err := h.svc.RecordVisit(req.Path, req.Source, c.ClientIP(), c.GetHeader("User-Agent")); err != nil {
+	if err := h.publicService(c).RecordVisit(req.Path, req.Source, c.ClientIP(), c.GetHeader("User-Agent")); err != nil {
 		response.Error(c, 500, "记录失败")
 		return
 	}
