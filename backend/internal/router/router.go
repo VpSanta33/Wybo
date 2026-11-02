@@ -177,6 +177,7 @@ func New(db *gorm.DB, cfg *config.Config, logger *zap.Logger) *gin.Engine {
 			admin.GET("/settings", h.AdminGetSettings)
 			admin.PUT("/settings", h.AdminUpdateSettings)
 			admin.POST("/settings/image", h.AdminSiteImage)
+			admin.POST("/settings/bark/test", middleware.RateLimit(3, time.Minute), h.AdminTestBark)
 			admin.POST("/upload", h.AdminUpload)
 		}
 	}

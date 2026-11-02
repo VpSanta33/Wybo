@@ -606,6 +606,7 @@ export function Notifications({ notify }: { notify: (m: string) => void }) {
     delivery_email: "顾客发货邮件",
     merchant_email: "店主成交邮件",
     merchant_webhook: "成交 Webhook",
+    merchant_bark: "Bark 成交通知",
   };
   return (
     <>

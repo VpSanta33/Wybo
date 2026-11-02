@@ -28,3 +28,13 @@ func (h *Handler) AdminUpdateSettings(c *gin.Context) {
 	}
 	response.OK(c, nil)
 }
+
+func (h *Handler) AdminTestBark(c *gin.Context) {
+	if err := h.svc.TestBark(c.Request.Context()); err != nil {
+		h.svc.Audit(c.GetUint("admin_id"), "bark.test", "bark", 400)
+		response.Error(c, 400, err.Error())
+		return
+	}
+	h.svc.Audit(c.GetUint("admin_id"), "bark.test", "bark", 200)
+	response.OK(c, gin.H{"message": "Bark 服务已接受测试推送，请在手机上确认收到通知。"})
+}

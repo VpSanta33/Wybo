@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-var allowedSettings = map[string]bool{"station_apply_enabled": true, "site_brand": true, "site_logo": true, "site_favicon": true, "site_footer": true, "turnstile_enabled": true, "turnstile_site_key": true, "turnstile_secret_key": true, "default_redeem_url": true, "site_url": true, "backup_retention_days": true, "runtime_alert_email": true, "stock_threshold": true, "stock_alert_email": true, "backup_interval_hours": true, "reconcile_enabled": true, "site_name": true, "site_desc": true, "announcement": true, "customer_service": true, "resend_enabled": true, "resend_api_key": true, "resend_from": true, "order_push_enabled": true, "order_notify_email": true, "order_webhook_url": true, "order_webhook_secret": true, "pay_notify_base": true, "pay_return_url": true}
+var allowedSettings = map[string]bool{"station_apply_enabled": true, "site_brand": true, "site_logo": true, "site_favicon": true, "site_footer": true, "turnstile_enabled": true, "turnstile_site_key": true, "turnstile_secret_key": true, "default_redeem_url": true, "site_url": true, "backup_retention_days": true, "runtime_alert_email": true, "stock_threshold": true, "stock_alert_email": true, "backup_interval_hours": true, "reconcile_enabled": true, "site_name": true, "site_desc": true, "announcement": true, "customer_service": true, "resend_enabled": true, "resend_api_key": true, "resend_from": true, "order_push_enabled": true, "order_notify_email": true, "order_webhook_url": true, "order_webhook_secret": true, "order_bark_enabled": true, "order_bark_server": true, "order_bark_key": true, "order_bark_group": true, "pay_notify_base": true, "pay_return_url": true}
 
 func (s *Service) GetSettings() (map[string]string, error) {
 	var rows []model.Setting
@@ -37,6 +37,20 @@ func (s *Service) UpdateSettings(values map[string]string) error {
 		values[k] = strings.TrimSpace(v)
 	}
 	for k, v := range values {
+		if (k == "order_bark_enabled" || k == "order_push_enabled") && v != "true" && v != "false" {
+			return errors.New("成交推送开关无效")
+		}
+		if k == "order_bark_server" {
+			if _, err := barkEndpoint(v); err != nil {
+				return err
+			}
+		}
+		if k == "order_bark_key" && v != "" && v != maskedSecret && !barkDeviceKey.MatchString(v) {
+			return errors.New("Bark 设备 Key 须为字母、数字、短横线或下划线，请勿填写整条推送链接")
+		}
+		if k == "order_bark_group" && !validGatewayDisplayName(v) {
+			return errors.New("Bark 消息分组最多 60 个字，不能包含换行")
+		}
 		if k == "stock_threshold" || k == "backup_interval_hours" || k == "backup_retention_days" {
 			n, e := strconv.Atoi(v)
 			if e != nil || n < 0 || (k == "backup_retention_days" && n > 3650) || (k == "stock_threshold" && n > 10000) || (k == "backup_interval_hours" && (n > 720 || (n > 0 && n < 1))) {
@@ -68,6 +82,19 @@ func (s *Service) UpdateSettings(values map[string]string) error {
 			if _, err := mail.ParseAddress(v); err != nil {
 				return errors.New("邮箱格式不正确")
 			}
+		}
+	}
+	barkEnabled := s.setting("order_bark_enabled", "false")
+	if v, ok := values["order_bark_enabled"]; ok {
+		barkEnabled = v
+	}
+	if barkEnabled == "true" {
+		key := values["order_bark_key"]
+		if key == "" || key == maskedSecret {
+			key = s.setting("order_bark_key", "")
+		}
+		if !barkDeviceKey.MatchString(key) {
+			return errors.New("启用 Bark 前请填写并保存设备 Key")
 		}
 	}
 	enabled := s.setting("turnstile_enabled", "false")

@@ -36,6 +36,9 @@ func (s *Service) NotifyByEmail(orderNo string) error {
 		if s.setting("order_webhook_url", "") != "" {
 			channels = append(channels, "merchant_webhook")
 		}
+		if s.setting("order_bark_enabled", "false") == "true" && s.setting("order_bark_key", "") != "" {
+			channels = append(channels, "merchant_bark")
+		}
 	}
 	for _, ch := range channels {
 		if err := s.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.Notification{OrderID: order.ID, Channel: ch, Status: "pending", NextAttemptAt: time.Now()}).Error; err != nil {
@@ -119,6 +122,9 @@ func (s *Service) sendNotification(ctx context.Context, job model.Notification) 
 		}
 		b.WriteString("\n请妥善保管商品信息。\nWybo · 望月小铺")
 		return s.sendResend(ctx, o.Email, "您的商品已送达 · Wybo", b.String(), key)
+	}
+	if job.Channel == "merchant_bark" {
+		return s.sendBarkOrder(ctx, o)
 	}
 	text := fmt.Sprintf("订单 %s 已成交\n实收：¥%.2f\n渠道：%s\n状态：%s", o.OrderNo, float64(o.TotalCents)/100, o.PayMethod, o.Status)
 	if o.CostCents != nil {

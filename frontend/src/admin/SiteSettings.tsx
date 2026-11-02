@@ -1,11 +1,13 @@
 import { useState, type FormEvent, type KeyboardEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
+  BellRing,
   CreditCard,
   ExternalLink,
   Globe,
   Mail,
   Save,
+  Send,
   ShieldCheck,
   Upload,
   Webhook,
@@ -54,6 +56,10 @@ const tabs = [
       "order_notify_email",
       "order_webhook_url",
       "order_webhook_secret",
+      "order_bark_enabled",
+      "order_bark_server",
+      "order_bark_key",
+      "order_bark_group",
     ],
   },
   {
@@ -63,6 +69,7 @@ const tabs = [
     keys: ["pay_notify_base", "pay_return_url"],
   },
 ];
+const barkKeys = ["order_bark_server", "order_bark_key", "order_bark_group"];
 export function Settings({ notify }: { notify: (message: string) => void }) {
   const q = useAdminQuery<Record<string, string>>("/settings");
   if (q.loading) return <Busy />;
@@ -83,9 +90,16 @@ function SettingsForm({
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState("");
   const [error, setError] = useState("");
+  const [barkTesting, setBarkTesting] = useState(false);
+  const [barkResult, setBarkResult] = useState<{
+    message: string;
+    success: boolean;
+  } | null>(null);
   const { refresh } = useSite();
-  const set = (key: string, value: string) =>
+  const set = (key: string, value: string) => {
+    if (barkKeys.includes(key)) setBarkResult(null);
     setV((current) => ({ ...current, [key]: value }));
+  };
   const dirty = (keys: string[]) =>
     keys.some((key) => (v[key] || "") !== (saved[key] || ""));
   function selectTab(id: string) {
@@ -206,7 +220,7 @@ function SettingsForm({
   }
   async function save(event: FormEvent) {
     event.preventDefault();
-    if (busy || uploading) return;
+    if (busy || uploading || barkTesting) return;
     setBusy(true);
     setError("");
     try {
@@ -231,6 +245,22 @@ function SettingsForm({
       setBusy(false);
     }
   }
+  async function testBark() {
+    if (barkTesting || busy || dirty(barkKeys) || !saved.order_bark_key)
+      return;
+    setBarkTesting(true);
+    setBarkResult(null);
+    try {
+      const result = await adminApi<{ message: string }>("/settings/bark/test", {
+        method: "POST",
+      });
+      setBarkResult({ message: result.message, success: true });
+    } catch (e) {
+      setBarkResult({ message: (e as Error).message, success: false });
+    } finally {
+      setBarkTesting(false);
+    }
+  }
   return (
     <>
       <PageHeading
@@ -249,7 +279,7 @@ function SettingsForm({
               aria-controls={`settings-panel-${tab.id}`}
               aria-selected={tab.id === active.id}
               tabIndex={tab.id === active.id ? 0 : -1}
-              disabled={busy || !!uploading}
+              disabled={busy || !!uploading || barkTesting}
               onClick={() => selectTab(tab.id)}
               onKeyDown={(e) => tabKey(e, index)}
             >
@@ -270,7 +300,7 @@ function SettingsForm({
         aria-labelledby={`settings-tab-${active.id}`}
       >
         {error && <Banner>{error}</Banner>}
-        <fieldset className="a-settings-fields" disabled={busy}>
+        <fieldset className="a-settings-fields" disabled={busy || barkTesting}>
           {active.id === "general" && (
             <>
               <section className="a-panel a-settings-panel">
@@ -416,6 +446,77 @@ function SettingsForm({
             <>
               <section className="a-panel a-settings-panel">
                 <div className="a-settings-intro">
+                  <i className="a-icon-violet">
+                    <BellRing size={22} />
+                  </i>
+                  <h2>成交订单推送</h2>
+                  <p>订单付款后，用 Bark 将好消息送到手机。</p>
+                  <a
+                    href="https://bark.day.app/"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Bark 使用说明 <ExternalLink size={13} />
+                  </a>
+                </div>
+                <div>
+                  {toggle(
+                    "order_push_enabled",
+                    "启用成交推送",
+                    "支持 Bark、店主邮件与 Webhook，可同时使用。",
+                  )}
+                  <h3>Bark 手机通知</h3>
+                  {toggle(
+                    "order_bark_enabled",
+                    "启用 Bark 通知",
+                    "需同时开启成交推送；不依赖 Resend。",
+                  )}
+                  {input(
+                    "order_bark_server",
+                    "Bark 服务器地址",
+                    "留空使用 https://api.day.app；自建服务器填写根地址，不包含设备 Key。",
+                    "url",
+                    2048,
+                  )}
+                  {input(
+                    "order_bark_key",
+                    "Bark 设备 Key",
+                    "例如链接 https://api.day.app/YourKey/测试 中，只填写 YourKey。保存后加密并显示为 ********；留空沿用。",
+                    "password",
+                  )}
+                  {input(
+                    "order_bark_group",
+                    "Bark 消息分组",
+                    "留空使用「Wybo 成交订单」，最多 60 个字。",
+                    "text",
+                    60,
+                  )}
+                  <p className="a-inline-note">
+                    推送包含商品、订单号、实收、成本与销售利润，不包含卡密或买家联系方式。
+                  </p>
+                  <button
+                    type="button"
+                    className="a-button"
+                    disabled={
+                      barkTesting || busy || dirty(barkKeys) || !saved.order_bark_key
+                    }
+                    onClick={testBark}
+                  >
+                    <Send size={15} aria-hidden="true" />
+                    {barkTesting ? "正在发送测试…" : "发送 Bark 测试通知"}
+                  </button>
+                  <p className="a-inline-note">
+                    请先保存配置。测试仅使用已保存的地址和 Key，不发送真实订单。
+                  </p>
+                  {barkResult && (
+                    <Banner success={barkResult.success}>
+                      {barkResult.message}
+                    </Banner>
+                  )}
+                </div>
+              </section>
+              <section className="a-panel a-settings-panel">
+                <div className="a-settings-intro">
                   <i className="a-icon-blue">
                     <Mail size={22} />
                   </i>
@@ -453,15 +554,10 @@ function SettingsForm({
                   <i className="a-icon-violet">
                     <Webhook size={22} />
                   </i>
-                  <h2>成交订单推送</h2>
-                  <p>向店主发送成交金额、成本与销售利润。</p>
+                  <h2>其他成交推送</h2>
+                  <p>开启成交推送后，也可通过邮件和 Webhook 接收。</p>
                 </div>
                 <div>
-                  {toggle(
-                    "order_push_enabled",
-                    "启用成交推送",
-                    "支持店主邮件与 Webhook，可分别配置。",
-                  )}
                   {input(
                     "order_notify_email",
                     "店主接收邮箱",
@@ -517,7 +613,7 @@ function SettingsForm({
                 ? "当前分类有未保存的修改"
                 : "设置已同步"}
           </span>
-          <button className="a-button primary" disabled={busy || !!uploading}>
+          <button className="a-button primary" disabled={busy || !!uploading || barkTesting}>
             <Save size={16} />
             {busy ? "保存中…" : "保存" + active.title}
           </button>
