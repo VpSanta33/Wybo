@@ -24,10 +24,12 @@ type CreateReq struct {
 
 // CreateResp 统一下单响应
 type CreateResp struct {
-	ProviderID string `json:"-"`
-	PayURL     string `json:"pay_url"` // 收银台/跳转地址
-	QRCode     string `json:"qr"`      // 二维码内容（链接或图片地址）
-	Type       string `json:"type"`    // url | qr
+	ProviderID string            `json:"-"`
+	PayURL     string            `json:"pay_url"`            // 收银台/跳转地址
+	QRCode     string            `json:"qr"`                 // 二维码内容（链接或图片地址）
+	QRImage    string            `json:"qr_image,omitempty"` // 渠道直接返回的二维码图片
+	Form       map[string]string `json:"form,omitempty"`     // POST 跳转的已签名字段，不含商户密钥
+	Type       string            `json:"type"`               // url | qr | form
 }
 
 // Notify 回调解析结果（已完成验签）

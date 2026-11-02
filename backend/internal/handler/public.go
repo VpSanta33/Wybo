@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -195,7 +196,15 @@ func (h *Handler) Pay(c *gin.Context) {
 		return
 	}
 	notifyBase, returnURL := h.publicService(c).OrderPayURLs(order)
-	if u, err := url.Parse(returnURL); err == nil {
+	if req.Gateway == model.GatewayEpay {
+		// ZPAY disallows query parameters in return_url. The gateway returns
+		// out_trade_no to this fixed endpoint, which redirects to the original shop.
+		if u, err := url.Parse(notifyBase); err == nil {
+			u.Path = path.Join(u.Path, "..", "return")
+			u.RawPath, u.RawQuery, u.Fragment = "", "", ""
+			returnURL = u.String()
+		}
+	} else if u, err := url.Parse(returnURL); err == nil {
 		q := u.Query()
 		q.Set("order_no", orderNo)
 		u.RawQuery = q.Encode()
@@ -207,6 +216,7 @@ func (h *Handler) Pay(c *gin.Context) {
 		Extra: map[string]string{
 			"notify_url": strings.TrimRight(notifyBase, "/") + "/" + req.Gateway,
 			"return_url": returnURL,
+			"device":     paymentDevice(c.GetHeader("User-Agent")),
 		},
 	}
 	resp, err := h.publicService(c).CreateCheckout(c.Request.Context(), req.Gateway, createReq)
@@ -215,6 +225,20 @@ func (h *Handler) Pay(c *gin.Context) {
 		return
 	}
 	response.OK(c, resp)
+}
+
+func paymentDevice(ua string) string {
+	ua = strings.ToLower(ua)
+	if strings.Contains(ua, "micromessenger") {
+		return "wechat"
+	}
+	if strings.Contains(ua, "alipayclient") {
+		return "alipay"
+	}
+	if strings.Contains(ua, "android") || strings.Contains(ua, "iphone") || strings.Contains(ua, "ipad") || strings.Contains(ua, "mobile") {
+		return "mobile"
+	}
+	return "pc"
 }
 
 // PayNotify 支付异步回调（验签 + 幂等 + 发卡）

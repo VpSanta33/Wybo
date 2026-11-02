@@ -108,7 +108,7 @@ sudo journalctl -u wybo -f
 | 渠道 | 当前实现 | 配置说明 |
 | --- | --- | --- |
 | Stripe | Checkout 一次性付款，人民币订单，支持银行卡、支付宝和微信支付 | 实际可用方式取决于 Stripe 账户地区、开通情况及交易条件，需要配置 Webhook |
-| 易支付 | 传统 `submit.php` 跳转与 MD5 签名协议 | 当前一个渠道配置对应一种支付类型，其他协议版本需要适配 |
+| 易支付 / ZPAY | `submit.php` POST / GET 跳转、`mapi.php` API 下单、MD5 通知、主动查单及未发货订单原路全额退款 | 支持渠道 ID、收银台链接与二维码；当前一个配置对应一种支付类型 |
 | DujiaoPay | HMAC API 下单与独立 Webhook 验签 | 默认对外显示为 USDT 支付，需在商户侧配置到账通知及实际支持的网络 |
 | BEpusdt | `create-transaction` 下单与 JSON MD5 回调 | 需要独立部署 BEpusdt 网关，商城部署脚本不安装该网关 |
 

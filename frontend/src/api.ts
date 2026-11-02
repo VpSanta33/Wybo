@@ -287,12 +287,20 @@ export async function queryOrder(
   return { ...order, contact };
 }
 
+export type PaymentCheckout = {
+  pay_url: string;
+  type: "url" | "form" | "qr";
+  form?: Record<string, string>;
+  qr?: string;
+  qr_image?: string;
+};
+
 export async function startPayment(
   orderNo: string,
   gateway: string,
   contact: string,
-): Promise<string> {
-  const result = await api<{ pay_url: string; type: string }>(
+): Promise<PaymentCheckout> {
+  const result = await api<PaymentCheckout>(
     `/orders/${encodeURIComponent(orderNo)}/pay`,
     {
       method: "POST",
@@ -300,9 +308,25 @@ export async function startPayment(
       signal: AbortSignal.timeout(25000),
     },
   );
-  if (!result.pay_url || !/^https?:\/\//i.test(result.pay_url))
+  if (
+    result.type === "qr" &&
+    (result.qr || /^https?:\/\//i.test(result.qr_image || ""))
+  )
+    return result;
+  if (
+    !result.pay_url ||
+    !/^https?:\/\//i.test(result.pay_url) ||
+    !["url", "form"].includes(result.type)
+  )
     throw new Error("支付渠道暂未提供有效收银台地址，请稍后重试或联系店主。");
-  return result.pay_url;
+  if (
+    result.type === "form" &&
+    (!result.form ||
+      !Object.keys(result.form).length ||
+      Object.values(result.form).some((v) => typeof v !== "string"))
+  )
+    throw new Error("支付参数不完整，请稍后重试或联系店主。");
+  return result;
 }
 
 export function attribution() {

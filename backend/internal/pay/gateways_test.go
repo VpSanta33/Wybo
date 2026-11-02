@@ -31,7 +31,7 @@ func TestExactMoney(t *testing.T) {
 	}
 }
 func TestEpayNotifyTampering(t *testing.T) {
-	g := NewEpay(map[string]string{"pid": "100", "key": "test-secret", "api_url": "https://pay.example.test"})
+	g := NewEpay(map[string]string{"pid": "100", "key": "test-secret", "api_url": "https://pay.example.test", "submit_method": "get"})
 	res, err := g.CreateOrder(context.Background(), &CreateReq{OrderNo: "ORDER1", AmountCents: 11500, Subject: "Plus", Extra: map[string]string{"notify_url": "https://shop.test/notify", "return_url": "https://shop.test/orders"}})
 	if err != nil {
 		t.Fatal(err)

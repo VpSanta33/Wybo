@@ -3162,3 +3162,33 @@ summary::-webkit-details-marker {
 .query-card.has-result .query-card-heading {
   margin-bottom: 8px;
 }
+
+.payment-qr-panel {
+  margin: 18px 0;
+  padding: 20px;
+  text-align: center;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: #fff;
+}
+.payment-qr-panel h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+.payment-qr-panel > strong {
+  display: block;
+  font-size: 24px;
+}
+.payment-qr-panel img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  margin: 14px auto;
+}
+.payment-qr-panel p {
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.8;
+  margin: 12px 0 0;
+}

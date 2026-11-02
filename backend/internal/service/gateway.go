@@ -72,6 +72,11 @@ func (s *Service) UpdateGateway(code string, enabled bool, config string) error 
 	if !validGatewayLogo(old["logo_url"]) {
 		return errors.New("请上传 PNG、JPG 或 GIF 格式的渠道 Logo")
 	}
+	if code == model.GatewayEpay {
+		if err := pay.ValidateEpayConfig(old); err != nil {
+			return err
+		}
+	}
 	if code == "stripe" {
 		methods, err := pay.StripePaymentMethods(old["payment_methods"])
 		if err != nil {

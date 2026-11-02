@@ -40,6 +40,7 @@ type GatewaySpec = {
     hint?: string;
     secret?: boolean;
     placeholder?: string;
+    options?: { value: string; label: string }[];
   }[];
 };
 const specs: Record<string, GatewaySpec> = {
@@ -70,13 +71,14 @@ const specs: Record<string, GatewaySpec> = {
   },
   epay: {
     title: "易支付",
-    description: "支付宝、微信等聚合收款",
+    description: "ZPAY / 易支付 · 支付宝、微信聚合收款",
     docs: "",
     fields: [
       {
         key: "api_url",
         label: "网关地址",
-        placeholder: "https://pay.example.com",
+        placeholder: "https://zpayz.cn",
+        hint: "填写商户平台的网关地址，也可粘贴 submit.php 或 mapi.php 完整地址。",
       },
       { key: "pid", label: "商户 ID（PID）" },
       { key: "key", label: "商户密钥", secret: true },
@@ -85,6 +87,40 @@ const specs: Record<string, GatewaySpec> = {
         label: "支付类型",
         placeholder: "alipay",
         hint: "例如 alipay 或 wxpay，取决于你的服务商",
+        options: [
+          { value: "alipay", label: "支付宝" },
+          { value: "wxpay", label: "微信支付" },
+          { value: "qqpay", label: "QQ 钱包（需服务商支持）" },
+          { value: "tenpay", label: "财付通（需服务商支持）" },
+        ],
+      },
+      {
+        key: "mode",
+        label: "下单模式",
+        hint: "页面跳转适合大多数站点；API 模式可在本站显示渠道返回的付款码。",
+        options: [
+          { value: "submit", label: "页面跳转（submit.php，推荐）" },
+          { value: "mapi", label: "API 下单（mapi.php）" },
+        ],
+      },
+      {
+        key: "submit_method",
+        label: "页面跳转方式",
+        options: [
+          { value: "post", label: "POST 表单（推荐）" },
+          { value: "get", label: "GET 链接（兼容模式）" },
+        ],
+      },
+      {
+        key: "cid",
+        label: "支付渠道 ID（可选）",
+        placeholder: "1234 或 1234,5678",
+        hint: "留空由平台选择。多个渠道 ID 使用英文逗号分隔。",
+      },
+      {
+        key: "sitename",
+        label: "收银台网站名称（可选）",
+        hint: "留空使用当前店铺名称；仅用于页面跳转模式。",
       },
     ],
   },
@@ -423,19 +459,43 @@ function GatewayEditor({
             hint: "例如 30 = ¥0.30；无固定费用请填写 0。",
             placeholder: "0",
           },
-        ].map((f) => (
-          <Field key={f.key} label={f.label} hint={f.hint}>
-            <input
-              type={f.secret ? "password" : "text"}
-              autoComplete="off"
-              placeholder={f.placeholder}
-              value={values[f.key] || ""}
-              onChange={(e) =>
-                setValues({ ...values, [f.key]: e.target.value })
-              }
-            />
-          </Field>
-        ))}
+        ]
+          .filter(
+            (f) =>
+              !(
+                gateway.code === "epay" &&
+                values.mode === "mapi" &&
+                ["submit_method", "sitename"].includes(f.key)
+              ),
+          )
+          .map((f) => (
+            <Field key={f.key} label={f.label} hint={f.hint}>
+              {"options" in f && f.options ? (
+                <select
+                  value={values[f.key] || f.options[0].value}
+                  onChange={(e) =>
+                    setValues({ ...values, [f.key]: e.target.value })
+                  }
+                >
+                  {f.options.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type={f.secret ? "password" : "text"}
+                  autoComplete="off"
+                  placeholder={f.placeholder}
+                  value={values[f.key] || ""}
+                  onChange={(e) =>
+                    setValues({ ...values, [f.key]: e.target.value })
+                  }
+                />
+              )}
+            </Field>
+          ))}
         {gateway.code === "stripe" && (
           <section
             className="a-stripe-methods"

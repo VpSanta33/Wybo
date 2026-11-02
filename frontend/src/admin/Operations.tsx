@@ -605,6 +605,7 @@ export function OrderFinance({
   reload: () => void;
 }) {
   const [fee, setFee] = useState(""),
+    [refundNotice, setRefundNotice] = useState(""),
     [mode, setMode] = useState(""),
     [reason, setReason] = useState(""),
     [reference, setReference] = useState(""),
@@ -614,6 +615,11 @@ export function OrderFinance({
   return (
     <>
       <h3>手续费与佣金</h3>
+      {refundNotice && (
+        <p className="a-inline-note" role="status">
+          {refundNotice}
+        </p>
+      )}
       <div className="a-detail-line">
         <span>
           手续费 {order.fee_cents == null ? "待补全" : yuan(order.fee_cents)} ·{" "}
@@ -643,7 +649,11 @@ export function OrderFinance({
             <button
               className="a-table-button"
               onClick={() => {
-                setMode(order.pay_method === "stripe" ? "stripe" : "manual");
+                setMode(
+                  ["stripe", "epay"].includes(order.pay_method)
+                    ? order.pay_method
+                    : "manual",
+                );
                 setConfirm(false);
                 setReason("");
                 setReference("");
@@ -684,7 +694,13 @@ export function OrderFinance({
         <ActionDialog
           title="订单全额退款"
           description={`订单 ${order.order_no} · ${yuan(order.total_cents)}。退款期间会暂停发货。`}
-          label={mode === "stripe" ? "确认提交 / 查询退款" : "确认登记已退款"}
+          label={
+            mode === "stripe"
+              ? "确认提交 / 查询退款"
+              : mode === "epay"
+                ? "确认提交原路退款"
+                : "确认登记已退款"
+          }
           onClose={() => setMode("")}
           fields={
             <>
@@ -699,9 +715,17 @@ export function OrderFinance({
                   {order.pay_method === "stripe" && (
                     <option value="stripe">Stripe 原路全额退款</option>
                   )}
+                  {order.pay_method === "epay" && (
+                    <option value="epay">易支付原路全额退款</option>
+                  )}
                   <option value="manual">已在渠道退款，登记凭证</option>
                 </select>
               </Field>
+              {mode === "epay" && (
+                <p className="a-note">
+                  仅支持未发货订单。渠道返回未确认时会暂停发货，请到商户后台核实后登记凭证，勿重复申请。
+                </p>
+              )}
               <Field label="退款原因">
                 <textarea
                   required
@@ -732,15 +756,21 @@ export function OrderFinance({
                 />
                 {mode === "stripe"
                   ? "我确认提交全额退款；已有申请将查询或继续原申请"
-                  : "我确认已在渠道完成全额退款，并核对上述凭证"}
+                  : mode === "epay"
+                    ? "我确认向易支付提交一次全额原路退款"
+                    : "我确认已在渠道完成全额退款，并核对上述凭证"}
               </label>
             </>
           }
           submit={async () => {
-            await adminApi(`/orders/${order.order_no}/refund`, {
-              method: "POST",
-              body: JSON.stringify({ mode, reason, reference, confirm }),
-            });
+            const result = await adminApi<{ message: string }>(
+              `/orders/${order.order_no}/refund`,
+              {
+                method: "POST",
+                body: JSON.stringify({ mode, reason, reference, confirm }),
+              },
+            );
+            setRefundNotice(result.message);
             reload();
           }}
         />
