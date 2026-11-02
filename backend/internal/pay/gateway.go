@@ -38,6 +38,7 @@ type Notify struct {
 	OrderNo     string // 业务订单号（回传）
 	AmountCents int64  // 实付金额（分）
 	Status      string // success | failed
+	Message     string // Safe operator-facing query diagnostic, never raw provider data
 	Raw         string // 原始报文
 }
 

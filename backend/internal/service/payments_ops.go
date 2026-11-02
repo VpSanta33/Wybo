@@ -59,6 +59,9 @@ func (s *Service) CreateCheckout(ctx context.Context, code string, req *pay.Crea
 	}
 	var attempt model.CheckoutAttempt
 	if s.db.Where("order_id = ? AND gateway = ?", order.ID, code).First(&attempt).Error == nil {
+		if stripeMinimumRejected(attempt) {
+			return nil, pay.ErrStripeAmountTooSmall
+		}
 		if attempt.Result != "" {
 			var resp pay.CreateResp
 			if json.Unmarshal([]byte(attempt.Result), &resp) == nil {
@@ -106,7 +109,11 @@ func (s *Service) CreateCheckout(ctx context.Context, code string, req *pay.Crea
 	}
 	resp, err := gw.CreateOrder(ctx, req)
 	if err != nil {
-		s.db.Model(&attempt).Updates(map[string]interface{}{"status": "unknown", "message": "渠道请求未完成，请对账核实"})
+		status, message := "unknown", "渠道请求未完成，请对账核实"
+		if code == model.GatewayStripe && errors.Is(err, pay.ErrStripeAmountTooSmall) {
+			status, message = "failed", pay.ErrStripeAmountTooSmall.Error()
+		}
+		s.db.Model(&attempt).Updates(map[string]interface{}{"status": status, "message": message})
 		return nil, err
 	}
 	raw, _ := json.Marshal(resp)
@@ -117,10 +124,18 @@ func (s *Service) CreateCheckout(ctx context.Context, code string, req *pay.Crea
 	err = s.db.Model(&attempt).Updates(map[string]interface{}{"status": "created", "provider_id": provider, "result": string(raw)}).Error
 	return resp, err
 }
+
+func stripeMinimumRejected(a model.CheckoutAttempt) bool {
+	return a.Gateway == model.GatewayStripe && a.Status == "failed" && a.ProviderID == "" && a.Message == pay.ErrStripeAmountTooSmall.Error()
+}
+
 func (s *Service) Reconcile(ctx context.Context, id uint) (string, error) {
 	var a model.CheckoutAttempt
 	if s.db.First(&a, id).Error != nil {
 		return "", errors.New("支付申请不存在")
+	}
+	if stripeMinimumRejected(a) {
+		return a.Message, nil
 	}
 	update := func(status, msg string) {
 		now := time.Now()
@@ -147,8 +162,12 @@ func (s *Service) Reconcile(ctx context.Context, id uint) (string, error) {
 		return "", errors.New("渠道查询失败")
 	}
 	if n.Status != "success" {
-		update("unpaid", "渠道暂未确认付款")
-		return "渠道暂未确认付款", nil
+		message := "渠道暂未确认付款"
+		if a.Gateway == model.GatewayStripe && n.Message != "" {
+			message = n.Message
+		}
+		update("unpaid", message)
+		return message, nil
 	}
 	o, err := s.GetOrder(a.OrderNo)
 	if err != nil {

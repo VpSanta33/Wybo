@@ -6,10 +6,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -17,6 +19,10 @@ import (
 )
 
 const stripeAPI = "https://api.stripe.com/v1"
+
+// The minimum depends on the account's settlement currency and exchange rate.
+// Do not hardcode a CNY minimum or silently increase the customer's payment.
+var ErrStripeAmountTooSmall = errors.New("订单金额低于 Stripe 最低收款限制，请选择其他支付方式，或调整商品数量后重新下单")
 
 // Stripe Checkout（银行卡 / 支付宝 / 微信支付，原始 REST 实现，无需 SDK）
 // 配置项（cfg 来自数据库 gateways 表 JSON）：
@@ -91,9 +97,23 @@ func (g *Stripe) apiRequest(ctx context.Context, method, path string, form url.V
 		return err
 	}
 	defer resp.Body.Close()
-	data, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	data, readErr := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 	if resp.StatusCode >= 300 {
+		// Only this explicit validation rejection proves that Checkout was not
+		// created. Timeouts, malformed bodies and 5xx remain uncertain outcomes.
+		var detail struct {
+			Error struct {
+				Code string `json:"code"`
+				Type string `json:"type"`
+			} `json:"error"`
+		}
+		if readErr == nil && resp.StatusCode == http.StatusBadRequest && method == http.MethodPost && path == "/checkout/sessions" && json.Unmarshal(data, &detail) == nil && detail.Error.Code == "amount_too_small" && detail.Error.Type == "invalid_request_error" {
+			return ErrStripeAmountTooSmall
+		}
 		return fmt.Errorf("Stripe API 返回 HTTP %d", resp.StatusCode)
+	}
+	if readErr != nil {
+		return errors.New("Stripe 响应读取失败，请在后台对账核实")
 	}
 	if result != nil {
 		return json.Unmarshal(data, result)
@@ -265,11 +285,15 @@ func (g *Stripe) QueryOrder(ctx context.Context, payOrderNo string) (*Notify, er
 		payOrderNo = session.PaymentIntent
 	}
 	var pi struct {
-		ID       string            `json:"id"`
-		Status   string            `json:"status"`
-		Amount   int64             `json:"amount_received"`
-		Currency string            `json:"currency"`
-		Metadata map[string]string `json:"metadata"`
+		ID        string            `json:"id"`
+		Status    string            `json:"status"`
+		Amount    int64             `json:"amount_received"`
+		Currency  string            `json:"currency"`
+		Metadata  map[string]string `json:"metadata"`
+		LastError struct {
+			Code    string `json:"code"`
+			Decline string `json:"decline_code"`
+		} `json:"last_payment_error"`
 	}
 	if err := g.apiRequest(ctx, http.MethodGet, "/payment_intents/"+url.PathEscape(payOrderNo), nil, &pi); err != nil {
 		return nil, err
@@ -286,7 +310,34 @@ func (g *Stripe) QueryOrder(ctx context.Context, payOrderNo string) (*Notify, er
 		OrderNo:     pi.Metadata["order_no"],
 		AmountCents: pi.Amount,
 		Status:      status,
+		Message:     stripeQueryMessage(pi.Status, pi.LastError.Code, pi.LastError.Decline),
 	}, nil
+}
+
+var stripeDiagnosticCode = regexp.MustCompile(`^[a-z0-9_]{1,80}$`)
+
+func stripeQueryMessage(status, code, decline string) string {
+	if status == "succeeded" {
+		return ""
+	}
+	// Only expose bounded machine identifiers; provider messages may include
+	// customer information, client secrets or links to the merchant dashboard.
+	parts := []string{}
+	for _, part := range []struct{ label, value string }{{"状态", status}, {"错误码", code}, {"拒绝码", decline}} {
+		if stripeDiagnosticCode.MatchString(part.value) {
+			parts = append(parts, part.label+"："+part.value)
+		}
+	}
+	message := "Stripe 尚未确认付款"
+	if len(parts) > 0 {
+		message += "（" + strings.Join(parts, "；") + "）"
+	}
+	switch code {
+	case "authentication_failure", "payment_intent_authentication_failure":
+		return message + "。支付认证未通过，请按钱包提示核实账户，并在 Stripe 后台查看失败详情。"
+	default:
+		return message + "。请在 Stripe 后台查看这笔支付的详情；扫码页面报错时，以支付渠道的失败记录为准。"
+	}
 }
 
 // Stripe's refund endpoint supports idempotent creation and status lookup.
