@@ -2,6 +2,7 @@ import {
   lazy,
   Suspense,
   useEffect,
+  useId,
   useRef,
   useState,
   type FormEvent,
@@ -215,6 +216,86 @@ const navigation = [
   },
 ];
 
+const navigationGroups = [
+  { id: "analytics", label: "经营分析", icon: LayoutDashboard, paths: ["", "/conversion", "/reports"] },
+  { id: "catalog", label: "商品库存", icon: Package, paths: ["/products", "/inventory", "/stock", "/procurement"] },
+  { id: "orders", label: "订单售后", icon: ShoppingBag, paths: ["/orders", "/after-sales", "/tickets"] },
+  { id: "channels", label: "渠道与营销", icon: Store, paths: ["/peers", "/stations", "/agents", "/settlements", "/coupons"] },
+  { id: "payments", label: "支付管理", icon: CreditCard, paths: ["/payments", "/reconciliation"] },
+  { id: "system", label: "系统设置", icon: ShieldCheck, paths: ["/settings", "/notifications", "/readiness", "/runtime", "/maintenance", "/team", "/security"] },
+];
+
+function matchesNavigation(pathname: string, base: string, path: string) {
+  const current = pathname.replace(/\/$/, "");
+  return current === base + path || (!!path && current.startsWith(base + path + "/"));
+}
+
+function AdminNavigation({ base, pathname, user, onNavigate }: {
+  base: string;
+  pathname: string;
+  user: AdminUser;
+  onNavigate: () => void;
+}) {
+  const prefix = useId();
+  const can = (permission: string) => permission === "self" || user.permissions.includes("*") || user.permissions.includes(permission);
+  const groups = navigationGroups.map((group) => ({
+    ...group,
+    children: group.paths.flatMap((path) => navigation.filter((item) => item.path === path && can(item.permission))),
+  })).filter((group) => group.children.length > 0);
+  const activeGroup = groups.find((group) => group.children.some((item) => matchesNavigation(pathname, base, item.path)))?.id;
+  const storageKey = `wybo-admin-navigation-v1-${user.id}`;
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved: unknown = JSON.parse(localStorage.getItem(storageKey) || "{}");
+      if (saved && typeof saved === "object" && !Array.isArray(saved)) {
+        return { ...Object.fromEntries(Object.entries(saved).filter(([key, value]) => navigationGroups.some((g) => g.id === key) && typeof value === "boolean")), ...(activeGroup ? { [activeGroup]: true } : {}) };
+      }
+    } catch { /* A blocked storage must not prevent navigation. */ }
+    return activeGroup ? { [activeGroup]: true } : {};
+  });
+  useEffect(() => {
+    if (activeGroup) setExpanded((previous) => ({ ...previous, [activeGroup]: true }));
+  }, [activeGroup, pathname]);
+  useEffect(() => {
+    try { localStorage.setItem(storageKey, JSON.stringify(expanded)); } catch { /* Optional preference. */ }
+  }, [expanded, storageKey]);
+  return (
+    <nav aria-label="后台导航">
+      {groups.map((group) => {
+        const isOpen = !!expanded[group.id];
+        const selected = group.id === activeGroup;
+        const id = `${prefix}-${group.id}`;
+        return (
+          <section className="a-nav-group" key={group.id}>
+            <button
+              type="button"
+              className={`a-nav-group-toggle ${selected ? "has-current" : ""}`}
+              aria-expanded={isOpen}
+              aria-controls={id}
+              onClick={() => setExpanded((previous) => ({ ...previous, [group.id]: !previous[group.id] }))}
+            >
+              <group.icon size={18} aria-hidden="true" />
+              <span>{group.label}</span>
+              {selected && !isOpen && <i className="a-nav-dot" aria-hidden="true" />}
+              <ChevronRight size={15} className="a-nav-chevron" aria-hidden="true" />
+            </button>
+            <ul className="a-nav-children" id={id} hidden={!isOpen}>
+              {group.children.map((item) => (
+                <li key={item.path}>
+                  <NavLink to={base + item.path} end={!item.path} onClick={onNavigate}>
+                    <item.icon size={16} aria-hidden="true" />
+                    <span>{item.label}</span>
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+    </nav>
+  );
+}
+
 function Login({ onLogin }: { onLogin: () => void }) {
   const { site } = useSite();
   const [username, setUsername] = useState("");
@@ -354,7 +435,7 @@ export default function AdminApp() {
         sidebar.current?.querySelectorAll<HTMLElement>(
           "a[href],button:not([disabled])",
         ) || [],
-      );
+      ).filter((element) => element.getClientRects().length > 0);
     controls()[0]?.focus();
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -519,22 +600,7 @@ export default function AdminApp() {
             </span>
           </Link>
           <span className="a-nav-label">小铺工作台</span>
-          <nav aria-label="后台导航">
-            {visible.map((n, i) => (
-              <NavLink
-                key={n.path}
-                to={base + n.path}
-                end={!n.path}
-                className={({ isActive }) =>
-                  `${isActive ? "active" : ""} ${i === 5 ? "a-nav-divider" : ""}`
-                }
-              >
-                <n.icon size={18} />
-                <span>{n.label}</span>
-                {!n.path && <span className="a-nav-dot" />}
-              </NavLink>
-            ))}
-          </nav>
+          <AdminNavigation key={user.id} base={base} pathname={location.pathname} user={user} onNavigate={() => setOpen(false)} />
           <div className="a-sidebar-bottom">
             <div className="a-sidebar-tip">
               <Moon size={20} />
