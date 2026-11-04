@@ -96,22 +96,9 @@ func (s *Service) UpdateGateway(code string, enabled bool, config string) error 
 			}
 		}
 	}
-	required := map[string][]string{"epay": {"api_url", "pid", "key"}, "stripe": {"secret_key", "webhook_secret"}, "dujiaopay": {"api_url", "key_id", "secret", "webhook_secret"}, "bepusdt": {"api_url", "api_token"}}
 	if enabled {
-		keys, ok := required[code]
-		if !ok {
-			return errors.New("该渠道尚不可用")
-		}
-		for _, k := range keys {
-			if old[k] == "" {
-				return errors.New("请填写完整配置：" + k)
-			}
-		}
-		if old["api_url"] != "" && !validHTTPURL(old["api_url"]) {
-			return errors.New("网关地址必须是有效的 HTTP(S) 地址")
-		}
-		if code == "stripe" && old["currency"] != "" && strings.ToLower(old["currency"]) != "cny" {
-			return errors.New("店铺以人民币计价，Stripe 币种须为 cny")
+		if err := validateGatewayCheckout(code, old); err != nil {
+			return err
 		}
 	}
 	data, _ := json.Marshal(old)
@@ -120,4 +107,32 @@ func (s *Service) UpdateGateway(code string, enabled bool, config string) error 
 		return err
 	}
 	return s.db.Model(&g).Updates(map[string]interface{}{"enabled": enabled, "config": encrypted}).Error
+}
+
+// Use the same readiness rules for admin activation and customer visibility.
+func validateGatewayCheckout(code string, cfg map[string]string) error {
+	required := map[string][]string{"epay": {"api_url", "pid", "key"}, "stripe": {"secret_key", "webhook_secret"}, "dujiaopay": {"api_url", "key_id", "secret", "webhook_secret"}, "bepusdt": {"api_url", "api_token"}}
+	keys, ok := required[code]
+	if !ok {
+		return errors.New("该渠道尚不可用")
+	}
+	for _, k := range keys {
+		if strings.TrimSpace(cfg[k]) == "" || cfg[k] == maskedSecret {
+			return errors.New("请填写完整配置：" + k)
+		}
+	}
+	if cfg["api_url"] != "" && !validHTTPURL(cfg["api_url"]) {
+		return errors.New("网关地址必须是有效的 HTTP(S) 地址")
+	}
+	if code == model.GatewayEpay {
+		return pay.ValidateEpayConfig(cfg)
+	}
+	if code == model.GatewayStripe {
+		if cfg["currency"] != "" && strings.ToLower(cfg["currency"]) != "cny" {
+			return errors.New("店铺以人民币计价，Stripe 币种须为 cny")
+		}
+		_, err := pay.StripePaymentMethods(cfg["payment_methods"])
+		return err
+	}
+	return nil
 }

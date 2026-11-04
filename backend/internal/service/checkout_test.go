@@ -63,6 +63,62 @@ func TestCustomerGatewayDescriptionsMatchConfiguredMethods(t *testing.T) {
 	}
 }
 
+func TestCustomerGatewaysOnlyShowEnabledCompleteConfiguration(t *testing.T) {
+	s, db, _ := operationsFixture(t)
+	must(t, s.EnsureDefaultGateways())
+	must(t, db.Model(&model.Gateway{}).Where("1 = 1").Update("enabled", false).Error)
+	assertCodes := func(want string) {
+		t.Helper()
+		rows, err := s.CustomerGateways()
+		must(t, err)
+		if want == "" {
+			if rows == nil || len(rows) != 0 {
+				t.Fatalf("expected empty payment options, got %+v", rows)
+			}
+		} else if len(rows) != 1 || rows[0].Code != want {
+			t.Fatalf("expected only %s, got %+v", want, rows)
+		}
+	}
+	assertCodes("")
+	cases := []struct {
+		code, config string
+		keys         []string
+	}{
+		{"epay", `{"api_url":"https://pay.example.test","pid":"test-id","key":"test-only-key"}`, []string{"api_url", "pid", "key"}},
+		{"stripe", `{"secret_key":"test-only-stripe","webhook_secret":"test-only-webhook"}`, []string{"secret_key", "webhook_secret"}},
+		{"dujiaopay", `{"api_url":"https://pay.example.test","key_id":"test-id","secret":"test-only-key","webhook_secret":"test-only-webhook"}`, []string{"api_url", "key_id", "secret", "webhook_secret"}},
+		{"bepusdt", `{"api_url":"https://pay.example.test","api_token":"test-only-token"}`, []string{"api_url", "api_token"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.code, func(t *testing.T) {
+			// Enabled legacy rows with empty/broken settings stay hidden.
+			for _, config := range []string{`{}`, `{"display_name":"仅填写名称"}`, `invalid-json`, `enc:v1:invalid`} {
+				must(t, db.Model(&model.Gateway{}).Where("code = ?", tc.code).Updates(map[string]interface{}{"enabled": true, "config": config}).Error)
+				assertCodes("")
+			}
+			for _, key := range tc.keys {
+				cfg := map[string]string{}
+				must(t, json.Unmarshal([]byte(tc.config), &cfg))
+				cfg[key] = " "
+				encoded, err := json.Marshal(cfg)
+				must(t, err)
+				must(t, db.Model(&model.Gateway{}).Where("code = ?", tc.code).Update("config", string(encoded)).Error)
+				assertCodes("")
+			}
+			sealed, err := s.seal(tc.config)
+			must(t, err)
+			must(t, db.Model(&model.Gateway{}).Where("code = ?", tc.code).Update("config", sealed).Error)
+			assertCodes(tc.code)
+			must(t, db.Model(&model.Gateway{}).Where("code = ?", tc.code).Update("enabled", false).Error)
+			assertCodes("")
+		})
+	}
+	// A broken channel must not suppress another working channel.
+	must(t, db.Model(&model.Gateway{}).Where("code = ?", "epay").Updates(map[string]interface{}{"enabled": true, "config": "invalid-json"}).Error)
+	must(t, db.Model(&model.Gateway{}).Where("code = ?", "bepusdt").Update("enabled", true).Error)
+	assertCodes("bepusdt")
+}
+
 func TestRedemptionAddressValidationAndOlderOrders(t *testing.T) {
 	s, db, p := operationsFixture(t)
 	url := "https://redeem.example.test/activate"
@@ -134,7 +190,7 @@ func TestGatewayPublicBranding(t *testing.T) {
 	}
 	assertBrand("支付宝", "")
 	// Public reads also sanitize legacy values that bypassed the editor.
-	must(t, db.Model(&model.Gateway{}).Where("code = ?", "epay").Update("config", `{"logo_url":"data:text/html,test","display_name":"bad\nname"}`).Error)
+	must(t, db.Model(&model.Gateway{}).Where("code = ?", "epay").Update("config", `{"api_url":"https://pay.example.test","pid":"test-id","key":"test-only-secret","logo_url":"data:text/html,test","display_name":"bad\nname"}`).Error)
 	assertBrand("支付宝", "")
 }
 

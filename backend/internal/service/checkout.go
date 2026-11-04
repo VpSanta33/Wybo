@@ -1,7 +1,6 @@
 package service
 
 import (
-	"encoding/json"
 	"strings"
 
 	"github.com/wybo/backend/internal/model"
@@ -20,8 +19,8 @@ type PublicGateway struct {
 }
 
 func (s *Service) CustomerGateways() ([]PublicGateway, error) {
-	gateways, err := s.ListGateways()
-	if err != nil {
+	var gateways []model.Gateway
+	if err := s.db.Where("enabled = ?", true).Order("sort asc, id asc").Find(&gateways).Error; err != nil {
 		return nil, err
 	}
 	out := []PublicGateway{}
@@ -29,9 +28,10 @@ func (s *Service) CustomerGateways() ([]PublicGateway, error) {
 		if !g.Enabled {
 			continue
 		}
-		cfg := map[string]string{}
-		if err := json.Unmarshal([]byte(g.Config), &cfg); err != nil {
-			return nil, err
+		cfg, err := s.secretConfig(g.Config)
+		if err != nil || validateGatewayCheckout(g.Code, cfg) != nil {
+			// Incomplete or unreadable legacy settings must not create a payment option.
+			continue
 		}
 		row := PublicGateway{Code: g.Code, Name: g.Name}
 		switch g.Code {
