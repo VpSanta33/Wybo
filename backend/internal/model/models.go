@@ -134,7 +134,8 @@ type Order struct {
 	CouponID        *uint      `json:"coupon_id"`
 	PayMethod       string     `gorm:"size:32" json:"pay_method"`
 	PaidAt          *time.Time `json:"paid_at"`
-	ExpiredAt       time.Time  `json:"expired_at"` // 超时关闭时间
+	ExpiredAt       time.Time  `json:"expired_at"`     // 超时关闭时间
+	CleanedAt       *time.Time `gorm:"index" json:"-"` // 后台清理时间，保留查单与迟到支付处理
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
 }

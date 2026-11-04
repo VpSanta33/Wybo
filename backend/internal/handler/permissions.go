@@ -45,6 +45,9 @@ func permissionFor(method, path string) string {
 	case strings.Contains(p, "/reveal"):
 		return "cards.reveal"
 	case strings.HasPrefix(p, "/orders"):
+		if p == "/orders/cleanup" {
+			return "orders.cleanup"
+		}
 		if strings.HasSuffix(p, "/refund") {
 			return "aftersales.refund"
 		}

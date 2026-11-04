@@ -3,11 +3,38 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/wybo/backend/internal/service"
 	"github.com/wybo/backend/pkg/response"
 )
+
+func (h *Handler) AdminPreviewOrderCleanup(c *gin.Context) {
+	preview, err := h.svc.PreviewOrderCleanup()
+	if err != nil {
+		response.Error(c, 500, "待清理订单查询失败")
+		return
+	}
+	response.OK(c, preview)
+}
+
+func (h *Handler) AdminCleanupOrders(c *gin.Context) {
+	var req struct {
+		Before  time.Time `json:"before"`
+		Confirm bool      `json:"confirm"`
+	}
+	if c.ShouldBindJSON(&req) != nil || !req.Confirm {
+		response.Error(c, 400, "请先预览并确认清理过期未付款订单")
+		return
+	}
+	cleaned, err := h.svc.CleanupExpiredOrders(req.Before)
+	if err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.OK(c, gin.H{"cleaned": cleaned})
+}
 
 // AdminRefundOrder 退款（仅已支付待发卡订单）
 func (h *Handler) AdminRefundOrder(c *gin.Context) {

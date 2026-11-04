@@ -119,7 +119,7 @@ func (s *Service) BuildDashboard(days int) (map[string]interface{}, error) {
 		return nil, err
 	}
 	var recent []model.Order
-	if err := s.db.Order("id DESC").Limit(5).Find(&recent).Error; err != nil {
+	if err := s.db.Where("cleaned_at IS NULL").Order("id DESC").Limit(5).Find(&recent).Error; err != nil {
 		return nil, err
 	}
 	var items []model.OrderItem

@@ -114,7 +114,7 @@ func (s *Service) Dashboard() (map[string]interface{}, error) {
 func (s *Service) ListOrders(status string, page, size int) ([]model.Order, int64, error) {
 	var list []model.Order
 	var total int64
-	q := s.db.Model(&model.Order{})
+	q := s.db.Model(&model.Order{}).Where("cleaned_at IS NULL")
 	if status != "" {
 		q = q.Where("status = ?", status)
 	}

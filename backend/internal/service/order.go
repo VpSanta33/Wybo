@@ -448,7 +448,7 @@ func (s *Service) MarkPaid(orderNo, payOrderNo, gateway string, amountCents int6
 			fee = &v
 		}
 		if err := tx.Model(&order).Updates(map[string]interface{}{
-			"status": model.OrderPaid, "paid_at": now, "pay_method": gateway, "fee_cents": fee, "fee_source": "estimated", "coupon_state": "used",
+			"status": model.OrderPaid, "paid_at": now, "pay_method": gateway, "fee_cents": fee, "fee_source": "estimated", "coupon_state": "used", "cleaned_at": nil,
 		}).Error; err != nil {
 			return err
 		}

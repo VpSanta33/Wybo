@@ -14,7 +14,7 @@ import (
 
 var rolePermissions = map[string][]string{
 	"super":     {"*"},
-	"operator":  {"analytics", "catalog.read", "catalog.write", "marketing", "orders.read", "tickets", "diagnostics.read"},
+	"operator":  {"analytics", "catalog.read", "catalog.write", "marketing", "orders.read", "orders.cleanup", "tickets", "diagnostics.read"},
 	"support":   {"catalog.read", "orders.read", "tickets", "aftersales.read", "aftersales.replace"},
 	"finance":   {"catalog.read", "analytics", "orders.read", "finance", "payments.read", "reconcile", "agents.read", "settlements", "purchases.read", "aftersales.read", "aftersales.refund"},
 	"inventory": {"orders.read", "catalog.read", "inventory", "cards.reveal", "purchases.read", "purchases.write", "aftersales.read", "aftersales.replace"},

@@ -104,6 +104,40 @@ func TestAdminEntryAndPublicPrivacy(t *testing.T) {
 		t.Fatal("login failed")
 	}
 	token := body.Data.Token
+	cleanupPath := "/api/v1/admin/orders/cleanup"
+	if call("GET", cleanupPath, "", "/secret-console", "").Code != 401 {
+		t.Fatal("order cleanup preview missing authentication")
+	}
+	w = call("GET", cleanupPath, "", "/secret-console", token)
+	if !strings.Contains(w.Body.String(), `"count":0`) {
+		t.Fatal("order cleanup preview did not protect paid orders", w.Body.String())
+	}
+	if call("POST", cleanupPath, `{}`, "/secret-console", token).Code != 428 {
+		t.Fatal("order cleanup bypassed step-up verification")
+	}
+	cleanupProof, err := svc.ConfirmAction(1, "long-test-password", "", cleanupPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleanupCall := func(payload string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", cleanupPath, strings.NewReader(payload))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("X-Admin-Path", "/secret-console")
+		req.Header.Set("X-Admin-Confirm", cleanupProof)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		return w
+	}
+	for _, payload := range []string{`{}`, `{"confirm":true}`, `{"confirm":true,"before":"invalid"}`} {
+		if !strings.Contains(cleanupCall(payload).Body.String(), `"code":400`) {
+			t.Fatal("unconfirmed or invalid cleanup accepted", payload)
+		}
+	}
+	w = cleanupCall(`{"confirm":true,"before":"2020-01-01T00:00:00Z"}`)
+	if !strings.Contains(w.Body.String(), `"cleaned":0`) {
+		t.Fatal("confirmed cleanup failed", w.Body.String())
+	}
 	activityPath := "/api/v1/admin/tickets/activity"
 	if call("GET", activityPath, "", "/secret-console", "").Code != 401 {
 		t.Fatal("ticket activity missing authentication")
@@ -224,6 +258,17 @@ func TestAdminEntryAndPublicPrivacy(t *testing.T) {
 			t.Fatal("role login", auth.Body.String())
 		}
 		rt := session.Data.Token
+		cleanupPreview := call("GET", cleanupPath, "", "/secret-console", rt)
+		if service.Can(role, "orders.cleanup") {
+			if !strings.Contains(cleanupPreview.Body.String(), `"count":0`) {
+				t.Fatal("order cleanup preview denied to operator", role)
+			}
+			if call("POST", cleanupPath, `{}`, "/secret-console", rt).Code != 428 {
+				t.Fatal("operator cleanup bypassed step-up verification")
+			}
+		} else if cleanupPreview.Code != 403 || call("POST", cleanupPath, `{}`, "/secret-console", rt).Code != 403 {
+			t.Fatal("order cleanup bypassed permissions", role)
+		}
 		activity := call("GET", activityPath, "", "/secret-console", rt)
 		if !service.Can(role, "tickets") && activity.Code != 403 {
 			t.Fatal("ticket activity bypassed ticket permission", role)

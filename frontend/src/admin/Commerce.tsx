@@ -76,6 +76,7 @@ export function Orders({ notify }: { notify: (m: string) => void }) {
   const status = params.get("status") || "";
   const [page, setPage] = useState(1);
   const [detail, setDetail] = useState<string | null>(null);
+  const [cleanup, setCleanup] = useState(false);
   const q = useAdminQuery<{ list: AdminOrder[]; total: number }>(
     `/orders?status=${status}&page=${page}&size=20`,
   );
@@ -84,7 +85,14 @@ export function Orders({ notify }: { notify: (m: string) => void }) {
       <PageHeading
         title="订单管理"
         description="从一份期待到一笔成交，每一步都有迹可循。"
-      />
+      >
+        {can("orders.cleanup") && (
+          <button className="a-button" onClick={() => setCleanup(true)}>
+            <Trash2 size={16} aria-hidden="true" />
+            一键清理无效订单
+          </button>
+        )}
+      </PageHeading>
       <section className="a-panel">
         <div className="a-list-toolbar">
           <h2>
@@ -188,6 +196,17 @@ export function Orders({ notify }: { notify: (m: string) => void }) {
         )}
         <Pagination total={q.data?.total || 0} page={page} onChange={setPage} />
       </section>
+      {cleanup && (
+        <OrderCleanupDialog
+          onClose={() => setCleanup(false)}
+          onSaved={(count) => {
+            setCleanup(false);
+            setPage(1);
+            q.reload();
+            notify(count > 0 ? `已清理 ${count} 笔过期未付款订单` : "没有符合条件的订单，可能已付款或已被清理");
+          }}
+        />
+      )}
       {can("finance") && (
         <p className="a-hint">
           净利润 = 实收 − 退款 − 成本 − 手续费 −
@@ -205,6 +224,59 @@ export function Orders({ notify }: { notify: (m: string) => void }) {
         />
       )}
     </>
+  );
+}
+function OrderCleanupDialog({ onClose, onSaved }: {
+  onClose: () => void;
+  onSaved: (count: number) => void;
+}) {
+  const q = useAdminQuery<{ before: string; count: number }>("/orders/cleanup");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function submit() {
+    if (busy || !q.data?.count) return;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await adminApi<{ cleaned: number }>("/orders/cleanup", {
+        method: "POST",
+        body: JSON.stringify({ before: q.data.before, confirm: true }),
+      });
+      onSaved(result.cleaned);
+    } catch (e) {
+      setError((e as Error).message);
+      q.reload();
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal title="一键清理无效订单" onClose={() => { if (!busy) onClose(); }}>
+      <div className="a-editor">
+        <h2>清理无效订单</h2>
+        <p>清理所有商品中过期且未付款的待付款、已关闭订单，不受当前列表筛选影响。</p>
+        <p className="a-hint">
+          确认后将从订单列表移除，并释放预占库存和优惠券名额。
+          已付款、已发货及存在未处理支付异常的订单会跳过。
+        </p>
+        {q.loading ? <Busy /> : q.error ? <QueryError error={q.error} reload={q.reload} /> : q.data && (
+          <p role="status">
+            共 {q.data.count} 笔过期未付款订单可清理。
+          </p>
+        )}
+        {error && <Banner>{error}</Banner>}
+        <div className="a-form-actions">
+          <button className="a-button" disabled={busy} onClick={onClose}>取消</button>
+          <button
+            className="a-button primary"
+            disabled={busy || q.loading || !!q.error || !q.data?.count}
+            onClick={() => void submit()}
+          >
+            {busy ? "清理中…" : `确认清理 ${q.data?.count || 0} 笔`}
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 function OrderDetail({

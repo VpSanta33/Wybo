@@ -146,6 +146,8 @@ func New(db *gorm.DB, cfg *config.Config, logger *zap.Logger) *gin.Engine {
 			admin.PUT("/agents/:id", h.AdminSaveAgent)
 			admin.GET("/dashboard", h.AdminDashboard)
 			admin.GET("/orders", h.AdminOrders)
+			admin.GET("/orders/cleanup", h.AdminPreviewOrderCleanup)
+			admin.POST("/orders/cleanup", h.AdminCleanupOrders)
 			admin.GET("/orders/:orderNo", h.AdminOrderDetail)
 			admin.GET("/notifications", h.AdminNotifications)
 			admin.POST("/notifications/:id/retry", h.AdminRetryNotification)
