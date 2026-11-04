@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
   Plus,
   Download,
@@ -1893,6 +1893,10 @@ type Message = {
 export function Tickets({ notify }: Props) {
   const q = useAdminQuery<Ticket[]>("/tickets");
   const [number, setNumber] = useState("");
+  useEffect(() => {
+    window.addEventListener("wybo-ticket-activity", q.reload);
+    return () => window.removeEventListener("wybo-ticket-activity", q.reload);
+  }, [q.reload]);
   return (
     <>
       <PageHeading
@@ -1982,6 +1986,10 @@ function TicketDialog({
     [internal, setInternal] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  useEffect(() => {
+    window.addEventListener("wybo-ticket-activity", q.reload);
+    return () => window.removeEventListener("wybo-ticket-activity", q.reload);
+  }, [q.reload]);
   return (
     <Modal
       title="处理售后工单"

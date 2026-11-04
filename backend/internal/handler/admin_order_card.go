@@ -64,6 +64,23 @@ func (h *Handler) AdminDeleteCard(c *gin.Context) {
 	response.OK(c, nil)
 }
 
+func (h *Handler) AdminBatchDeleteCards(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 32*1024)
+	var req struct {
+		IDs []uint `json:"ids"`
+	}
+	if c.ShouldBindJSON(&req) != nil {
+		response.Error(c, 400, "请提交有效的卡密编号列表")
+		return
+	}
+	deleted, err := h.svc.DeleteCards(req.IDs)
+	if err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.OK(c, gin.H{"deleted": deleted})
+}
+
 func (h *Handler) AdminOrderDetail(c *gin.Context) {
 	order, err := h.svc.GetOrder(c.Param("orderNo"))
 	if err != nil {

@@ -59,6 +59,7 @@ import "./admin.css";
 import { SiteLogo, useSite } from "../Site";
 import { Settings } from "./SiteSettings";
 import { AccessContext, StepUp } from "./access";
+import AfterSalesVoice from "./AfterSalesVoice";
 import {
   Team,
   Readiness,
@@ -565,6 +566,14 @@ export default function AdminApp() {
               </strong>
             </div>
             <div>
+              {can("tickets") && (
+                <AfterSalesVoice
+                  key={user.id}
+                  userId={user.id}
+                  base={base}
+                  notify={setToast}
+                />
+              )}
               <span className="a-live">
                 <i />
                 小铺营业中

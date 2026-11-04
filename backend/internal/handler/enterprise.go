@@ -176,6 +176,21 @@ func (h *Handler) AdminTickets(c *gin.Context) {
 	v, e := h.svc.AdminTickets(c.Param("number"))
 	reply(c, v, e)
 }
+
+func (h *Handler) AdminTicketActivity(c *gin.Context) {
+	var after *uint
+	if raw, ok := c.GetQuery("after"); ok {
+		id, err := strconv.ParseUint(raw, 10, 32)
+		if err != nil {
+			response.Error(c, 400, "售后消息游标不正确")
+			return
+		}
+		value := uint(id)
+		after = &value
+	}
+	v, err := h.svc.TicketActivity(after)
+	reply(c, v, err)
+}
 func (h *Handler) AdminReplyTicket(c *gin.Context) {
 	var req struct {
 		Content  string `json:"content"`

@@ -27,20 +27,61 @@ func (s *Service) DisableCard(id uint) error {
 
 // DeleteCard 删除卡密（仅未售出）
 func (s *Service) DeleteCard(id uint) error {
-	return s.db.Transaction(func(tx *gorm.DB) error {
-		var c model.Card
-		if tx.First(&c, id).Error != nil {
-			return errors.New("卡密不存在")
+	_, err := s.DeleteCards([]uint{id})
+	return err
+}
+
+// DeleteCards 整批删除可售且未关联订单的卡密，并同步所有相关商品的库存。
+func (s *Service) DeleteCards(ids []uint) (int, error) {
+	if len(ids) == 0 || len(ids) > 1000 {
+		return 0, errors.New("请选择 1 至 1000 张卡密")
+	}
+	unique := make([]uint, 0, len(ids))
+	seen := make(map[uint]bool, len(ids))
+	for _, id := range ids {
+		if id == 0 {
+			return 0, errors.New("卡密编号不正确")
 		}
-		r := tx.Where("id = ? AND status = ?", id, model.CardAvailable).Delete(&model.Card{})
+		if !seen[id] {
+			seen[id] = true
+			unique = append(unique, id)
+		}
+	}
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		var cards []model.Card
+		if err := tx.Select("id", "product_id", "status", "order_id").Where("id IN ?", unique).Order("id ASC").Find(&cards).Error; err != nil {
+			return err
+		}
+		if len(cards) != len(unique) {
+			return errors.New("卡密不存在或已被删除，请刷新后重试")
+		}
+		for _, c := range cards {
+			if c.Status != model.CardAvailable || c.OrderID != nil {
+				return errors.New("仅可删除未预占、未售出的可售卡密，请刷新后重试")
+			}
+		}
+		r := tx.Where("id IN ? AND status = ? AND order_id IS NULL", unique, model.CardAvailable).Delete(&model.Card{})
 		if r.Error != nil {
 			return r.Error
 		}
-		if r.RowsAffected != 1 {
-			return errors.New("仅可删除未预占、未售出的卡密")
+		if r.RowsAffected != int64(len(unique)) {
+			return errors.New("卡密状态已变化，本次未删除任何卡密，请刷新后重试")
 		}
-		return refreshAvailable(tx, c.ProductID)
+		products := make(map[uint]bool)
+		for _, c := range cards {
+			if !products[c.ProductID] {
+				if err := refreshAvailable(tx, c.ProductID); err != nil {
+					return err
+				}
+				products[c.ProductID] = true
+			}
+		}
+		return nil
 	})
+	if err != nil {
+		return 0, err
+	}
+	return len(unique), nil
 }
 func (s *Service) RevealCard(id uint) (*model.Card, error) {
 	var c model.Card

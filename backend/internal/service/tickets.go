@@ -102,3 +102,26 @@ func (s *Service) AdminTickets(number string) (interface{}, error) {
 	err := s.db.Where("ticket_id = ?", t.ID).Order("id ASC").Find(&messages).Error
 	return map[string]interface{}{"ticket": t, "messages": messages}, err
 }
+
+// TicketActivity uses message IDs so customer follow-ups are detected even when
+// a ticket remains open. The first request establishes a baseline without alerts.
+type TicketActivity struct {
+	Cursor uint  `json:"cursor"`
+	Count  int64 `json:"count"`
+}
+
+func (s *Service) TicketActivity(after *uint) (*TicketActivity, error) {
+	result := &TicketActivity{}
+	q := s.db.Model(&model.TicketMessage{}).Where("author = ? AND internal = ?", "customer", false)
+	if err := q.Select("COALESCE(MAX(id), 0)").Scan(&result.Cursor).Error; err != nil {
+		return nil, err
+	}
+	if after != nil && *after < result.Cursor {
+		if err := s.db.Model(&model.TicketMessage{}).
+			Where("author = ? AND internal = ? AND id > ? AND id <= ?", "customer", false, *after, result.Cursor).
+			Count(&result.Count).Error; err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}

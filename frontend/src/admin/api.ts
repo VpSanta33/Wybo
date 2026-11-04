@@ -263,6 +263,7 @@ export interface AgentRow {
 export interface Card {
   id: number;
   product_id: number;
+  order_id?: number | null;
   code: string;
   secret: string;
   status: string;

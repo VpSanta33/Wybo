@@ -268,6 +268,39 @@
   font-weight: 500;
   color: #5d6b82;
 }
+.a-voice-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--a-ink);
+}
+.a-voice-button:hover {
+  background: var(--a-bg);
+}
+.a-voice-button i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--a-muted);
+}
+.a-voice-button.is-on i {
+  background: var(--a-green);
+}
+.a-voice-button i.has-error {
+  background: #ba3541;
+}
+@media (max-width: 760px) {
+  .a-voice-button span {
+    display: none;
+  }
+}
 .a-live {
   font-size: 12px;
   display: flex;
@@ -847,6 +880,24 @@
 }
 .a-list-toolbar h2 {
   font-size: 14px;
+}
+.a-inventory-bulk {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 0 23px 18px;
+}
+.a-inventory-bulk .a-hint {
+  margin-top: 0 !important;
+}
+.a-inventory-select {
+  width: 56px;
+  text-align: center;
+}
+.a-inventory-select input[type="checkbox"] {
+  margin: 0;
+  vertical-align: middle;
 }
 .a-count {
   display: inline-flex;

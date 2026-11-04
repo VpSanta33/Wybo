@@ -104,6 +104,36 @@ func TestAdminEntryAndPublicPrivacy(t *testing.T) {
 		t.Fatal("login failed")
 	}
 	token := body.Data.Token
+	activityPath := "/api/v1/admin/tickets/activity"
+	if call("GET", activityPath, "", "/secret-console", "").Code != 401 {
+		t.Fatal("ticket activity missing authentication")
+	}
+	w = call("GET", activityPath, "", "/secret-console", token)
+	if !strings.Contains(w.Body.String(), `"cursor":0`) || !strings.Contains(w.Body.String(), `"count":0`) {
+		t.Fatal("ticket activity route did not return a baseline", w.Body.String())
+	}
+	for _, cursor := range []string{"-1", "invalid", "4294967296"} {
+		if !strings.Contains(call("GET", activityPath+"?after="+cursor, "", "/secret-console", token).Body.String(), `"code":400`) {
+			t.Fatal("invalid ticket activity cursor accepted", cursor)
+		}
+	}
+	batchDeletePath := "/api/v1/admin/cards/batch-delete"
+	if call("POST", batchDeletePath, `{"ids":[1]}`, "/secret-console", "").Code != 401 {
+		t.Fatal("batch card deletion missing authentication")
+	}
+	for _, payload := range []string{`{}`, `{"ids":[]}`, `{"ids":[0]}`, `{"ids":[-1]}`, `{"ids":["invalid"]}`, `{"ids":[1]}`} {
+		if !strings.Contains(call("POST", batchDeletePath, payload, "/secret-console", token).Body.String(), `"code":400`) {
+			t.Fatal("invalid or sold card deletion accepted", payload)
+		}
+	}
+	available := model.Card{ProductID: p.ID, Code: "delete-only-test-card", Status: model.CardAvailable}
+	if err := db.Create(&available).Error; err != nil {
+		t.Fatal(err)
+	}
+	w = call("POST", batchDeletePath, fmt.Sprintf(`{"ids":[%d]}`, available.ID), "/secret-console", token)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"deleted":1`) {
+		t.Fatal("batch card deletion failed", w.Body.String())
+	}
 	w = call("GET", "/api/v1/admin/dashboard", "", "/secret-console", token)
 	if !strings.Contains(w.Body.String(), `"code":0`) {
 		t.Fatal("authenticated dashboard rejected")
@@ -194,6 +224,16 @@ func TestAdminEntryAndPublicPrivacy(t *testing.T) {
 			t.Fatal("role login", auth.Body.String())
 		}
 		rt := session.Data.Token
+		activity := call("GET", activityPath, "", "/secret-console", rt)
+		if !service.Can(role, "tickets") && activity.Code != 403 {
+			t.Fatal("ticket activity bypassed ticket permission", role)
+		}
+		if service.Can(role, "tickets") && !strings.Contains(activity.Body.String(), `"count":0`) {
+			t.Fatal("ticket activity denied to support staff", role, activity.Body.String())
+		}
+		if !service.Can(role, "inventory") && call("POST", batchDeletePath, `{"ids":[1]}`, "/secret-console", rt).Code != 403 {
+			t.Fatal("batch card deletion bypassed inventory permission", role)
+		}
 		if call("GET", "/api/v1/admin/settings", "", "/secret-console", rt).Code != 403 || call("GET", "/api/v1/admin/staff", "", "/secret-console", rt).Code != 403 {
 			t.Fatal("role read secrets", role)
 		}

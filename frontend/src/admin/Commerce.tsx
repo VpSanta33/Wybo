@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Copy,
@@ -7,6 +7,7 @@ import {
   PackageCheck,
   Pencil,
   Plus,
+  Trash2,
   Upload,
   Users,
 } from "lucide-react";
@@ -38,10 +39,12 @@ export function Pagination({
   page,
   total,
   onChange,
+  disabled = false,
 }: {
   page: number;
   total: number;
   onChange: (p: number) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="a-table-footer">
@@ -51,14 +54,14 @@ export function Pagination({
       <div className="a-pagination">
         <button
           className="a-button"
-          disabled={page <= 1}
+          disabled={disabled || page <= 1}
           onClick={() => onChange(page - 1)}
         >
           上一页
         </button>
         <button
           className="a-button"
-          disabled={page * 20 >= total}
+          disabled={disabled || page * 20 >= total}
           onClick={() => onChange(page + 1)}
         >
           下一页
@@ -472,10 +475,48 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(0);
+  const [selected, setSelected] = useState<number[]>([]);
+  const [removing, setRemoving] = useState<number[] | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const p = useAdminQuery<{ list: AdminProduct[] }>("/products?size=100");
   const q = useAdminQuery<{ list: Card[]; total: number }>(
     `/cards?product_id=${product}&status=${status}&page=${page}&size=20`,
   );
+  const selectable = (q.data?.list || []).filter(
+    (c) => c.status === "available" && c.order_id == null,
+  );
+  const locked = !!busy || deleteBusy;
+  useEffect(() => {
+    setSelected([]);
+  }, [product, status, page, q.data]);
+  async function remove() {
+    if (!removing || deleteBusy) return;
+    setDeleteBusy(true);
+    setDeleteError("");
+    try {
+      const result = await adminApi<{ deleted: number }>("/cards/batch-delete", {
+        method: "POST",
+        body: JSON.stringify({ ids: removing }),
+      });
+      setRemoving(null);
+      setSelected([]);
+      setSecrets({});
+      setPage((current) =>
+        current > 1 && result.deleted === q.data?.list.length
+          ? current - 1
+          : current,
+      );
+      q.reload();
+      p.reload();
+      notify(`已删除 ${result.deleted} 张卡密，库存已更新`);
+    } catch (e) {
+      setDeleteError((e as Error).message);
+      q.reload();
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
   async function disable(id: number) {
     setBusy(id);
     setError("");
@@ -495,7 +536,11 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
         title="卡密库存"
         description="把每一份待发货的美好，整理妥当。"
       >
-        <button className="a-button primary" onClick={() => setImporting(true)}>
+        <button
+          className="a-button primary"
+          disabled={locked || !can("inventory")}
+          onClick={() => setImporting(true)}
+        >
           <Upload size={16} />
           批量导入
         </button>
@@ -509,6 +554,7 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
           <div className="a-filters">
             <select
               aria-label="筛选商品"
+              disabled={locked}
               value={product}
               onChange={(e) => {
                 setPage(1);
@@ -524,6 +570,7 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
             </select>
             <select
               aria-label="库存状态"
+              disabled={locked}
               value={status}
               onChange={(e) => {
                 setStatus(e.target.value);
@@ -540,6 +587,26 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
             </select>
           </div>
         </div>
+        <div className="a-inventory-bulk">
+          <span aria-live="polite">已选 {selected.length} 张</span>
+          <button
+            className="a-button danger"
+            disabled={
+              locked || q.loading || !!q.error ||
+              !selected.length || !can("inventory")
+            }
+            onClick={() => {
+              setDeleteError("");
+              setRemoving([...selected]);
+            }}
+          >
+            <Trash2 size={16} aria-hidden="true" />
+            批量删除
+          </button>
+          <span className="a-hint">
+            仅可选择本页未预占、未售出的可售卡密。
+          </span>
+        </div>
         {q.loading ? (
           <Busy />
         ) : q.error ? (
@@ -549,6 +616,24 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
             <table>
               <thead>
                 <tr>
+                  <th className="a-inventory-select">
+                    <input
+                      type="checkbox"
+                      aria-label="全选本页可删除卡密"
+                      checked={
+                        selectable.length > 0 && selected.length === selectable.length
+                      }
+                      ref={(node) => {
+                        if (node) {
+                          node.indeterminate = selected.length > 0 && selected.length < selectable.length;
+                        }
+                      }}
+                      disabled={locked || !selectable.length || !can("inventory")}
+                      onChange={(e) =>
+                        setSelected(e.target.checked ? selectable.map((c) => c.id) : [])
+                      }
+                    />
+                  </th>
                   <th>商品</th>
                   <th>卡密内容</th>
                   <th>批次 / 导入时间</th>
@@ -559,6 +644,22 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
               <tbody>
                 {q.data.list.map((c) => (
                   <tr key={c.id}>
+                    <td className="a-inventory-select">
+                      <input
+                        type="checkbox"
+                        aria-label={`选择卡密 #${c.id}`}
+                        checked={selected.includes(c.id)}
+                        disabled={
+                          locked || c.status !== "available" ||
+                          c.order_id != null || !can("inventory")
+                        }
+                        onChange={(e) =>
+                          setSelected((ids) => e.target.checked
+                            ? [...ids, c.id]
+                            : ids.filter((id) => id !== c.id))
+                        }
+                      />
+                    </td>
                     <td>
                       {p.data?.list.find((x) => x.id === c.product_id)?.name ||
                         `商品 #${c.product_id}`}
@@ -586,7 +687,7 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
                         aria-label={
                           show.includes(c.id) ? "隐藏卡密" : "显示卡密"
                         }
-                        disabled={!!busy || !can("cards.reveal")}
+                        disabled={locked || !can("cards.reveal")}
                         onClick={() => void reveal(c)}
                       >
                         {show.includes(c.id) ? (
@@ -598,7 +699,7 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
                       {c.status === "available" && (
                         <button
                           className="a-table-button"
-                          disabled={busy === c.id}
+                          disabled={locked || !can("inventory")}
                           onClick={() => disable(c.id)}
                         >
                           停用
@@ -616,8 +717,44 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
             text="导入卡密后，商品可售库存会自动更新。"
           />
         )}
-        <Pagination page={page} total={q.data?.total || 0} onChange={setPage} />
+        <Pagination
+          page={page}
+          total={q.data?.total || 0}
+          disabled={locked}
+          onChange={setPage}
+        />
       </section>
+      {removing && (
+        <Modal
+          title="批量删除卡密"
+          onClose={() => { if (!deleteBusy) setRemoving(null); }}
+        >
+          <div className="a-editor">
+            <h2>删除这 {removing.length} 张卡密？</h2>
+            <p>删除后无法在后台恢复，相关商品的可售库存会同步减少。</p>
+            <p className="a-hint">
+              若其中有卡密已被预占、售出或状态发生变化，本次将整批取消删除。
+            </p>
+            {deleteError && <Banner>{deleteError}</Banner>}
+            <div className="a-form-actions">
+              <button
+                className="a-button"
+                disabled={deleteBusy}
+                onClick={() => setRemoving(null)}
+              >
+                取消
+              </button>
+              <button
+                className="a-button danger"
+                disabled={deleteBusy}
+                onClick={() => void remove()}
+              >
+                {deleteBusy ? "删除中…" : `确认删除 ${removing.length} 张`}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
       {importing && (
         <ImportCards
           products={p.data?.list || []}
