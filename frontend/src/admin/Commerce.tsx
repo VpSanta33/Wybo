@@ -442,6 +442,10 @@ function OrderDetail({
     </Modal>
   );
 }
+function canDeleteInventoryCard(card: Card) {
+  return (card.status === "available" || card.status === "disabled") && card.order_id == null;
+}
+
 export function Inventory({ notify }: { notify: (m: string) => void }) {
   const [params, setParams] = useSearchParams();
   const product = params.get("product") || "";
@@ -483,9 +487,7 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
   const q = useAdminQuery<{ list: Card[]; total: number }>(
     `/cards?product_id=${product}&status=${status}&page=${page}&size=20`,
   );
-  const selectable = (q.data?.list || []).filter(
-    (c) => c.status === "available" && c.order_id == null,
-  );
+  const selectable = (q.data?.list || []).filter(canDeleteInventoryCard);
   const locked = !!busy || deleteBusy;
   useEffect(() => {
     setSelected([]);
@@ -604,7 +606,7 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
             批量删除
           </button>
           <span className="a-hint">
-            仅可选择本页未预占、未售出的可售卡密。
+            可选择本页未关联订单的可售或已停用卡密。
           </span>
         </div>
         {q.loading ? (
@@ -650,8 +652,7 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
                         aria-label={`选择卡密 #${c.id}`}
                         checked={selected.includes(c.id)}
                         disabled={
-                          locked || c.status !== "available" ||
-                          c.order_id != null || !can("inventory")
+                          locked || !canDeleteInventoryCard(c) || !can("inventory")
                         }
                         onChange={(e) =>
                           setSelected((ids) => e.target.checked
@@ -731,9 +732,9 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
         >
           <div className="a-editor">
             <h2>删除这 {removing.length} 张卡密？</h2>
-            <p>删除后无法在后台恢复，相关商品的可售库存会同步减少。</p>
+            <p>删除后无法在后台恢复，相关商品的可售库存会重新计算。</p>
             <p className="a-hint">
-              若其中有卡密已被预占、售出或状态发生变化，本次将整批取消删除。
+              若其中有卡密已被预占、售出、关联订单或变为其他不可删除状态，本次将整批取消删除。
             </p>
             {deleteError && <Banner>{deleteError}</Banner>}
             <div className="a-form-actions">

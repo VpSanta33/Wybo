@@ -25,13 +25,13 @@ func (s *Service) DisableCard(id uint) error {
 	})
 }
 
-// DeleteCard 删除卡密（仅未售出）
+// DeleteCard 删除未关联订单的可售或已停用卡密。
 func (s *Service) DeleteCard(id uint) error {
 	_, err := s.DeleteCards([]uint{id})
 	return err
 }
 
-// DeleteCards 整批删除可售且未关联订单的卡密，并同步所有相关商品的库存。
+// DeleteCards 整批删除未关联订单的可售或已停用卡密，并重算相关商品的可售库存。
 func (s *Service) DeleteCards(ids []uint) (int, error) {
 	if len(ids) == 0 || len(ids) > 1000 {
 		return 0, errors.New("请选择 1 至 1000 张卡密")
@@ -56,11 +56,11 @@ func (s *Service) DeleteCards(ids []uint) (int, error) {
 			return errors.New("卡密不存在或已被删除，请刷新后重试")
 		}
 		for _, c := range cards {
-			if c.Status != model.CardAvailable || c.OrderID != nil {
-				return errors.New("仅可删除未预占、未售出的可售卡密，请刷新后重试")
+			if (c.Status != model.CardAvailable && c.Status != model.CardDisabled) || c.OrderID != nil {
+				return errors.New("仅可删除未关联订单的可售或已停用卡密，请刷新后重试")
 			}
 		}
-		r := tx.Where("id IN ? AND status = ? AND order_id IS NULL", unique, model.CardAvailable).Delete(&model.Card{})
+		r := tx.Where("id IN ? AND status IN ? AND order_id IS NULL", unique, []string{model.CardAvailable, model.CardDisabled}).Delete(&model.Card{})
 		if r.Error != nil {
 			return r.Error
 		}

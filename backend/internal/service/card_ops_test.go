@@ -36,7 +36,7 @@ func TestDeleteCardsUpdatesAllProductsAndDeduplicates(t *testing.T) {
 }
 
 func TestDeleteCardsRejectsWholeBatch(t *testing.T) {
-	for _, state := range []string{"reserved", "sold", "disabled", "replaced", "refunded", "order-linked", "missing", "zero", "empty", "oversized"} {
+	for _, state := range []string{"reserved", "sold", "replaced", "refunded", "order-linked", "disabled-order-linked", "missing", "zero", "empty", "oversized"} {
 		t.Run(state, func(t *testing.T) {
 			s, db, p := productPricingFixture(t, 100)
 			var cards []model.Card
@@ -53,6 +53,8 @@ func TestDeleteCardsRejectsWholeBatch(t *testing.T) {
 				ids = make([]uint, 1001)
 			case "order-linked":
 				must(t, db.Model(&cards[1]).Update("order_id", 1).Error)
+			case "disabled-order-linked":
+				must(t, db.Model(&cards[1]).Updates(map[string]interface{}{"status": model.CardDisabled, "order_id": 1}).Error)
 			default:
 				must(t, db.Model(&cards[1]).Update("status", state).Error)
 			}
@@ -64,6 +66,45 @@ func TestDeleteCardsRejectsWholeBatch(t *testing.T) {
 			must(t, db.First(&p, p.ID).Error)
 			if remaining != 3 || p.Stock != 3 {
 				t.Fatalf("rejected batch changed inventory: %d cards / %d stock", remaining, p.Stock)
+			}
+		})
+	}
+}
+
+func TestDeleteDisabledCardsPreservesAvailableStock(t *testing.T) {
+	for _, kind := range []string{"single", "disabled-only", "mixed"} {
+		t.Run(kind, func(t *testing.T) {
+			s, db, p := productPricingFixture(t, 100)
+			var cards []model.Card
+			must(t, db.Order("id ASC").Find(&cards).Error)
+			must(t, s.DisableCard(cards[0].ID))
+			wantStock, wantRemaining := 2, int64(2)
+			switch kind {
+			case "single":
+				must(t, s.DeleteCard(cards[0].ID))
+			case "disabled-only":
+				must(t, s.DisableCard(cards[1].ID))
+				n, err := s.DeleteCards([]uint{cards[0].ID, cards[1].ID})
+				must(t, err)
+				if n != 2 {
+					t.Fatalf("expected 2 disabled deletions, got %d", n)
+				}
+				wantStock, wantRemaining = 1, 1
+			case "mixed":
+				n, err := s.DeleteCards([]uint{cards[0].ID, cards[1].ID})
+				must(t, err)
+				if n != 2 {
+					t.Fatalf("expected 2 mixed deletions, got %d", n)
+				}
+				wantStock, wantRemaining = 1, 1
+			}
+			var remaining, available, disabled int64
+			must(t, db.Model(&model.Card{}).Count(&remaining).Error)
+			must(t, db.Model(&model.Card{}).Where("status = ?", model.CardAvailable).Count(&available).Error)
+			must(t, db.Model(&model.Card{}).Where("status = ?", model.CardDisabled).Count(&disabled).Error)
+			must(t, db.First(&p, p.ID).Error)
+			if remaining != wantRemaining || p.Stock != wantStock || available != int64(wantStock) || disabled != 0 {
+				t.Fatalf("unexpected inventory: %d cards / %d stock / %d available / %d disabled", remaining, p.Stock, available, disabled)
 			}
 		})
 	}
