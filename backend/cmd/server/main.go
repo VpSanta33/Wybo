@@ -56,6 +56,7 @@ func main() {
 	// Expiration and reservation release run together in StartOperations.
 	svc.StartNotifications(context.Background())
 	svc.StartOperations(context.Background())
+	svc.StartPeers(context.Background())
 
 	r := router.New(db, cfg, logger)
 	logger.Info("server starting", zap.String("addr", cfg.Server.Addr))

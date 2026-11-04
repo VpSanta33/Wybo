@@ -211,6 +211,22 @@ func (s *Service) RequestRefund(ctx context.Context, no, mode, reason, reference
 		if o.Status == model.OrderRefunded {
 			return errors.New("订单已退款")
 		}
+		if o.PayMethod == "peer_wallet" {
+			return errors.New("下游采购订单请使用站点互联中的钱包退款")
+		}
+		upstream, err := orderHasPeerSource(tx, o.ID)
+		if err != nil {
+			return err
+		}
+		if upstream {
+			var job model.PeerJob
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("order_id = ?", o.ID).First(&job).Error; err != nil {
+				return errors.New("请先核查上游采购任务再退款")
+			}
+			if job.Status != "failed" && job.Status != "canceled" {
+				return errors.New("上游采购结果未明确失败，请先查单确认，避免退款后仍交付")
+			}
+		}
 		if o.Status != model.OrderPaid && o.Status != "refunding" {
 			return errors.New("仅未发货的已支付订单可全额退款")
 		}

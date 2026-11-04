@@ -58,6 +58,8 @@ func Connect(cfg *config.Config) (*gorm.DB, error) {
 func AutoMigrate(db *gorm.DB) error {
 	if err := db.AutoMigrate(
 		&Admin{},
+		&PeerAccount{}, &PeerGrant{}, &PeerLedger{}, &PeerQuote{}, &PeerInbound{}, &PeerNonce{},
+		&PeerConnection{}, &PeerCatalog{}, &PeerMapping{}, &PeerJob{}, &PeerEvent{},
 		&Category{},
 		&Product{},
 		&Card{},

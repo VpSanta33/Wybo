@@ -31,12 +31,12 @@ import {
   WandSparkles,
   Zap,
 } from "lucide-react";
-import { track, createOrder, type Catalog, type ShopOrder } from "./api";
+import { api, track, createOrder, type Catalog, type ShopOrder, type PaymentGateway } from "./api";
 import { money, type Category, type Product } from "./data";
 import { SiteBrand } from "./Site";
 import ProductVisual, { BrandImage, ProductThumbnail } from "./ProductVisual";
 import { pricePending, productBrand } from "./productBrands";
-import { ErrorMessage, Modal, OrderSummary, PaymentAction } from "./components";
+import { ErrorMessage, Modal, OrderSummary, PaymentAction, PaymentChoices } from "./components";
 import CheckoutVerification, {
   type VerificationState,
 } from "./CheckoutVerification";
@@ -265,6 +265,10 @@ export default function Storefront({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [order, setOrder] = useState<ShopOrder | null>(null);
+  const [gateways, setGateways] = useState<PaymentGateway[] | null>(null);
+  const [gateway, setGateway] = useState("");
+  const [gatewayError, setGatewayError] = useState("");
+  const [gatewayRevision, setGatewayRevision] = useState(0);
   const [verification, setVerification] = useState<VerificationState>({
     ready: false,
     token: "",
@@ -272,6 +276,20 @@ export default function Storefront({
   const [verificationRevision, setVerificationRevision] = useState(0);
   const resultRef = useRef<HTMLHeadingElement>(null);
   const demo = catalog?.demo ?? true;
+  useEffect(() => {
+    if (demo) { setGateways([]); setGateway(""); setGatewayError(""); return; }
+    const controller = new AbortController();
+    setGateways(null);
+    setGatewayError("");
+    api<PaymentGateway[]>("/gateways", { signal: controller.signal }).then((rows) => {
+      if (controller.signal.aborted) return;
+      setGateways(rows);
+      setGateway((current) => rows.some((g) => g.code === current) ? current : rows[0]?.code || "");
+    }).catch((e) => { if (!controller.signal.aborted) setGatewayError((e as Error).message); });
+    return () => controller.abort();
+  }, [demo, gatewayRevision]);
+  const selectedGateway = gateways?.find((g) => g.code === gateway);
+  const paymentUnavailable = !demo && (!selectedGateway || !!gatewayError || !gateways);
   const categories =
     catalog?.categories.filter((c) =>
       catalog.products.some((p) => p.category_id === c.id),
@@ -348,6 +366,7 @@ export default function Storefront({
       paused ||
       pendingPrice ||
       (product.delivery_mode !== "manual" && product.stock <= 0) ||
+      paymentUnavailable ||
       busy
     )
       return;
@@ -371,6 +390,7 @@ export default function Storefront({
       paused ||
       pendingPrice ||
       (product.delivery_mode !== "manual" && product.stock <= 0) ||
+      paymentUnavailable ||
       busy
     )
       return;
@@ -677,6 +697,15 @@ export default function Storefront({
                   </small>
                 </div>
 
+                {!demo && (
+                  <div className="checkout-payment-section">
+                    {gateways === null && !gatewayError && <p className="payment-loading" role="status"><LoaderCircle size={14} className="spin" aria-hidden="true" />正在读取支付方式…</p>}
+                    {!!gateways?.length && <PaymentChoices gateways={gateways} value={gateway} onChange={setGateway} disabled={busy || paused || pendingPrice} name="checkout-payment" checkout />}
+                    {gatewayError && <ErrorMessage>{gatewayError}<button type="button" className="payment-reload" onClick={() => setGatewayRevision((v) => v + 1)}>重新读取支付方式</button></ErrorMessage>}
+                    {gateways?.length === 0 && !gatewayError && <p className="soft-note" role="status">小铺暂未启用支付方式，请稍后再试或联系店主。</p>}
+                  </div>
+                )}
+
                 <div className="checkout-service-note">
                   <span>
                     <CreditCard size={14} aria-hidden="true" />
@@ -752,6 +781,7 @@ export default function Storefront({
                       busy ||
                       paused ||
                       pendingPrice ||
+                      paymentUnavailable ||
                       (product.delivery_mode !== "manual" && product.stock <= 0)
                     }
                   >
@@ -815,7 +845,7 @@ export default function Storefront({
                   : "请保存订单号，在有效期内完成支付。"}
               </p>
               <OrderSummary order={order} onCopy={onCopy} />
-              {!demo && <PaymentAction order={order} />}
+              {!demo && <PaymentAction order={order} initialGateway={gateway} />}
               <Link
                 className={`button ${demo ? "button-primary" : "button-secondary"} full-width`}
                 to={`/orders?order_no=${encodeURIComponent(order.order_no)}`}
@@ -850,6 +880,7 @@ export default function Storefront({
                   <span>接收邮箱</span>
                   <strong>{email.trim()}</strong>
                 </div>
+                {!demo && selectedGateway && <div><span>支付方式</span><strong>{selectedGateway.label || selectedGateway.name}</strong></div>}
                 <div className="review-summary-total">
                   <span>合计</span>
                   <strong>¥{money(total)}</strong>
@@ -871,7 +902,7 @@ export default function Storefront({
               <button
                 type="button"
                 className="button button-primary full-width"
-                disabled={busy || (!demo && !verification.ready)}
+                disabled={busy || paymentUnavailable || (!demo && !verification.ready)}
                 onClick={placeOrder}
               >
                 {busy ? (

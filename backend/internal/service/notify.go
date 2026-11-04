@@ -25,6 +25,14 @@ func (s *Service) NotifyByEmail(orderNo string) error {
 	if err != nil {
 		return err
 	}
+	if order.Status == model.OrderCompleted || order.Status == model.OrderRefunded {
+		// Old minimal fixtures may not contain interconnection tables.
+		if s.db.Migrator().HasTable(&model.PeerInbound{}) {
+			if err := queuePeerEvent(s.db, order.ID); err != nil {
+				return err
+			}
+		}
+	}
 	channels := []string{}
 	if s.setting("resend_enabled", "false") == "true" && order.Status == model.OrderCompleted && order.Email != "" {
 		channels = append(channels, "delivery_email")

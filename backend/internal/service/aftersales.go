@@ -33,6 +33,13 @@ func (s *Service) ReplaceCard(no string, cardID uint, reason string) (*model.Aft
 		if o.Status != model.OrderCompleted || activeUpgrade(tx, o.ID) {
 			return errors.New("仅无升级申请的已完成订单可换卡")
 		}
+		upstream, err := orderHasPeerSource(tx, o.ID)
+		if err != nil {
+			return err
+		}
+		if upstream || o.PayMethod == "peer_wallet" {
+			return errors.New("互联订单换货请核对原供货记录后处理，不能直接从本地库存换卡")
+		}
 		var old model.Card
 		if tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND order_id = ? AND status = ?", cardID, o.ID, model.CardSold).First(&old).Error != nil {
 			return errors.New("原卡不存在、已替换或不属于此订单")
@@ -84,6 +91,13 @@ func (s *Service) CreateUpgrade(no string, target uint, difference int64, reason
 		if o.StationID != nil {
 			return errors.New("分站升级请通过新订单处理，避免改变原订单供货及分润账目")
 		}
+		upstream, err := orderHasPeerSource(tx, o.ID)
+		if err != nil {
+			return err
+		}
+		if upstream || o.PayMethod == "peer_wallet" {
+			return errors.New("互联订单升级请通过新订单处理")
+		}
 		if o.Status != model.OrderCompleted || activeUpgrade(tx, o.ID) {
 			return errors.New("订单状态不允许升级，或已有升级申请")
 		}
@@ -97,6 +111,9 @@ func (s *Service) CreateUpgrade(no string, target uint, difference int64, reason
 		var p model.Product
 		if tx.Where("id = ? AND enabled = ?", target, true).First(&p).Error != nil || p.PriceCents <= 0 || p.ID == cards[0].ProductID {
 			return errors.New("请选择已定价且不同的升级商品")
+		}
+		if p.SupplySource == "upstream" {
+			return errors.New("上游商品请按完整新订单购买，暂不支持升级补差")
 		}
 		*child = model.Order{OrderNo: generateOrderNo(), Status: model.OrderPending, ParentOrderID: &o.ID, TotalCents: difference, Contact: o.Contact, Email: o.Email, ExpiredAt: time.Now().Add(15 * time.Minute), Source: "aftersales", AgentID: o.AgentID, AgentName: o.AgentName, CommissionBps: o.CommissionBps, CommissionCents: difference * o.CommissionBps / 10000, CostCents: p.CostCents, CostSource: "product"}
 		if e := tx.Create(child).Error; e != nil {
@@ -151,6 +168,9 @@ func (s *Service) DeliveredRefund(no, reason, reference string, confirm bool) (*
 		}
 		if o.Status != model.OrderCompleted || activeUpgrade(tx, o.ID) {
 			return errors.New("仅已完成订单可登记售后退款；请先处理或退款关联升级订单")
+		}
+		if o.PayMethod == "peer_wallet" {
+			return errors.New("已交付的下游采购订单须人工核对原供货记录，不能登记外部退款代替钱包退款")
 		}
 		commission := int64(0)
 		if o.SettlementID != nil {

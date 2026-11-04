@@ -69,5 +69,10 @@ func (s *Service) AdminProducts(page, size int) ([]model.Product, int64, error) 
 		return nil, 0, err
 	}
 	err := s.db.Order("id desc").Offset((page - 1) * size).Limit(size).Find(&list).Error
+	if err == nil {
+		for i := range list {
+			s.applyPeerAvailability(&list[i])
+		}
+	}
 	return list, total, err
 }

@@ -1,5 +1,7 @@
 export function paymentLogo(code: string) {
   const logos: Record<string, string> = {
+    alipay: "/payments/alipay.svg",
+    usdt: "/payments/usdt.svg",
     stripe: "/payments/stripe.svg",
     epay: "/payments/epay.svg",
     dujiaopay: "/payments/dujiaopay.webp",

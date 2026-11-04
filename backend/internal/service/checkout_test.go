@@ -34,6 +34,9 @@ func TestCustomerGatewayDescriptionsMatchConfiguredMethods(t *testing.T) {
 				if row.Label != tc.label || row.Crypto != tc.crypto || row.Description == "" {
 					t.Fatalf("incorrect payment description: %+v", row)
 				}
+				if tc.crypto && row.PaymentType != "usdt" || tc.code == "epay" && strings.Contains(tc.config, "wxpay") && row.PaymentType != "wxpay" || tc.code == "stripe" && strings.Contains(tc.config, `"payment_methods":"alipay"`) && row.PaymentType != "alipay" {
+					t.Fatalf("payment method identity does not match gateway config: %+v", row)
+				}
 				if tc.code == "stripe" && strings.Contains(tc.config, "auto") && !strings.Contains(row.Description, "以收银台为准") {
 					t.Fatal("dynamic Stripe availability was presented as guaranteed")
 				}

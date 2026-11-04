@@ -60,6 +60,7 @@ import { SiteLogo, useSite } from "../Site";
 import { Settings } from "./SiteSettings";
 import { AccessContext, StepUp } from "./access";
 import AfterSalesVoice from "./AfterSalesVoice";
+const Peers = lazy(() => import("./Peers"));
 import {
   Team,
   Readiness,
@@ -78,6 +79,12 @@ import {
   Tickets,
 } from "./Operations";
 const navigation = [
+  {
+    label: "站点互联",
+    path: "/peers",
+    icon: Store,
+    permission: "peers.manage",
+  },
   {
     label: "代理分站",
     path: "/stations",
@@ -596,6 +603,7 @@ export default function AdminApp() {
             {error && <Banner>{error}</Banner>}
             <Suspense fallback={<Busy />}>
               <Routes>
+                <Route path={base + "/peers"} element={<Peers notify={setToast} />} />
                 <Route
                   path={base + "/stations"}
                   element={<Stations notify={setToast} />}

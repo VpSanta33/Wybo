@@ -14,6 +14,7 @@ type PublicGateway struct {
 	Name        string `json:"name"`
 	Label       string `json:"label"`
 	Description string `json:"description"`
+	PaymentType string `json:"payment_type"`
 	LogoURL     string `json:"logo_url"`
 	Crypto      bool   `json:"crypto"`
 }
@@ -35,8 +36,10 @@ func (s *Service) CustomerGateways() ([]PublicGateway, error) {
 		row := PublicGateway{Code: g.Code, Name: g.Name}
 		switch g.Code {
 		case model.GatewayEpay:
+			row.PaymentType = cfg["type"]
 			switch cfg["type"] {
 			case "", "alipay":
+				row.PaymentType = "alipay"
 				row.Label = "支付宝"
 			case "wxpay":
 				row.Label = "微信支付"
@@ -55,6 +58,9 @@ func (s *Service) CustomerGateways() ([]PublicGateway, error) {
 				row.Label = "银行卡 / 支付宝 / 微信"
 				row.Description = "Stripe 收银台 · 具体可用方式以收银台为准"
 			} else {
+				if len(methods) == 1 {
+					row.PaymentType = methods[0]
+				}
 				names := map[string]string{"card": "银行卡", "alipay": "支付宝", "wechat_pay": "微信支付"}
 				labels := []string{}
 				for _, method := range methods {
@@ -64,8 +70,10 @@ func (s *Service) CustomerGateways() ([]PublicGateway, error) {
 				row.Description = "Stripe 安全收银台 · 可用方式受账户及地区限制"
 			}
 		case model.GatewayDujiao:
+			row.PaymentType = "usdt"
 			row.Label, row.Description, row.Crypto = "USDT支付", "使用 USDT 钱包付款，核对收银台的网络与金额", true
 		case model.GatewayBepusdt:
+			row.PaymentType = "usdt"
 			row.Label, row.Description, row.Crypto = "USDT支付", "使用 USDT 钱包付款，核对收银台的网络与金额", true
 		default:
 			// Legacy placeholders have no working checkout implementation.

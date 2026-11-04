@@ -7,6 +7,7 @@ import (
 
 	"github.com/wybo/backend/internal/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // CardLine 卡密导入行（单码：仅 Code；账号+密码：Code=账号, Secret=密码）
@@ -37,6 +38,9 @@ func (s *Service) ImportCards(req ImportCardsReq) (*ImportCardsResult, error) {
 	if err := s.db.First(&p, req.ProductID).Error; err != nil {
 		return nil, ErrProductNotFound
 	}
+	if p.SupplySource == "upstream" {
+		return nil, errors.New("上游映射商品不能导入公共卡密，请先停用映射")
+	}
 	if len(req.Lines) > 10000 || len(req.Note) > 500 || (req.UnitCostCents != nil && (*req.UnitCostCents < 0 || *req.UnitCostCents > 10000000000)) {
 		return nil, errors.New("批次成本或导入数量不正确")
 	}
@@ -44,6 +48,12 @@ func (s *Service) ImportCards(req ImportCardsReq) (*ImportCardsResult, error) {
 	result := &ImportCardsResult{}
 
 	err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&p, req.ProductID).Error; err != nil {
+			return ErrProductNotFound
+		}
+		if p.SupplySource == "upstream" {
+			return errors.New("上游映射商品不能导入公共卡密，请先停用映射")
+		}
 		for _, ln := range req.Lines {
 			code := strings.TrimSpace(ln.Code)
 			if code == "" {

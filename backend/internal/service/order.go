@@ -102,8 +102,15 @@ func (s *Service) CreateOrder(req CreateOrderReq) (*model.Order, error) {
 	if req.Quantity > 99 {
 		return nil, errors.New("单次最多购买 99 份")
 	}
+	if product.SupplySource == "upstream" && (product.PeerUnitCostCents <= 0 || product.PeerUnitCostCents > PeerMaxAmount/int64(req.Quantity)) {
+		return nil, errors.New("采购费用超出单次上限，请减少购买数量或联系店主")
+	}
 
-	if product.DeliveryMode != model.DeliveryManual {
+	if product.SupplySource == "upstream" {
+		if product.DeliveryMode != model.DeliveryAuto || product.Stock < req.Quantity {
+			return nil, ErrInsufficientStock
+		}
+	} else if product.DeliveryMode != model.DeliveryManual {
 		var available int64
 		if err := s.db.Model(&model.Card{}).
 			Where("product_id = ? AND status = ?", product.ID, model.CardAvailable).
@@ -182,6 +189,9 @@ func (s *Service) CreateOrder(req CreateOrderReq) (*model.Order, error) {
 		order.CommissionBps = 0
 		order.CommissionCents = order.StationMarginCents
 	}
+	if product.SupplySource == "upstream" && order.TotalCents-order.CommissionCents < product.PeerUnitCostCents*int64(req.Quantity) {
+		return nil, errors.New("优惠或供货价格低于采购费用上限，请联系店主调整")
+	}
 	if coupon != nil {
 		order.CouponID = &coupon.ID
 		order.CouponState = "held"
@@ -194,6 +204,20 @@ func (s *Service) CreateOrder(req CreateOrderReq) (*model.Order, error) {
 		}
 		if !current.Enabled || current.DeliveryMode != product.DeliveryMode {
 			return errors.New("商品信息已更新，请刷新后重新下单")
+		}
+		if current.SupplySource != product.SupplySource || current.PeerProductID != product.PeerProductID ||
+			(current.PeerConnectionID == nil) != (product.PeerConnectionID == nil) ||
+			(current.PeerConnectionID != nil && *current.PeerConnectionID != *product.PeerConnectionID) ||
+			current.PeerUnitCostCents != product.PeerUnitCostCents {
+			return errors.New("供货来源或价格已变化，请刷新商品后重试")
+		}
+		if current.SupplySource == "upstream" {
+			scoped := *s
+			scoped.db = tx
+			scoped.applyPeerAvailability(&current)
+			if current.Stock < req.Quantity {
+				return ErrInsufficientStock
+			}
 		}
 		if s.station != nil {
 			var st model.Station
@@ -213,6 +237,8 @@ func (s *Service) CreateOrder(req CreateOrderReq) (*model.Order, error) {
 			return err
 		}
 		item := &model.OrderItem{
+			SupplySource: product.SupplySource, PeerConnectionID: product.PeerConnectionID,
+			PeerProductID: product.PeerProductID, PeerMaxCostCents: product.PeerUnitCostCents, PeerRoute: product.PeerRoute,
 			OrderID:        order.ID,
 			ProductID:      product.ID,
 			ProductName:    product.Name,
@@ -224,7 +250,7 @@ func (s *Service) CreateOrder(req CreateOrderReq) (*model.Order, error) {
 		if err := tx.Create(item).Error; err != nil {
 			return err
 		}
-		if product.DeliveryMode != model.DeliveryManual {
+		if product.SupplySource != "upstream" && product.DeliveryMode != model.DeliveryManual {
 			if err := reserveCards(tx, order.ID, product.ID, req.Quantity); err != nil {
 				return err
 			}
@@ -453,6 +479,16 @@ func (s *Service) MarkPaid(orderNo, payOrderNo, gateway string, amountCents int6
 			return err
 		}
 
+		upstream, err := orderHasPeerSource(tx, order.ID)
+		if err != nil {
+			return err
+		}
+		if upstream {
+			if err := enqueuePeerJob(tx, &order); err != nil {
+				return err
+			}
+			return queue()
+		}
 		manual, err := orderNeedsManualDelivery(tx, order.ID)
 		if err != nil {
 			return err
@@ -485,6 +521,13 @@ func (s *Service) ManualDeliver(orderNo string) error {
 		}
 		if order.Status != model.OrderPaid {
 			return ErrOrderStatus
+		}
+		upstream, err := orderHasPeerSource(tx, order.ID)
+		if err != nil {
+			return err
+		}
+		if upstream {
+			return errors.New("此订单由上游供货，请在站点互联中查单重试")
 		}
 		manual, err := orderNeedsManualDelivery(tx, order.ID)
 		if err != nil {

@@ -68,14 +68,16 @@ func (s *Service) UpdateProduct(id uint, updates map[string]interface{}) error {
 			return errors.New("分类不存在")
 		}
 	}
-	res := s.db.Model(&model.Product{}).Where("id = ?", id).Updates(updates)
-	if res.Error != nil {
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
-		return errors.New("商品不存在")
-	}
-	return nil
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var p model.Product
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&p, id).Error; err != nil {
+			return errors.New("商品不存在")
+		}
+		if mode, ok := updates["delivery_mode"]; ok && p.SupplySource == "upstream" && mode != model.DeliveryAuto {
+			return errors.New("请先停用上游映射，再调整为手工发货")
+		}
+		return tx.Model(&p).Updates(updates).Error
+	})
 }
 
 // DeleteProduct only removes unused products; business records remain intact.
@@ -85,7 +87,7 @@ func (s *Service) DeleteProduct(id uint) error {
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&p, id).Error; err != nil {
 			return errors.New("商品不存在")
 		}
-		for _, table := range []interface{}{&model.OrderItem{}, &model.Card{}, &model.InventoryBatch{}, &model.Purchase{}, &model.AgentPrice{}, &model.StationProduct{}} {
+		for _, table := range []interface{}{&model.OrderItem{}, &model.Card{}, &model.InventoryBatch{}, &model.Purchase{}, &model.AgentPrice{}, &model.StationProduct{}, &model.PeerMapping{}, &model.PeerGrant{}} {
 			var count int64
 			if err := tx.Model(table).Where("product_id = ?", id).Count(&count).Error; err != nil {
 				return err

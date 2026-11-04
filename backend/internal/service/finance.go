@@ -85,7 +85,7 @@ func (s *Service) AutoDeliver() int {
 	var cursor uint
 	for {
 		var orders []model.Order
-		if s.db.Where("status = ? AND id > ?", model.OrderPaid, cursor).Where("NOT EXISTS (SELECT 1 FROM order_items WHERE order_items.order_id = orders.id AND order_items.delivery_mode = ?)", model.DeliveryManual).Order("id ASC").Limit(100).Find(&orders).Error != nil || len(orders) == 0 {
+		if s.db.Where("status = ? AND id > ?", model.OrderPaid, cursor).Where("NOT EXISTS (SELECT 1 FROM order_items WHERE order_items.order_id = orders.id AND (order_items.delivery_mode = ? OR order_items.supply_source = ?))", model.DeliveryManual, "upstream").Order("id ASC").Limit(100).Find(&orders).Error != nil || len(orders) == 0 {
 			break
 		}
 		for _, o := range orders {

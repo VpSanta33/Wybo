@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowRight,
+  Check,
   CircleHelp,
   Copy,
   LoaderCircle,
@@ -215,7 +216,35 @@ export function OrderSummary({
   );
 }
 
-export function PaymentAction({ order }: { order: ShopOrder }) {
+export function PaymentChoices({ gateways, value, onChange, disabled = false, name, checkout = false }: {
+  gateways: PaymentGateway[];
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  name: string;
+  checkout?: boolean;
+}) {
+  return (
+    <fieldset className={`payment-options ${checkout ? "checkout-payment-options" : ""}`} disabled={disabled}>
+      <legend>支付方式</legend>
+      <div className="payment-choices-grid">
+        {gateways.map((g) => (
+          <label className={`payment-choice ${value === g.code ? "is-selected" : ""}`} key={g.code}>
+            <input type="radio" name={name} value={g.code} checked={value === g.code} onChange={() => onChange(g.code)} />
+            <PaymentLogo code={g.payment_type || g.code} logoUrl={g.logo_url} size={32} />
+            <span>
+              <strong>{g.label || g.name}</strong>
+              <small>{g.description || g.name}</small>
+            </span>
+            <i className="payment-choice-check" aria-hidden="true">{value === g.code && <Check size={12} strokeWidth={3} />}</i>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+export function PaymentAction({ order, initialGateway = "" }: { order: ShopOrder; initialGateway?: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [gateways, setGateways] = useState<PaymentGateway[] | null>(null);
@@ -238,13 +267,13 @@ export function PaymentAction({ order }: { order: ShopOrder }) {
     api<PaymentGateway[]>("/gateways", { signal: ctrl.signal })
       .then((rows) => {
         setGateways(rows);
-        setGateway(rows[0]?.code || "");
+        setGateway(rows.find((g) => g.code === initialGateway)?.code || rows[0]?.code || "");
       })
       .catch((e) => {
         if (!ctrl.signal.aborted) setError(e.message);
       });
     return () => ctrl.abort();
-  }, [revision, order.order_no]);
+  }, [revision, order.order_no, initialGateway]);
   const selected = gateways?.find((g) => g.code === gateway);
   async function pay() {
     setBusy(true);
@@ -297,31 +326,7 @@ export function PaymentAction({ order }: { order: ShopOrder }) {
   return (
     <>
       {!!gateways?.length && (
-        <fieldset className="payment-options" disabled={busy}>
-          <legend>选择支付方式</legend>
-          {gateways.map((g) => (
-            <label
-              className={`payment-choice ${gateway === g.code ? "is-selected" : ""}`}
-              key={g.code}
-            >
-              <input
-                type="radio"
-                name={"payment-" + order.order_no}
-                value={g.code}
-                checked={gateway === g.code}
-                onChange={() => {
-                  setGateway(g.code);
-                  setPaymentQR("");
-                }}
-              />
-              <PaymentLogo code={g.code} logoUrl={g.logo_url} />
-              <span>
-                <strong>{g.label || g.name}</strong>
-                <small>{g.description || g.name}</small>
-              </span>
-            </label>
-          ))}
-        </fieldset>
+        <PaymentChoices gateways={gateways || []} value={gateway} disabled={busy} name={"payment-" + order.order_no} onChange={(code) => { setGateway(code); setPaymentQR(""); }} />
       )}
       {selected?.crypto && (
         <p className="payment-crypto-note">

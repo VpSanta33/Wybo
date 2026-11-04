@@ -155,6 +155,7 @@ export interface ShopOrder {
 
 export interface PaymentGateway {
   code: string;
+  payment_type?: string;
   name: string;
   label: string;
   description: string;

@@ -14,6 +14,8 @@ func permissionFor(method, path string) string {
 		return "self"
 	}
 	switch {
+	case strings.HasPrefix(p, "/peers"):
+		return "peers.manage"
 	case strings.HasPrefix(p, "/stations") || strings.HasPrefix(p, "/station-applications"):
 		return "stations.manage"
 	case strings.HasPrefix(p, "/staff"):
@@ -114,6 +116,9 @@ func (h *Handler) AdminPermissions(c *gin.Context) {
 	c.Next()
 }
 func needsConfirm(method, path string) bool {
+	if strings.HasPrefix(path, "/api/v1/admin/peers") && method != "GET" {
+		return true
+	}
 	if strings.Contains(path, "/reveal") || strings.HasSuffix(path, "/download") {
 		return true
 	}

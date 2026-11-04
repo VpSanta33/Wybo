@@ -48,23 +48,30 @@ const (
 )
 
 type Product struct {
-	DeliveryMode       string    `gorm:"size:16;not null;default:auto" json:"delivery_mode"`
-	ID                 uint      `gorm:"primaryKey" json:"id"`
-	CategoryID         uint      `gorm:"index;not null" json:"category_id"`
-	Name               string    `gorm:"size:128;not null" json:"name"`
-	Description        string    `gorm:"type:text" json:"description"`
-	Cover              string    `gorm:"size:255" json:"cover"`
-	PriceCents         int64     `gorm:"not null" json:"price_cents"`
-	CostCents          *int64    `json:"cost_cents"`
-	OriginalPriceCents int64     `json:"original_price_cents"`
-	RedeemURL          string    `gorm:"size:255" json:"redeem_url"`
-	RedeemGuide        string    `gorm:"type:text" json:"redeem_guide"`
-	Stock              int       `gorm:"default:0" json:"stock"` // 冗余：= available 卡密数
-	Sales              int       `gorm:"default:0" json:"sales"`
-	Enabled            bool      `gorm:"default:true" json:"enabled"`
-	Sort               int       `gorm:"default:0" json:"sort"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	SupplySource       string     `gorm:"size:16;not null;default:local" json:"-"`
+	PeerConnectionID   *uint      `json:"-"`
+	PeerProductID      uint       `json:"-"`
+	PeerUnitCostCents  int64      `json:"-"`
+	PeerStock          int        `json:"-"`
+	PeerSyncedAt       *time.Time `json:"-"`
+	PeerRoute          string     `json:"-"`
+	DeliveryMode       string     `gorm:"size:16;not null;default:auto" json:"delivery_mode"`
+	ID                 uint       `gorm:"primaryKey" json:"id"`
+	CategoryID         uint       `gorm:"index;not null" json:"category_id"`
+	Name               string     `gorm:"size:128;not null" json:"name"`
+	Description        string     `gorm:"type:text" json:"description"`
+	Cover              string     `gorm:"size:255" json:"cover"`
+	PriceCents         int64      `gorm:"not null" json:"price_cents"`
+	CostCents          *int64     `json:"cost_cents"`
+	OriginalPriceCents int64      `json:"original_price_cents"`
+	RedeemURL          string     `gorm:"size:255" json:"redeem_url"`
+	RedeemGuide        string     `gorm:"type:text" json:"redeem_guide"`
+	Stock              int        `gorm:"default:0" json:"stock"` // 冗余：= available 卡密数
+	Sales              int        `gorm:"default:0" json:"sales"`
+	Enabled            bool       `gorm:"default:true" json:"enabled"`
+	Sort               int        `gorm:"default:0" json:"sort"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
 }
 
 // ============ 卡密/CDK ============
@@ -143,14 +150,19 @@ type Order struct {
 // ============ 订单明细 ============
 
 type OrderItem struct {
-	DeliveryMode   string `gorm:"size:16;not null;default:auto" json:"delivery_mode"` // 下单时的发货方式快照
-	ID             uint   `gorm:"primaryKey" json:"id"`
-	OrderID        uint   `gorm:"index;not null" json:"order_id"`
-	ProductID      uint   `gorm:"index;not null" json:"product_id"`
-	ProductName    string `gorm:"size:128" json:"product_name"` // 下单时快照
-	Quantity       int    `gorm:"not null" json:"quantity"`
-	UnitPriceCents int64  `gorm:"not null" json:"unit_price_cents"`
-	UnitCostCents  *int64 `json:"-"`
+	SupplySource     string `gorm:"size:16;not null;default:local" json:"-"`
+	PeerConnectionID *uint  `json:"-"`
+	PeerProductID    uint   `json:"-"`
+	PeerMaxCostCents int64  `json:"-"`
+	PeerRoute        string `json:"-"`
+	DeliveryMode     string `gorm:"size:16;not null;default:auto" json:"delivery_mode"` // 下单时的发货方式快照
+	ID               uint   `gorm:"primaryKey" json:"id"`
+	OrderID          uint   `gorm:"index;not null" json:"order_id"`
+	ProductID        uint   `gorm:"index;not null" json:"product_id"`
+	ProductName      string `gorm:"size:128" json:"product_name"` // 下单时快照
+	Quantity         int    `gorm:"not null" json:"quantity"`
+	UnitPriceCents   int64  `gorm:"not null" json:"unit_price_cents"`
+	UnitCostCents    *int64 `json:"-"`
 }
 
 // ============ 支付记录 ============

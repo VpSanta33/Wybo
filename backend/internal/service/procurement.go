@@ -137,6 +137,13 @@ func (s *Service) ReceivePurchase(id uint, lines []CardLine) (*ImportCardsResult
 		if p.Status != "ordered" {
 			return errors.New("采购单已入库或已取消")
 		}
+		var product model.Product
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&product, p.ProductID).Error; err != nil {
+			return err
+		}
+		if product.SupplySource == "upstream" {
+			return errors.New("上游映射商品不能再按本地采购入库，请先停用映射")
+		}
 		if len(lines) != p.Quantity {
 			return errors.New("本次须按采购数量一次性入库；请核对卡密行数")
 		}

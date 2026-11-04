@@ -44,6 +44,11 @@ func (s *Service) ListProducts(categoryID uint, keyword string, page, size int) 
 			list[i].OriginalPriceCents = 0
 		}
 	}
+	if err == nil {
+		for i := range list {
+			s.applyPeerAvailability(&list[i])
+		}
+	}
 	return list, total, err
 }
 
@@ -61,6 +66,7 @@ func (s *Service) GetProduct(id uint) (*model.Product, error) {
 		p.PriceCents = g.RetailCents
 		p.OriginalPriceCents = 0
 	}
+	s.applyPeerAvailability(&p)
 	return &p, nil
 }
 
