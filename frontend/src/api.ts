@@ -288,6 +288,12 @@ export async function queryOrder(
   return { ...order, contact };
 }
 
+export async function checkOrderPayment(orderNo: string, contact: string, signal?: AbortSignal) {
+  return api<{ checked: boolean }>(`/orders/${encodeURIComponent(orderNo)}/check-payment`, {
+    method: "POST", body: JSON.stringify({ contact }), signal,
+  });
+}
+
 export type PaymentCheckout = {
   pay_url: string;
   type: "url" | "form" | "qr";

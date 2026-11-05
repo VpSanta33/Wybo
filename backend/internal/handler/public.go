@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/url"
@@ -164,6 +165,30 @@ func (h *Handler) CancelOrder(c *gin.Context) {
 		return
 	}
 	response.OK(c, nil)
+}
+
+// CheckPayment verifies a customer-owned checkout without creating a new payment.
+func (h *Handler) CheckPayment(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4096)
+	var req struct {
+		Contact string `json:"contact"`
+	}
+	if c.ShouldBindJSON(&req) != nil || req.Contact == "" || len(req.Contact) > 128 {
+		response.Error(c, 400, "请填写订单联系方式")
+		return
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+	checked, err := h.publicService(c).CheckCustomerPayment(ctx, c.Param("orderNo"), req.Contact)
+	if errors.Is(err, service.ErrOrderNotFound) {
+		response.Error(c, 404, "订单不存在")
+		return
+	}
+	if err != nil {
+		response.Error(c, 502, "暂未确认渠道付款状态，请稍后重试")
+		return
+	}
+	response.OK(c, gin.H{"checked": checked})
 }
 
 // Pay 发起支付

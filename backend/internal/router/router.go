@@ -55,6 +55,7 @@ func New(db *gorm.DB, cfg *config.Config, logger *zap.Logger) *gin.Engine {
 		api.GET("/orders/:orderNo", middleware.RateLimit(30, time.Minute), h.GetOrder)
 		api.POST("/orders/:orderNo/cancel", h.CancelOrder)
 		api.POST("/orders/:orderNo/pay", middleware.RateLimit(12, time.Minute), h.Pay)
+		api.POST("/orders/:orderNo/check-payment", middleware.RateLimit(30, time.Minute), h.CheckPayment)
 		api.GET("/query", middleware.RateLimit(30, time.Minute), h.Query)
 		api.POST("/pay/notify/:gateway", h.PayNotify)
 		api.GET("/pay/notify/:gateway", h.PayNotify)

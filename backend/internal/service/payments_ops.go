@@ -129,6 +129,37 @@ func stripeMinimumRejected(a model.CheckoutAttempt) bool {
 	return a.Gateway == model.GatewayStripe && a.Status == "failed" && a.ProviderID == "" && a.Message == pay.ErrStripeAmountTooSmall.Error()
 }
 
+// Customer polling may repair a missed callback only after ownership and a
+// provider-side receipt are verified. A per-attempt CAS bounds upstream queries.
+func (s *Service) CheckCustomerPayment(ctx context.Context, orderNo, contact string) (bool, error) {
+	order, err := s.GetOrder(orderNo)
+	if err != nil || contact == "" || order.Contact != contact {
+		return false, ErrOrderNotFound
+	}
+	if order.Status != model.OrderPending && order.Status != model.OrderClosed {
+		return false, nil
+	}
+	now := time.Now()
+	var attempts []model.CheckoutAttempt
+	if err := s.db.Where("order_id = ? AND gateway IN ? AND provider_id <> '' AND status IN ? AND created_at >= ? AND (last_checked_at IS NULL OR last_checked_at < ?)", order.ID,
+		[]string{model.GatewayNiuniu, model.GatewayEpay, model.GatewayStripe, model.GatewayDujiao},
+		[]string{"created", "unknown", "unpaid", "error"}, now.Add(-30*time.Minute), now.Add(-30*time.Second)).Order("id DESC").Limit(4).Find(&attempts).Error; err != nil {
+		return false, err
+	}
+	for _, attempt := range attempts {
+		claimed := s.db.Model(&model.CheckoutAttempt{}).Where("id = ? AND (last_checked_at IS NULL OR last_checked_at < ?)", attempt.ID, now.Add(-30*time.Second)).Update("last_checked_at", now)
+		if claimed.Error != nil {
+			return false, claimed.Error
+		}
+		if claimed.RowsAffected != 1 {
+			continue
+		}
+		_, err := s.Reconcile(ctx, attempt.ID)
+		return true, err
+	}
+	return false, nil
+}
+
 func (s *Service) Reconcile(ctx context.Context, id uint) (string, error) {
 	var a model.CheckoutAttempt
 	if s.db.First(&a, id).Error != nil {

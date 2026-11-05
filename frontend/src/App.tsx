@@ -22,6 +22,7 @@ import {
   api,
   loadCatalog,
   queryOrder,
+  checkOrderPayment,
   recentOrders,
   type Catalog,
   type ShopOrder,
@@ -32,6 +33,7 @@ import OrderResult from "./OrderResult";
 import { ErrorMessage, Modal } from "./components";
 import Storefront from "./Storefront";
 import { SiteBrand, useSite } from "./Site";
+import { paymentSession, closeCashierWindow, hasCashierWindow } from "./paymentSession";
 
 function App() {
   const { site } = useSite();
@@ -295,6 +297,29 @@ function Orders({ onCopy }: { onCopy: (value: string) => void }) {
   const resultRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
+    const number = new URLSearchParams(location.search).get("order_no") || "";
+    const stateContact: unknown = location.state?.paymentContact;
+    const proof = typeof stateContact === "string" ? stateContact : paymentSession(number)?.contact;
+    if (!number || !proof) return;
+    const controller = new AbortController();
+    setOrderNo(number);
+    setContact(proof);
+    setBusy(true);
+    queryOrder(number, proof, controller.signal).then((next) => {
+      if (!controller.signal.aborted) setOrder(next);
+    }).catch((e) => {
+      if (!controller.signal.aborted) setError(e.message);
+    }).finally(() => { if (!controller.signal.aborted) setBusy(false); });
+    return () => controller.abort();
+  }, [location.search, location.state]);
+
+  useEffect(() => {
+    if (order && ["paid", "completed", "refunded"].includes(order.status) && closeCashierWindow(order.order_no)) {
+      window.focus();
+    }
+  }, [order?.order_no, order?.status]);
+
+  useEffect(() => {
     if (order?.order_no) resultRef.current?.focus({ preventScroll: true });
   }, [order?.order_no]);
 
@@ -303,15 +328,19 @@ function Orders({ onCopy }: { onCopy: (value: string) => void }) {
       !order ||
       busy ||
       cancelBusy ||
-      !["pending", "paid"].includes(order.status)
+      (!["pending", "paid"].includes(order.status) && !(order.status === "closed" && hasCashierWindow(order.order_no)))
     )
       return;
     const ctrl = new AbortController();
     let fetching = false;
-    const timer = window.setInterval(async () => {
-      if (document.visibilityState !== "visible" || fetching) return;
+    const refresh = async () => {
+      if (order.status === "closed" && (!paymentSession(order.order_no) || Date.now() - Date.parse(order.expired_at || order.created_at) > 30 * 60 * 1000)) return;
+      if ((document.visibilityState !== "visible" && !hasCashierWindow(order.order_no)) || fetching) return;
       fetching = true;
       try {
+        if (["pending", "closed"].includes(order.status)) {
+          await checkOrderPayment(order.order_no, order.contact || "", ctrl.signal).catch(() => {});
+        }
         const current = await queryOrder(
           order.order_no,
           order.contact || "",
@@ -326,10 +355,16 @@ function Orders({ onCopy }: { onCopy: (value: string) => void }) {
       } finally {
         fetching = false;
       }
-    }, 6000);
+    };
+    const timer = window.setInterval(refresh, 6000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    void refresh();
     return () => {
       ctrl.abort();
       window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
     };
   }, [order?.order_no, order?.status, order?.contact, busy, cancelBusy]);
 
@@ -357,6 +392,7 @@ function Orders({ onCopy }: { onCopy: (value: string) => void }) {
         method: "POST",
         body: JSON.stringify({ contact: order.contact || contact }),
       });
+      closeCashierWindow(order.order_no);
       setOrder({ ...order, status: "closed" });
     } catch (e) {
       setError(e instanceof Error ? e.message : "取消失败，请重试。");

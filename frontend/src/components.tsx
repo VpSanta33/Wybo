@@ -8,10 +8,12 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
-import { api, startPayment, type ShopOrder, type PaymentGateway } from "./api";
+import { api, startPayment, queryOrder, checkOrderPayment, type ShopOrder, type PaymentGateway } from "./api";
 import { money } from "./data";
 import { paymentLogo } from "./payments";
 import QRCode from "qrcode";
+import { useNavigate, useLocation } from "react-router-dom";
+import { rememberPayment, paymentSession, openCashierWindow, closeCashierWindow, hasCashierWindow } from "./paymentSession";
 
 export function PaymentLogo({
   code,
@@ -245,6 +247,8 @@ export function PaymentChoices({ gateways, value, onChange, disabled = false, na
 }
 
 export function PaymentAction({ order, initialGateway = "" }: { order: ShopOrder; initialGateway?: string }) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [gateways, setGateways] = useState<PaymentGateway[] | null>(null);
@@ -252,6 +256,25 @@ export function PaymentAction({ order, initialGateway = "" }: { order: ShopOrder
   const [revision, setRevision] = useState(0);
   const [paymentQR, setPaymentQR] = useState("");
   const [qrError, setQRError] = useState(false);
+  useEffect(() => {
+    if (!paymentQR || location.pathname === "/orders") return;
+    const controller = new AbortController();
+    let fetching = false;
+    const refresh = async () => {
+      if (fetching || document.visibilityState !== "visible") return;
+      fetching = true;
+      try {
+        await checkOrderPayment(order.order_no, order.contact || "", controller.signal).catch(() => {});
+        const current = await queryOrder(order.order_no, order.contact || "", controller.signal);
+        if (!controller.signal.aborted && ["paid", "completed", "refunded"].includes(current.status)) {
+          navigate(`/orders?order_no=${encodeURIComponent(order.order_no)}`, { state: { paymentContact: order.contact } });
+        }
+      } catch { /* Keep displaying the code until the server confirms payment. */ }
+      finally { fetching = false; }
+    };
+    const timer = window.setInterval(refresh, 6000);
+    return () => { controller.abort(); window.clearInterval(timer); };
+  }, [paymentQR, order.order_no, order.contact, location.pathname, navigate]);
   useEffect(() => {
     const restore = (e: PageTransitionEvent) => { if (e.persisted) setBusy(false); };
     window.addEventListener("pageshow", restore);
@@ -267,7 +290,8 @@ export function PaymentAction({ order, initialGateway = "" }: { order: ShopOrder
     api<PaymentGateway[]>("/gateways", { signal: ctrl.signal })
       .then((rows) => {
         setGateways(rows);
-        setGateway(rows.find((g) => g.code === initialGateway)?.code || rows[0]?.code || "");
+        const preferred = initialGateway || paymentSession(order.order_no)?.gateway;
+        setGateway(rows.find((g) => g.code === preferred)?.code || rows[0]?.code || "");
       })
       .catch((e) => {
         if (!ctrl.signal.aborted) setError(e.message);
@@ -276,15 +300,20 @@ export function PaymentAction({ order, initialGateway = "" }: { order: ShopOrder
   }, [revision, order.order_no, initialGateway]);
   const selected = gateways?.find((g) => g.code === gateway);
   async function pay() {
+    if (busy) return;
     setBusy(true);
     setError("");
+    let cashier: Window | null = null;
     try {
+      rememberPayment(order, gateway);
+      if (["niuniupay", "epay"].includes(gateway)) cashier = openCashierWindow(order.order_no);
       const result = await startPayment(
         order.order_no,
         gateway,
         order.contact || "",
       );
       if (result.type === "qr") {
+        if (cashier) closeCashierWindow(order.order_no);
         setQRError(false);
         setPaymentQR(
           result.qr
@@ -297,34 +326,45 @@ export function PaymentAction({ order, initialGateway = "" }: { order: ShopOrder
         );
         setBusy(false);
       } else if (result.type === "form") {
-        const form = document.createElement("form");
+        const paymentDocument = cashier?.document || document;
+        const form = paymentDocument.createElement("form");
         form.method = "POST";
         form.action = result.pay_url;
         form.acceptCharset = "UTF-8";
         form.hidden = true;
         for (const [name, value] of Object.entries(result.form || {})) {
-          const input = document.createElement("input");
+          const input = paymentDocument.createElement("input");
           input.type = "hidden";
           input.name = name;
           input.value = value;
           form.append(input);
         }
-        document.body.append(form);
+        paymentDocument.body.append(form);
         try {
           HTMLFormElement.prototype.submit.call(form);
         } finally {
           form.remove();
         }
+        if (cashier) {
+          navigate(`/orders?order_no=${encodeURIComponent(order.order_no)}`, { state: { paymentContact: order.contact } });
+          setBusy(false);
+        }
       } else {
-        window.location.assign(result.pay_url);
+        if (cashier) {
+          cashier.location.replace(result.pay_url);
+          navigate(`/orders?order_no=${encodeURIComponent(order.order_no)}`, { state: { paymentContact: order.contact } });
+          setBusy(false);
+        } else window.location.assign(result.pay_url);
       }
     } catch (e) {
+      if (cashier) closeCashierWindow(order.order_no);
       setError(e instanceof Error ? e.message : "支付暂不可用，请稍后重试。");
       setBusy(false);
     }
   }
   return (
     <>
+      {hasCashierWindow(order.order_no) && <p className="soft-note" role="status">收银台已在独立窗口打开，本站正在核对到账。确认付款后会显示商品并尝试关闭支付窗口；若支付页未自动关闭，请关闭该页返回本订单。</p>}
       {!!gateways?.length && (
         <PaymentChoices gateways={gateways || []} value={gateway} disabled={busy} name={"payment-" + order.order_no} onChange={(code) => { setGateway(code); setPaymentQR(""); }} />
       )}
@@ -349,7 +389,7 @@ export function PaymentAction({ order, initialGateway = "" }: { order: ShopOrder
               onError={() => setQRError(true)}
             />
           )}
-          <p>请核对收款金额。付款后点击下方“刷新订单”查看发货结果。</p>
+          <p>请核对收款金额。本站会自动确认到账，付款后显示订单与商品。</p>
         </section>
       )}
       {error && (
@@ -385,7 +425,9 @@ export function PaymentAction({ order, initialGateway = "" }: { order: ShopOrder
           : gateways.length
             ? paymentQR
               ? "重新显示付款码"
-              : "前往安全收银台"
+              : ["niuniupay", "epay"].includes(gateway)
+                ? hasCashierWindow(order.order_no) ? "重新打开付款窗口" : "打开收银台（新窗口）"
+                : "前往安全收银台"
             : "暂无可用支付方式"}
         <ArrowRight size={16} />
       </button>

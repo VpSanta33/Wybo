@@ -849,6 +849,7 @@ export default function Storefront({
               <Link
                 className={`button ${demo ? "button-primary" : "button-secondary"} full-width`}
                 to={`/orders?order_no=${encodeURIComponent(order.order_no)}`}
+                state={{ paymentContact: order.contact }}
               >
                 查看我的订单
                 <ArrowRight size={17} />
