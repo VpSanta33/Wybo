@@ -119,7 +119,7 @@ func (s *Service) sendBarkOrder(ctx context.Context, o model.Order) error {
 	} else {
 		b.WriteString("成本与销售利润：待补全\n")
 	}
-	method := map[string]string{"stripe": "Stripe", "epay": "易支付", "dujiaopay": "DujiaoPay", "bepusdt": "BEpusdt"}[o.PayMethod]
+	method := map[string]string{"stripe": "Stripe", "epay": "易支付", "niuniupay": "牛牛支付", "dujiaopay": "DujiaoPay", "bepusdt": "BEpusdt"}[o.PayMethod]
 	if method == "" {
 		method = o.PayMethod
 	}

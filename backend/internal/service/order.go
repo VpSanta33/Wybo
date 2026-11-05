@@ -426,7 +426,9 @@ func (s *Service) MarkPaid(orderNo, payOrderNo, gateway string, amountCents int6
 			if tx.First(&prev, existing.OrderID).Error != nil || prev.OrderNo != orderNo || existing.AmountCents != amountCents {
 				return errors.New("支付流水已归属其他订单或金额不符")
 			}
-			return nil
+			// Settings may have been enabled after payment. Rechecking a verified
+			// receipt repairs missing notification jobs without duplicating sent jobs.
+			return queue()
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}

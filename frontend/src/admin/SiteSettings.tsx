@@ -465,6 +465,17 @@ function SettingsForm({
                     "启用成交推送",
                     "支持 Bark、店主邮件与 Webhook，可同时使用。",
                   )}
+                  {v.order_push_enabled !== "true" &&
+                    (v.order_bark_enabled === "true" || v.order_webhook_url?.trim() || v.order_notify_email?.trim()) && (
+                      <Banner>
+                        <strong>成交推送总开关未开启</strong>
+                        <p>当前不会发送 Bark、店主成交邮件或成交 Webhook。请开启总开关并保存，顾客发货邮件由邮件通知开关单独控制。</p>
+                        <button type="button" className="a-button" onClick={() => set("order_push_enabled", "true")}>
+                          开启成交推送（需保存）
+                        </button>
+                      </Banner>
+                    )}
+                  <p className="a-note">开启后，已成交但遗漏通知的订单可到「支付对账」点击「核对渠道」补发；已发送的通知不会重复发送。</p>
                   <h3>Bark 手机通知</h3>
                   {toggle(
                     "order_bark_enabled",

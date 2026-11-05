@@ -7,10 +7,75 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/wybo/backend/internal/model"
 )
+
+func TestNiuniuRecheckRepairsNotificationsAfterEnablingMasterSwitch(t *testing.T) {
+	s, db, product := operationsFixture(t)
+	var bark, webhook atomic.Int64
+	var orderNo string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api.php":
+			fmt.Fprintf(w, `{"code":1,"pid":1001,"trade_no":"NIUNIU-RECOVERY","out_trade_no":%q,"money":"115.00","status":1}`, orderNo)
+		case "/push":
+			bark.Add(1)
+			fmt.Fprint(w, `{"code":200}`)
+		case "/webhook":
+			webhook.Add(1)
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Error("unexpected notification endpoint")
+		}
+	}))
+	defer server.Close()
+	must(t, s.UpdateSettings(map[string]string{
+		"order_push_enabled": "false", "order_bark_enabled": "true",
+		"order_bark_key": "test-only-device-key", "order_bark_server": server.URL,
+		"order_webhook_url": server.URL + "/webhook",
+	}))
+	order, err := s.CreateOrder(CreateOrderReq{ProductID: product.ID, Contact: "recovery-test@example.test"})
+	must(t, err)
+	orderNo = order.OrderNo
+	must(t, s.MarkPaid(orderNo, "NIUNIU-RECOVERY", "niuniupay", order.TotalCents))
+	var count int64
+	must(t, db.Model(&model.Notification{}).Where("order_id = ?", order.ID).Count(&count).Error)
+	if count != 0 {
+		t.Fatal("master-off payment unexpectedly queued merchant notifications")
+	}
+	// Customer mail was already sent; recovering merchant pushes must not resend it.
+	must(t, db.Create(&model.Notification{OrderID: order.ID, Channel: "delivery_email", Status: "sent", Attempts: 1}).Error)
+	must(t, s.EnsureDefaultGateways())
+	cfg, err := json.Marshal(map[string]string{"api_url": server.URL, "pid": "1001", "key": "test-only-key"})
+	must(t, err)
+	must(t, s.UpdateGateway("niuniupay", true, string(cfg)))
+	attempt := model.CheckoutAttempt{OrderID: order.ID, OrderNo: orderNo, Gateway: "niuniupay", ProviderID: "merchant:" + orderNo, Status: "created"}
+	must(t, db.Create(&attempt).Error)
+	must(t, s.UpdateSettings(map[string]string{"order_push_enabled": "true"}))
+	for i := 0; i < 2; i++ {
+		_, err = s.Reconcile(context.Background(), attempt.ID)
+		must(t, err)
+		s.ProcessNotifications(context.Background())
+	}
+	if bark.Load() != 1 || webhook.Load() != 1 {
+		t.Fatal("notification recovery was missing or duplicated", bark.Load(), webhook.Load())
+	}
+	must(t, db.Model(&model.Notification{}).Where("order_id = ? AND status = ?", order.ID, "sent").Count(&count).Error)
+	if count != 3 {
+		t.Fatal("previous mail or recovered notifications lost", count)
+	}
+	must(t, db.Model(&model.Payment{}).Where("order_id = ?", order.ID).Count(&count).Error)
+	if count != 1 {
+		t.Fatal("notification recovery duplicated payment", count)
+	}
+	must(t, db.Model(&model.Card{}).Where("order_id = ? AND status = ?", order.ID, model.CardSold).Count(&count).Error)
+	if count != 1 {
+		t.Fatal("notification recovery duplicated delivery", count)
+	}
+}
 
 func TestNiuniuCheckoutCachesAPIResultAndPreservesUnknownQuery(t *testing.T) {
 	for _, uncertain := range []bool{false, true} {

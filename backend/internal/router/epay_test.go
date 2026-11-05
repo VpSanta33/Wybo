@@ -1,15 +1,18 @@
 package router
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -23,6 +26,14 @@ import (
 )
 
 func TestEpayCheckoutReturnAndVerifiedDelivery(t *testing.T) {
+	testLegacyCheckoutReturnAndVerifiedDelivery(t, model.GatewayEpay)
+}
+
+func TestNiuniuCheckoutReturnAndVerifiedDelivery(t *testing.T) {
+	testLegacyCheckoutReturnAndVerifiedDelivery(t, model.GatewayNiuniu)
+}
+
+func testLegacyCheckoutReturnAndVerifiedDelivery(t *testing.T, gateway string) {
 	gin.SetMode(gin.TestMode)
 	db, e := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "epay.db")), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	if e != nil {
@@ -42,6 +53,28 @@ func TestEpayCheckoutReturnAndVerifiedDelivery(t *testing.T) {
 	cfg.Pay.NotifyBase = "https://shop.example.test/api/v1/pay/notify"
 	cfg.Pay.ReturnURL = "https://shop.example.test/orders?source=return"
 	s := service.New(db, cfg, zap.NewNop())
+	var barkCalls, webhookCalls atomic.Int64
+	notifications := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		switch req.URL.Path {
+		case "/push":
+			barkCalls.Add(1)
+			fmt.Fprint(w, `{"code":200}`)
+		case "/webhook":
+			webhookCalls.Add(1)
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Error("unexpected notification destination")
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer notifications.Close()
+	if e = s.UpdateSettings(map[string]string{
+		"order_push_enabled": "true", "order_bark_enabled": "true",
+		"order_bark_server": notifications.URL, "order_bark_key": "test-only-device-key",
+		"order_webhook_url": notifications.URL + "/webhook",
+	}); e != nil {
+		t.Fatal(e)
+	}
 	p := model.Product{Name: "ChatGPT Plus 月卡", PriceCents: 11500, DeliveryMode: "auto", Enabled: true}
 	if e = db.Create(&p).Error; e != nil {
 		t.Fatal(e)
@@ -49,7 +82,7 @@ func TestEpayCheckoutReturnAndVerifiedDelivery(t *testing.T) {
 	if _, e = s.ImportCards(service.ImportCardsReq{ProductID: p.ID, Lines: []service.CardLine{{Code: "test-card-main"}, {Code: "test-card-station"}}}); e != nil {
 		t.Fatal(e)
 	}
-	if e = db.Create(&model.Gateway{Code: "epay", Name: "易支付", Enabled: true, Config: `{"api_url":"https://zpayz.example.test/submit.php","pid":"1001","key":"test-only-merchant-key","cid":"1234"}`}).Error; e != nil {
+	if e = db.Create(&model.Gateway{Code: gateway, Name: "易支付", Enabled: true, Config: `{"api_url":"https://zpayz.example.test/submit.php","pid":"1001","key":"test-only-merchant-key","cid":"1234"}`}).Error; e != nil {
 		t.Fatal(e)
 	}
 	st := model.Station{Slug: "alice", SiteName: "月兔分站", Email: "alice@example.test", Status: "active"}
@@ -63,6 +96,9 @@ func TestEpayCheckoutReturnAndVerifiedDelivery(t *testing.T) {
 	call := func(host, method, path, body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, "https://"+host+path, strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
+		if strings.HasPrefix(path, "/api/v1/pay/notify/") && method == "POST" {
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		}
 		req.Header.Set("User-Agent", "Mozilla/5.0 (iPhone) Mobile")
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -77,7 +113,7 @@ func TestEpayCheckoutReturnAndVerifiedDelivery(t *testing.T) {
 		if e != nil {
 			t.Fatal(e)
 		}
-		w := call(host, "POST", "/api/v1/orders/"+o.OrderNo+"/pay", `{"gateway":"epay","contact":"buyer@example.test"}`)
+		w := call(host, "POST", "/api/v1/orders/"+o.OrderNo+"/pay", fmt.Sprintf(`{"gateway":%q,"contact":"buyer@example.test"}`, gateway))
 		var result struct {
 			Code int `json:"code"`
 			Data struct {
@@ -89,7 +125,7 @@ func TestEpayCheckoutReturnAndVerifiedDelivery(t *testing.T) {
 			t.Fatal(w.Body.String(), e)
 		}
 		form := result.Data.Form
-		if form["name"] != p.Name+" ×1" || form["money"] != "115.00" || form["return_url"] != "https://shop.example.test/api/v1/pay/return" || form["notify_url"] != "https://shop.example.test/api/v1/pay/notify/epay" || form["cid"] != "1234" || form["key"] != "" {
+		if form["name"] != p.Name+" ×1" || form["money"] != "115.00" || form["return_url"] != "https://shop.example.test/api/v1/pay/return" || form["notify_url"] != "https://shop.example.test/api/v1/pay/notify/"+gateway || (gateway == model.GatewayEpay && form["cid"] != "1234") || form["key"] != "" {
 			t.Fatal("ZPAY checkout parameters are incorrect")
 		}
 		// Browser returns are navigation only, even with a forged success marker.
@@ -120,14 +156,18 @@ func TestEpayCheckoutReturnAndVerifiedDelivery(t *testing.T) {
 		}
 		params.Set("money", "0.01")
 		sign()
-		w = call("shop.example.test", "GET", "/api/v1/pay/notify/epay?"+params.Encode(), "")
+		w = call("shop.example.test", "GET", "/api/v1/pay/notify/"+gateway+"?"+params.Encode(), "")
 		if w.Body.String() != "fail" {
 			t.Fatal("incorrect payment amount accepted")
 		}
 		params.Set("money", "115.00")
 		sign()
-		for i := 0; i < 2; i++ {
-			w = call("shop.example.test", "GET", "/api/v1/pay/notify/epay?"+params.Encode(), "")
+		for i := 0; i < 4; i++ {
+			if i%2 == 0 {
+				w = call("shop.example.test", "GET", "/api/v1/pay/notify/"+gateway+"?"+params.Encode(), "")
+			} else {
+				w = call("shop.example.test", "POST", "/api/v1/pay/notify/"+gateway, params.Encode())
+			}
 			if w.Body.String() != "success" {
 				t.Fatal("verified callback rejected", w.Body.String())
 			}
@@ -138,5 +178,18 @@ func TestEpayCheckoutReturnAndVerifiedDelivery(t *testing.T) {
 		if payments != 1 || cards != 1 {
 			t.Fatal(fmt.Sprintf("duplicate receipt/delivery: %d/%d", payments, cards))
 		}
+		var jobs []model.Notification
+		if e = db.Where("order_id = ?", o.ID).Find(&jobs).Error; e != nil || len(jobs) != 2 {
+			t.Fatal("verified payment did not queue Bark and Webhook", jobs, e)
+		}
+		s.ProcessNotifications(context.Background())
+		var sent int64
+		db.Model(&model.Notification{}).Where("order_id = ? AND status = ?", o.ID, "sent").Count(&sent)
+		if sent != 2 {
+			t.Fatal("payment notification jobs were not delivered", sent)
+		}
+	}
+	if barkCalls.Load() != 2 || webhookCalls.Load() != 2 {
+		t.Fatal("repeated callback duplicated or missed notifications", barkCalls.Load(), webhookCalls.Load())
 	}
 }
