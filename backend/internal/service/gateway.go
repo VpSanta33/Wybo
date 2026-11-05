@@ -77,6 +77,11 @@ func (s *Service) UpdateGateway(code string, enabled bool, config string) error 
 			return err
 		}
 	}
+	if code == model.GatewayNiuniu {
+		if err := pay.ValidateNiuniuConfig(old); err != nil {
+			return err
+		}
+	}
 	if code == "stripe" {
 		methods, err := pay.StripePaymentMethods(old["payment_methods"])
 		if err != nil {
@@ -111,7 +116,7 @@ func (s *Service) UpdateGateway(code string, enabled bool, config string) error 
 
 // Use the same readiness rules for admin activation and customer visibility.
 func validateGatewayCheckout(code string, cfg map[string]string) error {
-	required := map[string][]string{"epay": {"api_url", "pid", "key"}, "stripe": {"secret_key", "webhook_secret"}, "dujiaopay": {"api_url", "key_id", "secret", "webhook_secret"}, "bepusdt": {"api_url", "api_token"}}
+	required := map[string][]string{"niuniupay": {"api_url", "pid", "key"}, "epay": {"api_url", "pid", "key"}, "stripe": {"secret_key", "webhook_secret"}, "dujiaopay": {"api_url", "key_id", "secret", "webhook_secret"}, "bepusdt": {"api_url", "api_token"}}
 	keys, ok := required[code]
 	if !ok {
 		return errors.New("该渠道尚不可用")
@@ -126,6 +131,9 @@ func validateGatewayCheckout(code string, cfg map[string]string) error {
 	}
 	if code == model.GatewayEpay {
 		return pay.ValidateEpayConfig(cfg)
+	}
+	if code == model.GatewayNiuniu {
+		return pay.ValidateNiuniuConfig(cfg)
 	}
 	if code == model.GatewayStripe {
 		if cfg["currency"] != "" && strings.ToLower(cfg["currency"]) != "cny" {

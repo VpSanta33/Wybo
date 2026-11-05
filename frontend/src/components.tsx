@@ -231,7 +231,7 @@ export function PaymentChoices({ gateways, value, onChange, disabled = false, na
         {gateways.map((g) => (
           <label className={`payment-choice ${value === g.code ? "is-selected" : ""}`} key={g.code}>
             <input type="radio" name={name} value={g.code} checked={value === g.code} onChange={() => onChange(g.code)} />
-            <PaymentLogo code={g.payment_type || g.code} logoUrl={g.logo_url} size={32} />
+            <PaymentLogo code={g.payment_type && ["alipay", "usdt"].includes(g.payment_type) ? g.payment_type : g.code} logoUrl={g.logo_url} size={32} />
             <span>
               <strong>{g.label || g.name}</strong>
               <small>{g.description || g.name}</small>

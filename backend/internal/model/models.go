@@ -190,6 +190,7 @@ type Payment struct {
 
 const (
 	GatewayEpay    = "epay"
+	GatewayNiuniu  = "niuniupay"
 	GatewayStripe  = "stripe"
 	GatewayAlipay  = "alipay"
 	GatewayWechat  = "wechat"

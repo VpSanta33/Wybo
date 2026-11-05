@@ -9,3 +9,5 @@ Local assets identify payment providers. Runtime pages do not request third-part
 - `alipay.svg` and `usdt.svg`: original Wybo payment-method illustrations using the character 支 and a T symbol. These identify the configured payment method separately from its gateway provider.
 
 Brand names and marks belong to their respective owners and identify the configured integrations.
+
+- `niuniupay.svg`: original Wybo illustration of the character 牛, used to identify the NiuniuPay integration; it is not an official provider logo.

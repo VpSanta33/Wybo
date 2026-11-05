@@ -650,7 +650,7 @@ export function OrderFinance({
               className="a-table-button"
               onClick={() => {
                 setMode(
-                  ["stripe", "epay"].includes(order.pay_method)
+                  ["stripe", "epay", "niuniupay"].includes(order.pay_method)
                     ? order.pay_method
                     : "manual",
                 );
@@ -697,7 +697,7 @@ export function OrderFinance({
           label={
             mode === "stripe"
               ? "确认提交 / 查询退款"
-              : mode === "epay"
+              : ["epay", "niuniupay"].includes(mode)
                 ? "确认提交原路退款"
                 : "确认登记已退款"
           }
@@ -718,10 +718,11 @@ export function OrderFinance({
                   {order.pay_method === "epay" && (
                     <option value="epay">易支付原路全额退款</option>
                   )}
+                  {order.pay_method === "niuniupay" && <option value="niuniupay">牛牛支付原路全额退款</option>}
                   <option value="manual">已在渠道退款，登记凭证</option>
                 </select>
               </Field>
-              {mode === "epay" && (
+              {["epay", "niuniupay"].includes(mode) && (
                 <p className="a-note">
                   仅支持未发货订单。渠道返回未确认时会暂停发货，请到商户后台核实后登记凭证，勿重复申请。
                 </p>
@@ -756,8 +757,8 @@ export function OrderFinance({
                 />
                 {mode === "stripe"
                   ? "我确认提交全额退款；已有申请将查询或继续原申请"
-                  : mode === "epay"
-                    ? "我确认向易支付提交一次全额原路退款"
+                  : ["epay", "niuniupay"].includes(mode)
+                    ? `我确认向${mode === "niuniupay" ? "牛牛支付" : "易支付"}提交一次全额原路退款`
                     : "我确认已在渠道完成全额退款，并核对上述凭证"}
               </label>
             </>

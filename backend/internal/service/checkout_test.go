@@ -85,6 +85,7 @@ func TestCustomerGatewaysOnlyShowEnabledCompleteConfiguration(t *testing.T) {
 		keys         []string
 	}{
 		{"epay", `{"api_url":"https://pay.example.test","pid":"test-id","key":"test-only-key"}`, []string{"api_url", "pid", "key"}},
+		{"niuniupay", `{"api_url":"https://pay.example.test","pid":"1001","key":"test-only-key"}`, []string{"api_url", "pid", "key"}},
 		{"stripe", `{"secret_key":"test-only-stripe","webhook_secret":"test-only-webhook"}`, []string{"secret_key", "webhook_secret"}},
 		{"dujiaopay", `{"api_url":"https://pay.example.test","key_id":"test-id","secret":"test-only-key","webhook_secret":"test-only-webhook"}`, []string{"api_url", "key_id", "secret", "webhook_secret"}},
 		{"bepusdt", `{"api_url":"https://pay.example.test","api_token":"test-only-token"}`, []string{"api_url", "api_token"}},

@@ -314,6 +314,12 @@ export async function startPayment(
     (result.qr || /^https?:\/\//i.test(result.qr_image || ""))
   )
     return result;
+  if (gateway === "niuniupay" && result.type === "url" && result.pay_url) {
+    try {
+      const target = new URL(result.pay_url);
+      if (target.protocol === "weixin:" && target.hostname === "dl" && target.pathname === "/business/" && !target.username && !target.password && !target.port && !target.hash && target.searchParams.get("ticket")) return result;
+    } catch { /* Continue to the ordinary cashier URL validation. */ }
+  }
   if (
     !result.pay_url ||
     !/^https?:\/\//i.test(result.pay_url) ||

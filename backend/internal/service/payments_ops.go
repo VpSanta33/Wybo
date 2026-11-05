@@ -95,7 +95,7 @@ func (s *Service) CreateCheckout(ctx context.Context, code string, req *pay.Crea
 		return nil, errors.New("该渠道已有支付申请，请先在后台对账，避免重复下单")
 	}
 	attempt = model.CheckoutAttempt{OrderID: order.ID, OrderNo: order.OrderNo, Gateway: code, Status: "creating"}
-	if code == model.GatewayEpay {
+	if code == model.GatewayEpay || code == model.GatewayNiuniu {
 		attempt.ProviderID = "merchant:" + order.OrderNo
 	}
 	if b, err := strconv.ParseInt(cfg["fee_bps"], 10, 64); err == nil {
@@ -118,7 +118,7 @@ func (s *Service) CreateCheckout(ctx context.Context, code string, req *pay.Crea
 	}
 	raw, _ := json.Marshal(resp)
 	provider := resp.ProviderID
-	if code == model.GatewayEpay && provider == "" {
+	if (code == model.GatewayEpay || code == model.GatewayNiuniu) && provider == "" {
 		provider = "merchant:" + order.OrderNo
 	}
 	err = s.db.Model(&attempt).Updates(map[string]interface{}{"status": "created", "provider_id": provider, "result": string(raw)}).Error
@@ -195,7 +195,7 @@ func (s *Service) RequestRefund(ctx context.Context, no, mode, reason, reference
 	if !confirm || len(strings.TrimSpace(reason)) < 2 || len(reason) > 500 {
 		return nil, errors.New("请填写退款原因并确认全额退款")
 	}
-	if mode != "stripe" && mode != "epay" && mode != "manual" {
+	if mode != "stripe" && mode != "epay" && mode != model.GatewayNiuniu && mode != "manual" {
 		return nil, errors.New("退款方式无效")
 	}
 	if mode == "manual" && (len(strings.TrimSpace(reference)) < 4 || len(reference) > 200) {
@@ -236,14 +236,17 @@ func (s *Service) RequestRefund(ctx context.Context, no, mode, reason, reference
 		if mode == "epay" && o.PayMethod != model.GatewayEpay {
 			return errors.New("仅易支付订单可使用此渠道原路退款")
 		}
+		if mode == model.GatewayNiuniu && o.PayMethod != model.GatewayNiuniu {
+			return errors.New("仅牛牛支付订单可使用此渠道原路退款")
+		}
 		var sold int64
 		tx.Model(&model.Card{}).Where("order_id = ? AND status = ?", o.ID, model.CardSold).Count(&sold)
 		if sold > 0 {
 			return errors.New("卡密已发放，不能自动退款")
 		}
 		if tx.Where("order_id = ?", o.ID).First(&result).Error == nil {
-			if mode == "epay" && result.Mode == "epay" {
-				return errors.New("易支付退款已提交，结果未确认时请到渠道核实，核实成功后登记凭证；禁止重复申请")
+			if (mode == "epay" || mode == model.GatewayNiuniu) && result.Mode == mode {
+				return errors.New("渠道退款已提交，结果未确认时请到渠道核实，核实成功后登记凭证；禁止重复申请")
 			}
 			if result.Status == "processing" && time.Since(result.UpdatedAt) < time.Minute {
 				return errors.New("退款正在处理，请稍后刷新")
@@ -298,6 +301,21 @@ func (s *Service) RequestRefund(ctx context.Context, no, mode, reason, reference
 		}
 		if e == nil && status == "succeeded" {
 			message = "易支付已确认原路全额退款"
+		}
+	}
+	if mode == model.GatewayNiuniu {
+		g, e := s.CallbackGateway(model.GatewayNiuniu)
+		cfg := map[string]string{}
+		if e == nil {
+			e = json.Unmarshal([]byte(g.Config), &cfg)
+		}
+		status, message = "unknown", "退款结果未确认，请到牛牛支付商户后台核实；不要重复退款。核实成功后登记凭证。"
+		ref = payment.PayOrderNo
+		if e == nil {
+			status, e = pay.NewNiuniu(cfg).Refund(ctx, no, strings.TrimPrefix(payment.PayOrderNo, "niuniupay:"), result.AmountCents)
+		}
+		if e == nil && status == "succeeded" {
+			message = "牛牛支付已确认原路全额退款"
 		}
 	}
 	if ref == "" {

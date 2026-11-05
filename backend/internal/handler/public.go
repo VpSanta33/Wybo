@@ -196,7 +196,7 @@ func (h *Handler) Pay(c *gin.Context) {
 		return
 	}
 	notifyBase, returnURL := h.publicService(c).OrderPayURLs(order)
-	if req.Gateway == model.GatewayEpay {
+	if req.Gateway == model.GatewayEpay || req.Gateway == model.GatewayNiuniu {
 		// ZPAY disallows query parameters in return_url. The gateway returns
 		// out_trade_no to this fixed endpoint, which redirects to the original shop.
 		if u, err := url.Parse(notifyBase); err == nil {

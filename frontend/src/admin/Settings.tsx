@@ -124,6 +124,23 @@ const specs: Record<string, GatewaySpec> = {
       },
     ],
   },
+  niuniupay: {
+    title: "牛牛支付",
+    description: "V1 旧版接口 · 支付宝、微信等聚合收款",
+    docs: "https://niuniupay.cc/doc/v1_legacy_api.html",
+    fields: [
+      { key: "api_url", label: "网关地址", placeholder: "https://niuniuapi.qihongmy.cn", hint: "V1 文档的 API 网关地址，可粘贴 submit.php 或 mapi.php 完整地址。" },
+      { key: "pid", label: "商户 ID（PID）" },
+      { key: "key", label: "商户密钥", secret: true },
+      { key: "type", label: "支付类型", hint: "只选择商户实际开通的支付方式。", options: [
+        { value: "alipay", label: "支付宝" }, { value: "wxpay", label: "微信支付" },
+        { value: "qqpay", label: "QQ 钱包" }, { value: "bank", label: "银联支付" },
+        { value: "jdpay", label: "京东支付" }, { value: "paypal", label: "PayPal" }, { value: "douyinpay", label: "抖音支付" },
+      ] },
+      { key: "mode", label: "下单模式", options: [ { value: "submit", label: "页面跳转（submit.php，推荐）" }, { value: "mapi", label: "API 下单（mapi.php）" } ] },
+      { key: "submit_method", label: "页面跳转方式", options: [ { value: "post", label: "POST 表单（推荐）" }, { value: "get", label: "GET 链接（兼容模式）" } ] },
+    ],
+  },
   dujiaopay: {
     title: "DujiaoPay",
     description: "托管收银台 · 加密货币支付",
@@ -280,7 +297,10 @@ function GatewayEditor({
   onSaved: () => void;
 }) {
   const spec = specs[gateway.code];
-  const [values, setValues] = useState(() => gatewayValues(gateway.config));
+  const [values, setValues] = useState<Record<string, string>>(() => ({
+    ...(gateway.code === "niuniupay" ? { api_url: "https://niuniuapi.qihongmy.cn" } : {}),
+    ...gatewayValues(gateway.config),
+  }));
   const [enabled, setEnabled] = useState(gateway.enabled);
   const [stripeMode, setStripeMode] = useState(() =>
     !values.payment_methods || values.payment_methods === "auto"
@@ -463,7 +483,7 @@ function GatewayEditor({
           .filter(
             (f) =>
               !(
-                gateway.code === "epay" &&
+                ["epay", "niuniupay"].includes(gateway.code) &&
                 values.mode === "mapi" &&
                 ["submit_method", "sitename"].includes(f.key)
               ),

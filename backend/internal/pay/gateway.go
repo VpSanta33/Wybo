@@ -58,6 +58,8 @@ func Build(code string, cfg map[string]string) (Gateway, bool) {
 	switch code {
 	case model.GatewayEpay:
 		return NewEpay(cfg), true
+	case model.GatewayNiuniu:
+		return NewNiuniu(cfg), true
 	case model.GatewayStripe:
 		return NewStripe(cfg), true
 	case model.GatewayDujiao:

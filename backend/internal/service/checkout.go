@@ -49,6 +49,13 @@ func (s *Service) CustomerGateways() ([]PublicGateway, error) {
 				row.Label = "在线支付"
 			}
 			row.Description = "通过易支付收银台完成付款"
+		case model.GatewayNiuniu:
+			row.PaymentType = cfg["type"]
+			if row.PaymentType == "" {
+				row.PaymentType = "alipay"
+			}
+			row.Label = map[string]string{"alipay": "支付宝", "wxpay": "微信支付", "qqpay": "QQ 钱包", "bank": "银联支付", "jdpay": "京东支付", "paypal": "PayPal", "douyinpay": "抖音支付"}[row.PaymentType]
+			row.Description = "通过牛牛支付收银台完成付款"
 		case model.GatewayStripe:
 			methods, err := pay.StripePaymentMethods(cfg["payment_methods"])
 			if err != nil {

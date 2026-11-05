@@ -42,10 +42,11 @@ func (s *Service) AuthenticateAdmin(username, password string) (*model.Admin, er
 	return &a, nil
 }
 
-// EnsureDefaultGateways 播种 5 个支付网关（默认停用，后台启用后填密钥）
+// EnsureDefaultGateways 播种支付网关（默认停用，后台启用后填密钥）
 func (s *Service) EnsureDefaultGateways() error {
 	seeds := []struct{ code, name string }{
 		{model.GatewayEpay, "易支付"},
+		{model.GatewayNiuniu, "牛牛支付"},
 		{model.GatewayStripe, "Stripe"},
 		{model.GatewayDujiao, "DujiaoPay"},
 		{model.GatewayBepusdt, "BEpusdt"},

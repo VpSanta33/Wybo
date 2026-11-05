@@ -4,6 +4,7 @@ export function paymentLogo(code: string) {
     usdt: "/payments/usdt.svg",
     stripe: "/payments/stripe.svg",
     epay: "/payments/epay.svg",
+    niuniupay: "/payments/niuniupay.svg",
     dujiaopay: "/payments/dujiaopay.webp",
     bepusdt: "/payments/bepusdt.svg",
   };
@@ -28,6 +29,7 @@ export function defaultPaymentName(
   values: Record<string, string>,
 ) {
   if (code === "dujiaopay" || code === "bepusdt") return "USDT支付";
+  if (code === "niuniupay") return ({ alipay: "支付宝", wxpay: "微信支付", qqpay: "QQ 钱包", bank: "银联支付", jdpay: "京东支付", paypal: "PayPal", douyinpay: "抖音支付" } as Record<string, string>)[values.type || "alipay"] || "在线支付";
   if (code === "epay")
     return (
       (
