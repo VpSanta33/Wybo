@@ -19,6 +19,7 @@ import { Modal } from "../components";
 import {
   adminApi,
   useAdminQuery,
+  useAllProducts,
   yuan,
   toCents,
   type AdminProduct,
@@ -345,9 +346,7 @@ export default function Products({
   notify: (m: string) => void;
 }) {
   const { can, user } = useAccess();
-  const q = useAdminQuery<{ list: AdminProduct[]; total: number }>(
-    "/products?size=100",
-  );
+  const q = useAllProducts();
   const c = useAdminQuery<AdminCategory[]>("/categories");
   const [search, setSearch] = useState("");
   const [edit, setEdit] = useState<AdminProduct | null | undefined>(undefined);

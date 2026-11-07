@@ -22,6 +22,7 @@ import {
   adminApi,
   toCents,
   useAdminQuery,
+  loadAllProducts,
   yuan,
   type AdminProduct,
 } from "./api";
@@ -190,35 +191,22 @@ function useProducts(revision: number) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    const ctrl = new AbortController();
+    let active = true;
     setLoading(true);
     setError("");
-    async function load() {
-      const rows: AdminProduct[] = [];
-      for (let page = 1; ; page++) {
-        const result = await adminApi<{ list: AdminProduct[]; total: number }>(
-          `/products?page=${page}&size=100`,
-          { signal: ctrl.signal },
-        );
-        if (ctrl.signal.aborted) return;
-        rows.push(...(result.list || []));
-        if (
-          !result.list?.length ||
-          rows.length >= result.total ||
-          result.list.length < 100
-        )
-          break;
-      }
-      setList(rows);
-    }
-    load()
+    loadAllProducts(revision > 0)
+      .then((rows) => {
+        if (active) setList(rows);
+      })
       .catch((e: Error) => {
-        if (!ctrl.signal.aborted) setError(e.message);
+        if (active) setError(e.message);
       })
       .finally(() => {
-        if (!ctrl.signal.aborted) setLoading(false);
+        if (active) setLoading(false);
       });
-    return () => ctrl.abort();
+    return () => {
+      active = false;
+    };
   }, [revision]);
   return { list, error, loading };
 }

@@ -19,6 +19,10 @@ type ServerConfig struct {
 type DBConfig struct {
 	Driver string `mapstructure:"driver"`
 	DSN    string `mapstructure:"dsn"`
+	// 连接池（仅 PostgreSQL 生效；SQLite 固定单连接）
+	MaxOpenConns       int `mapstructure:"max_open_conns"`
+	MaxIdleConns       int `mapstructure:"max_idle_conns"`
+	ConnMaxLifetimeMin int `mapstructure:"conn_max_lifetime_min"`
 }
 
 // JWTConfig 鉴权配置
@@ -84,6 +88,9 @@ func Load() *Config {
 	v.SetDefault("server.mode", "debug")
 	v.SetDefault("db.driver", "sqlite")
 	v.SetDefault("db.dsn", "data/wybo.db")
+	v.SetDefault("db.max_open_conns", 25)
+	v.SetDefault("db.max_idle_conns", 10)
+	v.SetDefault("db.conn_max_lifetime_min", 30)
 	v.SetDefault("jwt.secret", "change-me")
 	v.SetDefault("jwt.expire_hours", 72)
 	v.SetDefault("pay.return_url", "http://localhost:5173/orders")

@@ -14,6 +14,7 @@ import { Modal } from "../components";
 import {
   adminApi,
   useAdminQuery,
+  useAllProducts,
   yuan,
   toCents,
   exportCSV,
@@ -795,7 +796,7 @@ type Coupon = {
 };
 export function Coupons({ notify }: Props) {
   const q = useAdminQuery<Coupon[]>("/coupons"),
-    p = useAdminQuery<{ list: AdminProduct[] }>("/products?size=100");
+    p = useAllProducts();
   const [edit, setEdit] = useState<Coupon | null | undefined>();
   return (
     <>
@@ -1403,7 +1404,7 @@ type Batch = {
 export function StockOperations({ notify }: Props) {
   const q = useAdminQuery<StockAlert[]>("/stock-alerts"),
     b = useAdminQuery<Batch[]>("/batches"),
-    p = useAdminQuery<{ list: AdminProduct[] }>("/products?size=100");
+    p = useAllProducts();
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   return (

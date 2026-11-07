@@ -12,9 +12,9 @@ import {
 import {
   adminApi,
   useAdminQuery,
+  useAllProducts,
   yuan,
   toCents,
-  type AdminProduct,
   type Card,
 } from "./api";
 import { useAccess } from "./access";
@@ -647,7 +647,7 @@ type ProcurementData = {
 };
 export function Procurement({ notify }: Props) {
   const q = useAdminQuery<ProcurementData>("/purchases"),
-    products = useAdminQuery<{ list: AdminProduct[] }>("/products?size=100");
+    products = useAllProducts();
   const { can } = useAccess();
   const write = can("purchases.write");
   const [tab, setTab] = useState("purchases"),
@@ -1160,7 +1160,7 @@ type AfterSale = {
 };
 export function AfterSales({ notify }: Props) {
   const q = useAdminQuery<AfterSale[]>("/after-sales"),
-    products = useAdminQuery<{ list: AdminProduct[] }>("/products?size=100");
+    products = useAllProducts();
   const { can } = useAccess();
   const [action, setAction] = useState(""),
     [no, setNo] = useState(""),

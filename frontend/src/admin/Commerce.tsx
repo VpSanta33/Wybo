@@ -16,6 +16,7 @@ import {
   adminApi,
   orderNet,
   useAdminQuery,
+  useAllProducts,
   yuan,
   toCents,
   type AdminOrder,
@@ -555,7 +556,7 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
   const [removing, setRemoving] = useState<number[] | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-  const p = useAdminQuery<{ list: AdminProduct[] }>("/products?size=100");
+  const p = useAllProducts();
   const q = useAdminQuery<{ list: Card[]; total: number }>(
     `/cards?product_id=${product}&status=${status}&page=${page}&size=20`,
   );
@@ -971,7 +972,7 @@ function ImportCards({
 export function Agents({ notify }: { notify: (m: string) => void }) {
   const { can } = useAccess();
   const q = useAdminQuery<AgentRow[]>("/agents");
-  const p = useAdminQuery<{ list: AdminProduct[] }>("/products?size=100");
+  const p = useAllProducts();
   const [edit, setEdit] = useState<AgentRow | null | undefined>();
   async function copy(code: string) {
     try {

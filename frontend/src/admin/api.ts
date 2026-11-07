@@ -102,7 +102,72 @@ export function useAdminQuery<T>(path: string) {
   }, [path, revision]);
   return { data, error, loading, reload };
 }
-export const yuan = (cents: number) =>
+
+/* 后端单页最多返回 100 条，这里逐页取全，避免商品超过 100 个时下拉框静默缺项。
+   多个页面同时挂载时共享同一次请求，短时间内复用结果；reload() 总是强制重新拉取。 */
+const PRODUCT_PAGE_SIZE = 100;
+const PRODUCTS_TTL_MS = 15_000;
+let productsCache: { at: number; promise: Promise<AdminProduct[]> } | null =
+  null;
+async function fetchAllProducts() {
+  const rows: AdminProduct[] = [];
+  for (let page = 1; ; page++) {
+    const result = await adminApi<{ list: AdminProduct[]; total: number }>(
+      `/products?page=${page}&size=${PRODUCT_PAGE_SIZE}`,
+    );
+    const list = result.list || [];
+    rows.push(...list);
+    if (
+      list.length < PRODUCT_PAGE_SIZE ||
+      rows.length >= (result.total ?? 0)
+    )
+      return rows;
+  }
+}
+export function loadAllProducts(force = false) {
+  if (
+    force ||
+    !productsCache ||
+    Date.now() - productsCache.at > PRODUCTS_TTL_MS
+  ) {
+    const promise = fetchAllProducts();
+    productsCache = { at: Date.now(), promise };
+    promise.catch(() => {
+      if (productsCache?.promise === promise) productsCache = null;
+    });
+  }
+  return productsCache.promise;
+}
+export function useAllProducts() {
+  const [data, setData] = useState<{
+    list: AdminProduct[];
+    total: number;
+  } | null>(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [revision, setRevision] = useState(0);
+  const reload = useCallback(() => setRevision((v) => v + 1), []);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    loadAllProducts(revision > 0)
+      .then((list) => {
+        if (active) setData({ list, total: list.length });
+      })
+      .catch((e: Error) => {
+        if (active) setError(e.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [revision]);
+  return { data, error, loading, reload };
+}
+export const yuan =(cents: number) =>
   new Intl.NumberFormat("zh-CN", {
     style: "currency",
     currency: "CNY",

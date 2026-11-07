@@ -3,6 +3,8 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -25,16 +27,34 @@ const SiteContext = createContext({
   error: "",
 });
 export const useSite = () => useContext(SiteContext);
+const FOCUS_REFRESH_MS = 60_000;
+function sameSite(a: Record<string, string>, b: Record<string, string>) {
+  const keys = Object.keys(a);
+  return (
+    keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k])
+  );
+}
 export function SiteProvider({ children }: { children: ReactNode }) {
   const [site, setSite] = useState(defaults);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const { pathname } = useLocation();
+  const loaded = useRef(false);
+  const lastFetch = useRef(0);
   const refresh = useCallback(async () => {
+    lastFetch.current = Date.now();
     try {
-      setSite({ ...defaults, ...(await api<Record<string, string>>("/site")) });
+      const next = {
+        ...defaults,
+        ...(await api<Record<string, string>>("/site")),
+      };
+      loaded.current = true;
+      // 内容未变化时保留原对象，避免所有 useSite 消费者无谓重渲染。
+      setSite((prev) => (sameSite(prev, next) ? prev : next));
       setError("");
     } catch (e) {
+      // 已经加载过站点信息时，后台刷新失败只保留旧数据，不把整个应用替换成错误页。
+      if (loaded.current) return;
       setError(
         (import.meta as ImportMeta & { env: Record<string, string> }).env
           .VITE_DEMO_MODE === "true"
@@ -49,8 +69,12 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   }, []);
   useEffect(() => {
     void refresh();
-    window.addEventListener("focus", refresh);
-    return () => window.removeEventListener("focus", refresh);
+    // 切回窗口时最多每分钟刷新一次。
+    const onFocus = () => {
+      if (Date.now() - lastFetch.current >= FOCUS_REFRESH_MS) void refresh();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, [refresh]);
   useEffect(() => {
     const consolePage = !["/", "/orders", "/guide"].includes(pathname);
@@ -74,8 +98,12 @@ export function SiteProvider({ children }: { children: ReactNode }) {
       icon.removeAttribute("type");
     }
   }, [site, pathname]);
+  const value = useMemo(
+    () => ({ site, refresh, loading, error }),
+    [site, refresh, loading, error],
+  );
   return (
-    <SiteContext.Provider value={{ site, refresh, loading, error }}>
+    <SiteContext.Provider value={value}>
       {children}
     </SiteContext.Provider>
   );

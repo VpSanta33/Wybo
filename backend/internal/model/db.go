@@ -3,6 +3,7 @@ package model
 import (
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/glebarez/sqlite" // 纯 Go 实现，支持 CGO_ENABLED=0 单二进制部署
 	"github.com/wybo/backend/internal/config"
@@ -15,8 +16,8 @@ import (
 // driver: sqlite（本地开发）| postgres / pgsql / postgresql（正式环境）
 func Connect(cfg *config.Config) (*gorm.DB, error) {
 	var dialector gorm.Dialector
-	switch cfg.DB.Driver {
-	case "postgres", "pgsql", "postgresql":
+	switch {
+	case isPostgres(cfg.DB.Driver):
 		dialector = postgres.Open(cfg.DB.DSN)
 	default:
 		// SQLite：确保数据文件父目录存在，否则打开会报 SQLITE_CANTOPEN
@@ -28,11 +29,31 @@ func Connect(cfg *config.Config) (*gorm.DB, error) {
 		dialector = sqlite.Open(cfg.DB.DSN)
 	}
 
+	// debug 模式打印全部 SQL；其余模式只记录慢查询与错误，避免生产日志被逐条 SQL 淹没。
+	logLevel := logger.Warn
+	if cfg.Server.Mode == "debug" {
+		logLevel = logger.Info
+	}
 	db, err := gorm.Open(dialector, &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: logger.Default.LogMode(logLevel),
 	})
 	if err != nil {
 		return nil, err
+	}
+	if isPostgres(cfg.DB.Driver) {
+		sql, e := db.DB()
+		if e != nil {
+			return nil, e
+		}
+		if cfg.DB.MaxOpenConns > 0 {
+			sql.SetMaxOpenConns(cfg.DB.MaxOpenConns)
+		}
+		if cfg.DB.MaxIdleConns > 0 {
+			sql.SetMaxIdleConns(cfg.DB.MaxIdleConns)
+		}
+		if cfg.DB.ConnMaxLifetimeMin > 0 {
+			sql.SetConnMaxLifetime(time.Duration(cfg.DB.ConnMaxLifetimeMin) * time.Minute)
+		}
 	}
 	if cfg.DB.Driver == "sqlite" || cfg.DB.Driver == "" {
 		sql, e := db.DB()
@@ -52,6 +73,10 @@ func Connect(cfg *config.Config) (*gorm.DB, error) {
 		return nil, err
 	}
 	return db, nil
+}
+
+func isPostgres(driver string) bool {
+	return driver == "postgres" || driver == "pgsql" || driver == "postgresql"
 }
 
 // AutoMigrate 建立全部表结构（GORM 自动迁移，SQLite/PostgreSQL 通用）

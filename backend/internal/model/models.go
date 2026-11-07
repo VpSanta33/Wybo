@@ -136,14 +136,14 @@ type Order struct {
 	RefundedCents   int64      `gorm:"default:0" json:"refunded_cents"`
 	AgentID         *uint      `gorm:"index" json:"agent_id"`
 	AgentName       string     `json:"agent_name"`
-	Contact         string     `gorm:"size:128;not null" json:"contact"` // 联系方式（查卡凭证）
+	Contact         string     `gorm:"size:128;not null;index" json:"contact"` // 联系方式（查卡凭证）
 	Email           string     `gorm:"size:128" json:"email"`
 	CouponID        *uint      `json:"coupon_id"`
 	PayMethod       string     `gorm:"size:32" json:"pay_method"`
-	PaidAt          *time.Time `json:"paid_at"`
-	ExpiredAt       time.Time  `json:"expired_at"`     // 超时关闭时间
-	CleanedAt       *time.Time `gorm:"index" json:"-"` // 后台清理时间，保留查单与迟到支付处理
-	CreatedAt       time.Time  `json:"created_at"`
+	PaidAt          *time.Time `gorm:"index" json:"paid_at"`
+	ExpiredAt       time.Time  `gorm:"index" json:"expired_at"` // 超时关闭时间
+	CleanedAt       *time.Time `gorm:"index" json:"-"`          // 后台清理时间，保留查单与迟到支付处理
+	CreatedAt       time.Time  `gorm:"index" json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
 }
 
@@ -330,11 +330,11 @@ type CheckoutAttempt struct {
 }
 type PaymentIssue struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
-	OrderNo   string    `json:"order_no"`
+	OrderNo   string    `gorm:"index" json:"order_no"`
 	Gateway   string    `json:"gateway"`
 	Reference string    `gorm:"uniqueIndex:issue_reference" json:"reference"`
 	Kind      string    `gorm:"uniqueIndex:issue_reference" json:"kind"`
-	Status    string    `json:"status"`
+	Status    string    `gorm:"index" json:"status"`
 	Message   string    `json:"message"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
