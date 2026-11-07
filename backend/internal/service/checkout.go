@@ -16,6 +16,8 @@ type PublicGateway struct {
 	PaymentType string `json:"payment_type"`
 	LogoURL     string `json:"logo_url"`
 	Crypto      bool   `json:"crypto"`
+	// MaxAmountCents 为渠道单笔限额（分），0 或缺省表示不限制。
+	MaxAmountCents int64 `json:"max_amount_cents,omitempty"`
 }
 
 func (s *Service) CustomerGateways() ([]PublicGateway, error) {
@@ -92,6 +94,7 @@ func (s *Service) CustomerGateways() ([]PublicGateway, error) {
 		if validGatewayLogo(cfg["logo_url"]) {
 			row.LogoURL = cfg["logo_url"]
 		}
+		row.MaxAmountCents = gatewayLimitCents(cfg)
 		out = append(out, row)
 	}
 	return out, nil

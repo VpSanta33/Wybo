@@ -36,7 +36,7 @@ import { money, type Category, type Product } from "./data";
 import { SiteBrand } from "./Site";
 import ProductVisual, { BrandImage, ProductThumbnail } from "./ProductVisual";
 import { pricePending, productBrand } from "./productBrands";
-import { ErrorMessage, Modal, OrderSummary, PaymentAction, PaymentChoices } from "./components";
+import { ErrorMessage, Modal, OrderSummary, PaymentAction, PaymentChoices, PaymentLimitNotice, payableGateway } from "./components";
 import CheckoutVerification, {
   type VerificationState,
 } from "./CheckoutVerification";
@@ -328,6 +328,10 @@ export default function Storefront({
     : 1;
   const actualQuantity = Math.min(quantity, maxQuantity);
   const total = (product?.price_cents ?? 0) * actualQuantity;
+  // 数量变化导致超过渠道单笔限额时，自动改选可用渠道；全部超额则不能提交。
+  useEffect(() => {
+    if (gateways) setGateway((current) => payableGateway(gateways, total, current));
+  }, [gateways, total]);
 
   useEffect(() => {
     if (order) resultRef.current?.focus();
@@ -700,7 +704,8 @@ export default function Storefront({
                 {!demo && (
                   <div className="checkout-payment-section">
                     {gateways === null && !gatewayError && <p className="payment-loading" role="status"><LoaderCircle size={14} className="spin" aria-hidden="true" />正在读取支付方式…</p>}
-                    {!!gateways?.length && <PaymentChoices gateways={gateways} value={gateway} onChange={setGateway} disabled={busy || paused || pendingPrice} name="checkout-payment" checkout />}
+                    {!!gateways?.length && <PaymentChoices gateways={gateways} value={gateway} onChange={setGateway} disabled={busy || paused || pendingPrice} amountCents={total} name="checkout-payment" checkout />}
+                    {!!gateways?.length && !pendingPrice && <PaymentLimitNotice gateways={gateways} amountCents={total} />}
                     {gatewayError && <ErrorMessage>{gatewayError}<button type="button" className="payment-reload" onClick={() => setGatewayRevision((v) => v + 1)}>重新读取支付方式</button></ErrorMessage>}
                     {gateways?.length === 0 && !gatewayError && <p className="soft-note" role="status">小铺暂未启用支付方式，请稍后再试或联系店主。</p>}
                   </div>

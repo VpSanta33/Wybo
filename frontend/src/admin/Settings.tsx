@@ -139,6 +139,8 @@ const specs: Record<string, GatewaySpec> = {
       ] },
       { key: "mode", label: "下单模式", options: [ { value: "submit", label: "页面跳转（submit.php，推荐）" }, { value: "mapi", label: "API 下单（mapi.php）" } ] },
       { key: "submit_method", label: "页面跳转方式", options: [ { value: "post", label: "POST 表单（推荐）" }, { value: "get", label: "GET 链接（兼容模式）" } ] },
+      { key: "limit_enabled", label: "单笔限额", hint: "开启后，订单金额超过限额时前台不能选择该支付方式，并提示顾客联系客服下单。", options: [ { value: "false", label: "不限制" }, { value: "true", label: "启用单笔限额" } ] },
+      { key: "max_amount", label: "单笔最高金额（元）", placeholder: "500", hint: "例如牛牛支付单笔不能超过 500 元，填写 500。" },
     ],
   },
   dujiaopay: {
@@ -298,7 +300,7 @@ function GatewayEditor({
 }) {
   const spec = specs[gateway.code];
   const [values, setValues] = useState<Record<string, string>>(() => ({
-    ...(gateway.code === "niuniupay" ? { api_url: "https://niuniuapi.qihongmy.cn" } : {}),
+    ...(gateway.code === "niuniupay" ? { api_url: "https://niuniuapi.qihongmy.cn", max_amount: "500" } : {}),
     ...gatewayValues(gateway.config),
   }));
   const [enabled, setEnabled] = useState(gateway.enabled);
@@ -486,7 +488,8 @@ function GatewayEditor({
                 ["epay", "niuniupay"].includes(gateway.code) &&
                 values.mode === "mapi" &&
                 ["submit_method", "sitename"].includes(f.key)
-              ),
+              ) &&
+              !(f.key === "max_amount" && values.limit_enabled !== "true"),
           )
           .map((f) => (
             <Field key={f.key} label={f.label} hint={f.hint}>

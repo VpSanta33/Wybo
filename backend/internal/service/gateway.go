@@ -82,6 +82,9 @@ func (s *Service) UpdateGateway(code string, enabled bool, config string) error 
 			return err
 		}
 	}
+	if err := validateGatewayLimit(old); err != nil {
+		return err
+	}
 	if code == "stripe" {
 		methods, err := pay.StripePaymentMethods(old["payment_methods"])
 		if err != nil {

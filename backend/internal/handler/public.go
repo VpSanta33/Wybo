@@ -246,7 +246,7 @@ func (h *Handler) Pay(c *gin.Context) {
 	}
 	resp, err := h.publicService(c).CreateCheckout(c.Request.Context(), req.Gateway, createReq)
 	if err != nil {
-		if errors.Is(err, pay.ErrStripeAmountTooSmall) {
+		if errors.Is(err, pay.ErrStripeAmountTooSmall) || errors.Is(err, service.ErrGatewayAmountLimit) {
 			response.Error(c, http.StatusBadRequest, err.Error())
 			return
 		}

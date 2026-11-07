@@ -36,6 +36,9 @@ func (s *Service) CreateCheckout(ctx context.Context, code string, req *pay.Crea
 	if order.Status != model.OrderPending || !order.ExpiredAt.After(time.Now()) || req.AmountCents != order.TotalCents {
 		return nil, ErrOrderStatus
 	}
+	if limit := gatewayLimitCents(cfg); limit > 0 && order.TotalCents > limit {
+		return nil, &GatewayLimitError{LimitCents: limit}
+	}
 	items, err := s.OrderItems(order.ID)
 	if err != nil || len(items) == 0 {
 		return nil, errors.New("无法读取订单商品，请稍后重试")

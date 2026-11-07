@@ -164,6 +164,28 @@
 .payment-options:disabled {
   opacity: 0.65;
 }
+.payment-choice.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.payment-choice.is-disabled:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}
+.payment-limit-note {
+  color: #8a4b2a;
+  background: #fff3ea;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 10px 0 14px;
+}
+.payment-limit-contact {
+  display: block;
+  font-weight: 600;
+  white-space: pre-line;
+}
 .payment-crypto-note {
   color: #665b42;
   background: #fff8e9;

@@ -161,6 +161,8 @@ export interface PaymentGateway {
   description: string;
   logo_url: string;
   crypto: boolean;
+  /** 渠道单笔限额（分），缺省表示不限制 */
+  max_amount_cents?: number;
 }
 
 interface RecentOrder {

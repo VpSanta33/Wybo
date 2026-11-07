@@ -14,6 +14,30 @@ import { paymentLogo } from "./payments";
 import QRCode from "qrcode";
 import { useNavigate, useLocation } from "react-router-dom";
 import { rememberPayment, paymentSession, openCashierWindow, closeCashierWindow, hasCashierWindow } from "./paymentSession";
+import { useSite } from "./Site";
+
+/** 订单金额是否超过该支付方式的单笔限额（如牛牛支付单笔 500 元）。 */
+export const gatewayOverLimit = (g: PaymentGateway, amountCents: number) =>
+  !!g.max_amount_cents && amountCents > g.max_amount_cents;
+/** 优先保留偏好的支付方式，超额时改选第一个可用渠道；全部超额时返回空。 */
+export function payableGateway(rows: PaymentGateway[], amountCents: number, preferred = "") {
+  const usable = rows.filter((g) => !gatewayOverLimit(g, amountCents));
+  return usable.find((g) => g.code === preferred)?.code || usable[0]?.code || "";
+}
+export function PaymentLimitNotice({ gateways, amountCents }: { gateways: PaymentGateway[]; amountCents: number }) {
+  const { site } = useSite();
+  const blocked = gateways.filter((g) => gatewayOverLimit(g, amountCents));
+  if (!blocked.length) return null;
+  const names = blocked.map((g) => `${g.label || g.name}单笔限额 ¥${money(g.max_amount_cents || 0)}`).join("、");
+  const allBlocked = blocked.length === gateways.length;
+  return (
+    <p className="payment-limit-note" role="status">
+      订单金额 ¥{money(amountCents)} 超过{names}，
+      {allBlocked ? "请联系客服下单。" : "请选择其他支付方式，或联系客服下单。"}
+      {site.customer_service && <span className="payment-limit-contact">客服：{site.customer_service}</span>}
+    </p>
+  );
+}
 
 export function PaymentLogo({
   code,
@@ -218,29 +242,33 @@ export function OrderSummary({
   );
 }
 
-export function PaymentChoices({ gateways, value, onChange, disabled = false, name, checkout = false }: {
+export function PaymentChoices({ gateways, value, onChange, disabled = false, name, checkout = false, amountCents = 0 }: {
   gateways: PaymentGateway[];
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
   name: string;
   checkout?: boolean;
+  amountCents?: number;
 }) {
   return (
     <fieldset className={`payment-options ${checkout ? "checkout-payment-options" : ""}`} disabled={disabled}>
       <legend>支付方式</legend>
       <div className="payment-choices-grid">
-        {gateways.map((g) => (
-          <label className={`payment-choice ${value === g.code ? "is-selected" : ""}`} key={g.code}>
-            <input type="radio" name={name} value={g.code} checked={value === g.code} onChange={() => onChange(g.code)} />
-            <PaymentLogo code={g.payment_type && ["alipay", "usdt"].includes(g.payment_type) ? g.payment_type : g.code} logoUrl={g.logo_url} size={32} />
-            <span>
-              <strong>{g.label || g.name}</strong>
-              <small>{g.description || g.name}</small>
-            </span>
-            <i className="payment-choice-check" aria-hidden="true">{value === g.code && <Check size={12} strokeWidth={3} />}</i>
-          </label>
-        ))}
+        {gateways.map((g) => {
+          const over = gatewayOverLimit(g, amountCents);
+          return (
+            <label className={`payment-choice ${value === g.code ? "is-selected" : ""} ${over ? "is-disabled" : ""}`} key={g.code}>
+              <input type="radio" name={name} value={g.code} checked={value === g.code} disabled={over} onChange={() => onChange(g.code)} />
+              <PaymentLogo code={g.payment_type && ["alipay", "usdt"].includes(g.payment_type) ? g.payment_type : g.code} logoUrl={g.logo_url} size={32} />
+              <span>
+                <strong>{g.label || g.name}</strong>
+                <small>{over ? `单笔限额 ¥${money(g.max_amount_cents || 0)}，超出请联系客服下单` : g.description || g.name}</small>
+              </span>
+              <i className="payment-choice-check" aria-hidden="true">{value === g.code && <Check size={12} strokeWidth={3} />}</i>
+            </label>
+          );
+        })}
       </div>
     </fieldset>
   );
@@ -291,13 +319,13 @@ export function PaymentAction({ order, initialGateway = "" }: { order: ShopOrder
       .then((rows) => {
         setGateways(rows);
         const preferred = initialGateway || paymentSession(order.order_no)?.gateway;
-        setGateway(rows.find((g) => g.code === preferred)?.code || rows[0]?.code || "");
+        setGateway(payableGateway(rows, order.total_cents, preferred));
       })
       .catch((e) => {
         if (!ctrl.signal.aborted) setError(e.message);
       });
     return () => ctrl.abort();
-  }, [revision, order.order_no, initialGateway]);
+  }, [revision, order.order_no, order.total_cents, initialGateway]);
   const selected = gateways?.find((g) => g.code === gateway);
   async function pay() {
     if (busy) return;
@@ -366,8 +394,9 @@ export function PaymentAction({ order, initialGateway = "" }: { order: ShopOrder
     <>
       {hasCashierWindow(order.order_no) && <p className="soft-note" role="status">收银台已在独立窗口打开，本站正在核对到账。确认付款后会显示商品并尝试关闭支付窗口；若支付页未自动关闭，请关闭该页返回本订单。</p>}
       {!!gateways?.length && (
-        <PaymentChoices gateways={gateways || []} value={gateway} disabled={busy} name={"payment-" + order.order_no} onChange={(code) => { setGateway(code); setPaymentQR(""); }} />
+        <PaymentChoices gateways={gateways || []} value={gateway} disabled={busy} amountCents={order.total_cents} name={"payment-" + order.order_no} onChange={(code) => { setGateway(code); setPaymentQR(""); }} />
       )}
+      {!!gateways?.length && <PaymentLimitNotice gateways={gateways} amountCents={order.total_cents} />}
       {selected?.crypto && (
         <p className="payment-crypto-note">
           请使用 USDT 钱包，确认收银台显示的网络和金额后再转账。
@@ -423,7 +452,9 @@ export function PaymentAction({ order, initialGateway = "" }: { order: ShopOrder
         {!gateways
           ? "正在加载支付方式…"
           : gateways.length
-            ? paymentQR
+            ? !gateway
+              ? "请联系客服下单"
+              : paymentQR
               ? "重新显示付款码"
               : ["niuniupay", "epay"].includes(gateway)
                 ? hasCashierWindow(order.order_no) ? "重新打开付款窗口" : "打开收银台（新窗口）"
