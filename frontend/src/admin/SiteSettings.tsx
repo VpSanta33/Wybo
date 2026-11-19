@@ -449,8 +449,8 @@ function SettingsForm({
                   <i className="a-icon-violet">
                     <BellRing size={22} />
                   </i>
-                  <h2>成交订单推送</h2>
-                  <p>订单付款后，用 Bark 将好消息送到手机。</p>
+                  <h2>店主通知</h2>
+                  <p>通过 Bark 接收成交通知、商品售罄提醒和售后消息。</p>
                   <a
                     href="https://bark.day.app/"
                     target="_blank"
@@ -462,16 +462,16 @@ function SettingsForm({
                 <div>
                   {toggle(
                     "order_push_enabled",
-                    "启用成交推送",
-                    "支持 Bark、店主邮件与 Webhook，可同时使用。",
+                    "启用店主推送",
+                    "控制 Bark 通知、店主成交邮件和成交 Webhook。",
                   )}
                   {v.order_push_enabled !== "true" &&
                     (v.order_bark_enabled === "true" || v.order_webhook_url?.trim() || v.order_notify_email?.trim()) && (
                       <Banner>
-                        <strong>成交推送总开关未开启</strong>
-                        <p>当前不会发送 Bark、店主成交邮件或成交 Webhook。请开启总开关并保存，顾客发货邮件由邮件通知开关单独控制。</p>
+                        <strong>店主推送总开关已关闭</strong>
+                        <p>开启并保存后，将按下方配置发送通知。顾客发货邮件由邮件通知开关单独控制。</p>
                         <button type="button" className="a-button" onClick={() => set("order_push_enabled", "true")}>
-                          开启成交推送（需保存）
+                          开启店主推送（需保存）
                         </button>
                       </Banner>
                     )}
@@ -480,7 +480,7 @@ function SettingsForm({
                   {toggle(
                     "order_bark_enabled",
                     "启用 Bark 通知",
-                    "需同时开启成交推送；不依赖 Resend。",
+                    "请同时开启店主推送。可售库存降至零、顾客提交或回复工单、登记换卡、升级或退款售后单时均会提醒。",
                   )}
                   {input(
                     "order_bark_server",
@@ -503,7 +503,7 @@ function SettingsForm({
                     60,
                   )}
                   <p className="a-inline-note">
-                    推送包含商品、订单号、实收、成本与销售利润，不包含卡密或买家联系方式。
+                    成交通知列出商品、订单号、实收、成本与销售利润。售后通知可凭订单号和工单号或售后单号在后台查看详情。
                   </p>
                   <button
                     type="button"
@@ -566,7 +566,7 @@ function SettingsForm({
                     <Webhook size={22} />
                   </i>
                   <h2>其他成交推送</h2>
-                  <p>开启成交推送后，也可通过邮件和 Webhook 接收。</p>
+                  <p>开启店主推送后，也可通过邮件和 Webhook 接收成交订单。</p>
                 </div>
                 <div>
                   {input(

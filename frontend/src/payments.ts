@@ -1,3 +1,11 @@
+import type { PaymentGateway } from "./api";
+
+export function cashierEstimate(amountCents: number, gateway?: PaymentGateway) {
+  const rateBps = gateway?.cashier_fee_bps ?? 0;
+  const feeCents = Math.round(amountCents * rateBps / 10000);
+  return { amountCents, rateBps, feeCents, totalCents: amountCents + feeCents };
+}
+
 export function paymentLogo(code: string) {
   const logos: Record<string, string> = {
     alipay: "/payments/alipay.svg",

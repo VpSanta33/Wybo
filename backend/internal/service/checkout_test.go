@@ -17,6 +17,7 @@ func TestCustomerGatewayDescriptionsMatchConfiguredMethods(t *testing.T) {
 	}{
 		{"epay", `{"api_url":"https://pay.example.test","pid":"test-merchant","key":"test-only-merchant-secret"}`, "支付宝", false},
 		{"epay", `{"type":"wxpay"}`, "微信支付", false},
+		{"niuniupay", `{"api_url":"https://pay.example.test","pid":"1001","key":"test-only-key"}`, "支付宝", false},
 		{"stripe", `{"secret_key":"test-only-stripe-secret","webhook_secret":"test-only-hook-secret","payment_methods":"alipay"}`, "支付宝", false},
 		{"stripe", `{"payment_methods":"card,wechat_pay"}`, "银行卡 / 微信支付", false},
 		{"stripe", `{"payment_methods":"auto"}`, "银行卡 / 支付宝 / 微信", false},
@@ -29,6 +30,9 @@ func TestCustomerGatewayDescriptionsMatchConfiguredMethods(t *testing.T) {
 		must(t, err)
 		found := false
 		for _, row := range rows {
+			if row.Code == model.GatewayNiuniu && row.CashierFeeBps != 350 || row.Code != model.GatewayNiuniu && row.CashierFeeBps != 0 {
+				t.Fatalf("incorrect customer cashier fee: %+v", row)
+			}
 			if row.Code == tc.code {
 				found = true
 				if row.Label != tc.label || row.Crypto != tc.crypto || row.Description == "" {

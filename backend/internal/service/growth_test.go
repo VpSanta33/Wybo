@@ -161,6 +161,7 @@ func TestReplacementUpgradeAndDeliveredRefundCosts(t *testing.T) {
 	o, e := s.CreateOrder(CreateOrderReq{ProductID: p.ID, Contact: "owner"})
 	must(t, e)
 	must(t, s.MarkPaid(o.OrderNo, "original", "epay", o.TotalCents))
+	must(t, s.UpdateSettings(map[string]string{"order_push_enabled": "true", "order_bark_enabled": "true", "order_bark_key": "test-key"}))
 	must(t, s.UpdateOrderFee(o.OrderNo, 0))
 	cards, _ := s.OrderCards(o.ID)
 	_, e = s.ReplaceCard(o.OrderNo, cards[0].ID, "invalid card")
@@ -224,6 +225,16 @@ func TestReplacementUpgradeAndDeliveredRefundCosts(t *testing.T) {
 	must(t, e)
 	if report["net_profit_cents"] != int64(-35000) {
 		t.Fatal("upgrade bundle refunds lost costs", report)
+	}
+	var jobs []model.Notification
+	must(t, db.Where("channel = ?", barkAfterSale).Order("id").Find(&jobs).Error)
+	if len(jobs) != 4 {
+		t.Fatal("expected one Bark job per committed after-sale", len(jobs))
+	}
+	for i, kind := range []string{"换卡", "升级补差", "售后退款", "售后退款"} {
+		if !strings.Contains(jobs[i].Body, kind) || !strings.Contains(jobs[i].Body, jobs[i].EventKey) {
+			t.Fatal("missing after-sale kind or number", jobs[i])
+		}
 	}
 }
 

@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"github.com/wybo/backend/internal/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -20,6 +21,23 @@ func (s *Service) AfterSales() ([]model.AfterSale, error) {
 	e := s.db.Order("id DESC").Limit(200).Find(&rows).Error
 	return rows, e
 }
+
+func recordAfterSale(tx *gorm.DB, sale *model.AfterSale) error {
+	if err := tx.Create(sale).Error; err != nil {
+		return err
+	}
+	kind := map[string]string{"replacement": "换卡", "upgrade": "升级补差", "refund": "售后退款"}[sale.Kind]
+	body := fmt.Sprintf("类型：%s\n订单：%s\n售后单：%s", kind, sale.OrderNo, sale.Number)
+	if sale.ChildOrderNo != "" {
+		body += "\n补差订单：" + sale.ChildOrderNo
+	}
+	if sale.AmountCents > 0 {
+		body += "\n金额：" + barkMoney(sale.AmountCents)
+	}
+	_, err := queueBarkEvent(tx, barkAfterSale, sale.OrderID, sale.Number, body)
+	return err
+}
+
 func (s *Service) ReplaceCard(no string, cardID uint, reason string) (*model.AfterSale, error) {
 	if !validReason(reason) {
 		return nil, errors.New("请填写换卡原因（2–500 字节）")
@@ -69,7 +87,7 @@ func (s *Service) ReplaceCard(no string, cardID uint, reason string) (*model.Aft
 			return e
 		}
 		*out = model.AfterSale{Number: "AS" + generateOrderNo(), OrderID: o.ID, OrderNo: no, Kind: "replacement", Status: "completed", OriginalCardID: &old.ID, NewCardID: &fresh.ID, Reason: strings.TrimSpace(reason)}
-		return tx.Create(out).Error
+		return recordAfterSale(tx, out)
 	})
 	return out, e
 }
@@ -127,7 +145,7 @@ func (s *Service) CreateUpgrade(no string, target uint, difference int64, reason
 				return e
 			}
 		}
-		return tx.Create(&model.AfterSale{Number: "AS" + generateOrderNo(), OrderID: o.ID, OrderNo: no, Kind: "upgrade", Status: "waiting", ChildOrderID: &child.ID, ChildOrderNo: child.OrderNo, AmountCents: difference, Reason: reason}).Error
+		return recordAfterSale(tx, &model.AfterSale{Number: "AS" + generateOrderNo(), OrderID: o.ID, OrderNo: no, Kind: "upgrade", Status: "waiting", ChildOrderID: &child.ID, ChildOrderNo: child.OrderNo, AmountCents: difference, Reason: reason})
 	})
 	return child, e
 }
@@ -200,7 +218,7 @@ func (s *Service) DeliveredRefund(no, reason, reference string, confirm bool) (*
 			return e
 		}
 		*out = model.AfterSale{Number: "AS" + generateOrderNo(), OrderID: o.ID, OrderNo: no, Kind: "refund", Status: "completed", AmountCents: o.TotalCents, Reference: reference, Reason: reason}
-		return tx.Create(out).Error
+		return recordAfterSale(tx, out)
 	})
 	return out, e
 }

@@ -102,6 +102,13 @@ func AutoMigrate(db *gorm.DB) error {
 	); err != nil {
 		return err
 	}
+	// Existing order notifications use the empty event key. A single order
+	// can now also receive several distinct after-sales notifications.
+	if db.Migrator().HasIndex(&Notification{}, "order_channel") {
+		if err := db.Migrator().DropIndex(&Notification{}, "order_channel"); err != nil {
+			return err
+		}
+	}
 	if err := db.Model(&Admin{}).Where("session_version IS NULL").Update("session_version", 0).Error; err != nil {
 		return err
 	}

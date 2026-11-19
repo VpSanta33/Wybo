@@ -53,11 +53,22 @@ func testLegacyCheckoutReturnAndVerifiedDelivery(t *testing.T, gateway string) {
 	cfg.Pay.NotifyBase = "https://shop.example.test/api/v1/pay/notify"
 	cfg.Pay.ReturnURL = "https://shop.example.test/orders?source=return"
 	s := service.New(db, cfg, zap.NewNop())
-	var barkCalls, webhookCalls atomic.Int64
+	var paidBarkCalls, stockoutBarkCalls, webhookCalls atomic.Int64
 	notifications := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		switch req.URL.Path {
 		case "/push":
-			barkCalls.Add(1)
+			var payload struct{ Title string }
+			if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+				t.Error(err)
+			}
+			switch {
+			case strings.HasSuffix(payload.Title, "新成交订单"):
+				paidBarkCalls.Add(1)
+			case strings.HasSuffix(payload.Title, "商品已售罄"):
+				stockoutBarkCalls.Add(1)
+			default:
+				t.Error("unexpected Bark event", payload.Title)
+			}
 			fmt.Fprint(w, `{"code":200}`)
 		case "/webhook":
 			webhookCalls.Add(1)
@@ -189,7 +200,7 @@ func testLegacyCheckoutReturnAndVerifiedDelivery(t *testing.T, gateway string) {
 			t.Fatal("payment notification jobs were not delivered", sent)
 		}
 	}
-	if barkCalls.Load() != 2 || webhookCalls.Load() != 2 {
-		t.Fatal("repeated callback duplicated or missed notifications", barkCalls.Load(), webhookCalls.Load())
+	if paidBarkCalls.Load() != 2 || stockoutBarkCalls.Load() != 1 || webhookCalls.Load() != 2 {
+		t.Fatal("missing or duplicate notifications", paidBarkCalls.Load(), stockoutBarkCalls.Load(), webhookCalls.Load())
 	}
 }

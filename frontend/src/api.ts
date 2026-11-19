@@ -163,6 +163,8 @@ export interface PaymentGateway {
   crypto: boolean;
   /** 渠道单笔限额（分），缺省表示不限制 */
   max_amount_cents?: number;
+  /** 收银台向顾客加收的预计费率（基点） */
+  cashier_fee_bps?: number;
 }
 
 interface RecentOrder {

@@ -82,18 +82,12 @@ func (s *Service) ImportCards(req ImportCardsReq) (*ImportCardsResult, error) {
 			}
 			result.Imported++
 		}
-		var stock int64
-		if err := tx.Model(&model.Card{}).
-			Where("product_id = ? AND status = ?", req.ProductID, model.CardAvailable).
-			Count(&stock).Error; err != nil {
-			return err
-		}
 		if result.Imported > 0 {
 			if err := tx.Create(&model.InventoryBatch{BatchNo: batchNo, ProductID: p.ID, UnitCostCents: req.UnitCostCents, Quantity: result.Imported, Note: req.Note}).Error; err != nil {
 				return err
 			}
 		}
-		return tx.Model(&p).Update("stock", stock).Error
+		return refreshAvailable(tx, p.ID)
 	})
 	if err == nil {
 		result.BatchNo = batchNo

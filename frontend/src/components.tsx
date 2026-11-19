@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { api, startPayment, queryOrder, checkOrderPayment, type ShopOrder, type PaymentGateway } from "./api";
 import { money } from "./data";
-import { paymentLogo } from "./payments";
+import { cashierEstimate, paymentLogo } from "./payments";
 import QRCode from "qrcode";
 import { useNavigate, useLocation } from "react-router-dom";
 import { rememberPayment, paymentSession, openCashierWindow, closeCashierWindow, hasCashierWindow } from "./paymentSession";
@@ -36,6 +36,23 @@ export function PaymentLimitNotice({ gateways, amountCents }: { gateways: Paymen
       {allBlocked ? "请联系客服下单。" : "请选择其他支付方式，或联系客服下单。"}
       {site.customer_service && <span className="payment-limit-contact">客服：{site.customer_service}</span>}
     </p>
+  );
+}
+
+export function CashierFeeNotice({ estimate, beforeDiscount = false }: {
+  estimate: ReturnType<typeof cashierEstimate>;
+  beforeDiscount?: boolean;
+}) {
+  if (!estimate.rateBps || !estimate.amountCents) return null;
+  return (
+    <div className="cashier-fee-note" role="status">
+      <div>
+        <span>{beforeDiscount ? "优惠前商品金额" : "订单金额"} ¥{money(estimate.amountCents)}</span>
+        {" + "}<span>手续费 ¥{money(estimate.feeCents)}</span>
+        {" = "}<strong>预计支付 ¥{money(estimate.totalCents)}</strong>
+      </div>
+      <small>牛牛支付手续费按 {estimate.rateBps / 100}% 估算，实际金额以收银台为准。</small>
+    </div>
   );
 }
 
@@ -327,6 +344,7 @@ export function PaymentAction({ order, initialGateway = "" }: { order: ShopOrder
     return () => ctrl.abort();
   }, [revision, order.order_no, order.total_cents, initialGateway]);
   const selected = gateways?.find((g) => g.code === gateway);
+  const estimate = cashierEstimate(order.total_cents, selected);
   async function pay() {
     if (busy) return;
     setBusy(true);
@@ -397,6 +415,7 @@ export function PaymentAction({ order, initialGateway = "" }: { order: ShopOrder
         <PaymentChoices gateways={gateways || []} value={gateway} disabled={busy} amountCents={order.total_cents} name={"payment-" + order.order_no} onChange={(code) => { setGateway(code); setPaymentQR(""); }} />
       )}
       {!!gateways?.length && <PaymentLimitNotice gateways={gateways} amountCents={order.total_cents} />}
+      <CashierFeeNotice estimate={estimate} />
       {selected?.crypto && (
         <p className="payment-crypto-note">
           请使用 USDT 钱包，确认收银台显示的网络和金额后再转账。
@@ -405,7 +424,7 @@ export function PaymentAction({ order, initialGateway = "" }: { order: ShopOrder
       {paymentQR && (
         <section className="payment-qr-panel" aria-label="扫码支付">
           <h3>使用{selected?.label || "支付应用"}扫码付款</h3>
-          <strong>¥{money(order.total_cents)}</strong>
+          <strong>{estimate.rateBps > 0 && "预计支付 "}¥{money(estimate.totalCents)}</strong>
           {qrError ? (
             <p role="alert">二维码图片加载失败，请重新获取或联系店主。</p>
           ) : (

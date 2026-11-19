@@ -186,6 +186,23 @@
   font-weight: 600;
   white-space: pre-line;
 }
+.cashier-fee-note {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #eff5ff;
+  color: #34486b;
+  font-size: 13px;
+  line-height: 1.7;
+  font-variant-numeric: tabular-nums;
+}
+.cashier-fee-note span,
+.cashier-fee-note strong {
+  display: inline-block;
+}
+.cashier-fee-note small {
+  font-size: 12px;
+}
 .payment-crypto-note {
   color: #665b42;
   background: #fff8e9;

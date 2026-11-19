@@ -97,6 +97,9 @@ func TestNiuniuCheckoutCachesAPIResultAndPreservesUnknownQuery(t *testing.T) {
 					if r.FormValue("name") != p.Name+" ×1" {
 						t.Error("actual purchased product was not sent")
 					}
+					if r.FormValue("money") != "115.00" {
+						t.Error("cashier surcharge should be collected by Niuniu")
+					}
 					if uncertain {
 						fmt.Fprint(w, "not-json")
 						return

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/wybo/backend/internal/model"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"io"
 	"net/http"
@@ -18,6 +19,12 @@ import (
 )
 
 var notificationHTTP = &http.Client{Timeout: 15 * time.Second}
+
+func enqueueNotification(tx *gorm.DB, job model.Notification) error {
+	job.Status = "pending"
+	job.NextAttemptAt = time.Now()
+	return tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&job).Error
+}
 
 // NotifyByEmail queues durable, unique notification jobs. The worker retries failures.
 func (s *Service) NotifyByEmail(orderNo string) error {
@@ -49,7 +56,7 @@ func (s *Service) NotifyByEmail(orderNo string) error {
 		}
 	}
 	for _, ch := range channels {
-		if err := s.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.Notification{OrderID: order.ID, Channel: ch, Status: "pending", NextAttemptAt: time.Now()}).Error; err != nil {
+		if err := enqueueNotification(s.db, model.Notification{OrderID: order.ID, Channel: ch}); err != nil {
 			return err
 		}
 	}
@@ -83,6 +90,12 @@ func (s *Service) sendResend(ctx context.Context, to, subject, text, idempotency
 	return nil
 }
 func (s *Service) sendNotification(ctx context.Context, job model.Notification) error {
+	if title, ok := barkEventTitles[job.Channel]; ok {
+		if s.setting("order_push_enabled", "false") != "true" || s.setting("order_bark_enabled", "false") != "true" {
+			return errNotificationDisabled
+		}
+		return s.sendBark(ctx, s.setting("site_name", "Wybo")+" · "+title, job.Body)
+	}
 	var o model.Order
 	if err := s.db.First(&o, job.OrderID).Error; err != nil {
 		return err

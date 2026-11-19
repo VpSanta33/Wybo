@@ -67,6 +67,7 @@ type Product struct {
 	RedeemURL          string     `gorm:"size:255" json:"redeem_url"`
 	RedeemGuide        string     `gorm:"type:text" json:"redeem_guide"`
 	Stock              int        `gorm:"default:0" json:"stock"` // 冗余：= available 卡密数
+	StockoutBarkQueued bool       `gorm:"not null;default:false" json:"-"`
 	Sales              int        `gorm:"default:0" json:"sales"`
 	Enabled            bool       `gorm:"default:true" json:"enabled"`
 	Sort               int        `gorm:"default:0" json:"sort"`
@@ -291,8 +292,10 @@ type AgentPrice struct {
 // Unique delivery jobs keep repeated payment callbacks from sending duplicates.
 type Notification struct {
 	ID            uint      `gorm:"primaryKey" json:"id"`
-	OrderID       uint      `gorm:"uniqueIndex:order_channel" json:"order_id"`
-	Channel       string    `gorm:"uniqueIndex:order_channel" json:"channel"`
+	OrderID       uint      `gorm:"uniqueIndex:order_channel_event" json:"order_id"`
+	Channel       string    `gorm:"uniqueIndex:order_channel_event" json:"channel"`
+	EventKey      string    `gorm:"size:64;not null;default:'';uniqueIndex:order_channel_event" json:"-"`
+	Body          string    `json:"-"`
 	Status        string    `gorm:"index" json:"status"`
 	Attempts      int       `json:"attempts"`
 	LastError     string    `json:"last_error"`

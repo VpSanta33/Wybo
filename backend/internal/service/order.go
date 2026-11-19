@@ -396,13 +396,10 @@ func claimOrderCards(tx *gorm.DB, orderID uint) error {
 		if int(res.RowsAffected) < it.Quantity {
 			return ErrInsufficientStock
 		}
-		var stock int64
-		if err := tx.Model(&model.Card{}).
-			Where("product_id = ? AND status = ?", it.ProductID, model.CardAvailable).
-			Count(&stock).Error; err != nil {
+		if err := refreshAvailable(tx, it.ProductID); err != nil {
 			return err
 		}
-		if err := tx.Model(&model.Product{}).Where("id = ?", it.ProductID).Updates(map[string]interface{}{"stock": stock, "sales": gorm.Expr("sales + ?", it.Quantity)}).Error; err != nil {
+		if err := tx.Model(&model.Product{}).Where("id = ?", it.ProductID).UpdateColumn("sales", gorm.Expr("sales + ?", it.Quantity)).Error; err != nil {
 			return err
 		}
 	}

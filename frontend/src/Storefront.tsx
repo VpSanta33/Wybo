@@ -36,7 +36,8 @@ import { money, type Category, type Product } from "./data";
 import { SiteBrand } from "./Site";
 import ProductVisual, { BrandImage, ProductThumbnail } from "./ProductVisual";
 import { pricePending, productBrand } from "./productBrands";
-import { ErrorMessage, Modal, OrderSummary, PaymentAction, PaymentChoices, PaymentLimitNotice, payableGateway } from "./components";
+import { CashierFeeNotice, ErrorMessage, Modal, OrderSummary, PaymentAction, PaymentChoices, PaymentLimitNotice, payableGateway } from "./components";
+import { cashierEstimate } from "./payments";
 import CheckoutVerification, {
   type VerificationState,
 } from "./CheckoutVerification";
@@ -328,6 +329,11 @@ export default function Storefront({
     : 1;
   const actualQuantity = Math.min(quantity, maxQuantity);
   const total = (product?.price_cents ?? 0) * actualQuantity;
+  const estimate = cashierEstimate(total, selectedGateway);
+  const beforeDiscount = Boolean(coupon.trim());
+  const totalLabel = beforeDiscount
+    ? "优惠前预计支付"
+    : estimate.rateBps ? "预计支付" : "合计金额";
   // 数量变化导致超过渠道单笔限额时，自动改选可用渠道；全部超额则不能提交。
   useEffect(() => {
     if (gateways) setGateway((current) => payableGateway(gateways, total, current));
@@ -763,10 +769,11 @@ export default function Storefront({
                   </button>
                 </div>
                 {error && !review && <ErrorMessage>{error}</ErrorMessage>}
+                {!pendingPrice && <CashierFeeNotice estimate={estimate} beforeDiscount={beforeDiscount} />}
                 <div className="checkout-actions">
                   <div className="purchase-total">
                     <div>
-                      <span>合计金额</span>
+                      <span>{totalLabel}</span>
                     </div>
                     <strong aria-live="polite">
                       {pendingPrice ? (
@@ -774,7 +781,7 @@ export default function Storefront({
                       ) : (
                         <>
                           <small>CNY</small>
-                          {money(total)}
+                          {money(estimate.totalCents)}
                         </>
                       )}
                     </strong>
@@ -887,11 +894,14 @@ export default function Storefront({
                   <strong>{email.trim()}</strong>
                 </div>
                 {!demo && selectedGateway && <div><span>支付方式</span><strong>{selectedGateway.label || selectedGateway.name}</strong></div>}
-                <div className="review-summary-total">
-                  <span>合计</span>
-                  <strong>¥{money(total)}</strong>
-                </div>
+                {estimate.rateBps === 0 && (
+                  <div className="review-summary-total">
+                    <span>{totalLabel}</span>
+                    <strong>¥{money(total)}</strong>
+                  </div>
+                )}
               </div>
+              <CashierFeeNotice estimate={estimate} beforeDiscount={beforeDiscount} />
               {demo && (
                 <p className="soft-note">
                   <Sparkles size={16} />

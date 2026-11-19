@@ -11,11 +11,22 @@ import (
 const cardReserved = "reserved"
 
 func refreshAvailable(tx *gorm.DB, id uint) error {
+	var p model.Product
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&p, id).Error; err != nil {
+		return err
+	}
 	var n int64
 	if err := tx.Model(&model.Card{}).Where("product_id = ? AND status = ?", id, model.CardAvailable).Count(&n).Error; err != nil {
 		return err
 	}
-	return tx.Model(&model.Product{}).Where("id = ?", id).Update("stock", n).Error
+	p.Stock = int(n)
+	if err := tx.Model(&p).Update("stock", n).Error; err != nil {
+		return err
+	}
+	if p.SupplySource == "upstream" {
+		return nil
+	}
+	return syncStockoutBark(tx, p)
 }
 func reserveCards(tx *gorm.DB, orderID, productID uint, quantity int) error {
 	var cards []model.Card

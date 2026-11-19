@@ -99,11 +99,7 @@ func (s *Service) refreshStockByCard(cardID uint) error {
 
 // refreshStock 重算商品冗余库存（available 卡密数）
 func (s *Service) refreshStock(productID uint) error {
-	var stock int64
-	if err := s.db.Model(&model.Card{}).
-		Where("product_id = ? AND status = ?", productID, model.CardAvailable).
-		Count(&stock).Error; err != nil {
-		return err
-	}
-	return s.db.Model(&model.Product{}).Where("id = ?", productID).Update("stock", stock).Error
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		return refreshAvailable(tx, productID)
+	})
 }

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/wybo/backend/internal/model"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"os"
@@ -97,39 +98,61 @@ func (s *Service) PrepareRestore(id uint) (map[string]interface{}, error) {
 }
 func (s *Service) RefreshStockAlerts() {
 	threshold, _ := strconv.Atoi(s.setting("stock_threshold", "5"))
-	var products []model.Product
-	s.db.Find(&products)
-	for _, p := range products {
-		var a model.StockAlert
-		found := s.db.Where("product_id = ?", p.ID).First(&a).Error == nil
-		low := p.Enabled && p.DeliveryMode != model.DeliveryManual && p.Stock <= threshold
-		if !low {
-			if found && a.Status == "open" {
-				s.db.Model(&a).Updates(map[string]interface{}{"status": "resolved", "stock": p.Stock})
+	var ids []uint
+	if err := s.db.Model(&model.Product{}).Pluck("id", &ids).Error; err != nil {
+		s.logger.Warn("读取库存预警商品失败", zap.Error(err))
+		return
+	}
+	for _, id := range ids {
+		err := s.db.Transaction(func(tx *gorm.DB) error {
+			var p model.Product
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&p, id).Error; err != nil {
+				return err
 			}
-			continue
-		}
-		if !found {
-			s.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.StockAlert{Snapshot: fmt.Sprintf("%s 剩余 %d 份，预警线 %d 份。请及时补货。", p.Name, p.Stock, threshold), Cycle: randomID(), ProductID: p.ID, ProductName: p.Name, Stock: p.Stock, Threshold: threshold, Status: "open"})
-		} else {
-			v := map[string]interface{}{"stock": p.Stock, "threshold": threshold, "product_name": p.Name, "status": "open"}
-			if a.Snapshot == "" {
-				v["snapshot"] = fmt.Sprintf("%s 剩余 %d 份，预警线 %d 份。请及时补货。", p.Name, p.Stock, threshold)
+			scoped := *s
+			scoped.db = tx
+			scoped.applyPeerAvailability(&p)
+			if err := syncStockoutBark(tx, p); err != nil {
+				return err
 			}
-			if a.Cycle == "" {
-				v["cycle"] = randomID()
-			}
-			if a.Status != "open" {
-				v["cycle"] = randomID()
-				v["snapshot"] = fmt.Sprintf("%s 剩余 %d 份，预警线 %d 份。请及时补货。", p.Name, p.Stock, threshold)
-				v["notified"] = false
-				v["attempts"] = 0
-				v["last_error"] = ""
-			}
-			s.db.Model(&a).Updates(v)
+			return refreshLowStockAlert(tx, p, threshold)
+		})
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			s.logger.Warn("刷新库存预警失败", zap.Uint("product_id", id), zap.Error(err))
 		}
 	}
 }
+
+func refreshLowStockAlert(tx *gorm.DB, p model.Product, threshold int) error {
+	var a model.StockAlert
+	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("product_id = ?", p.ID).First(&a).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	if !p.Enabled || p.DeliveryMode == model.DeliveryManual || p.Stock > threshold {
+		if a.Status == "open" {
+			return tx.Model(&a).Updates(map[string]interface{}{"status": "resolved", "stock": p.Stock}).Error
+		}
+		return nil
+	}
+	if a.Status != "open" {
+		a.Cycle, a.Snapshot = "", ""
+		a.Notified, a.Attempts, a.LastError = false, 0, ""
+	}
+	if a.Cycle == "" {
+		a.Cycle = randomID()
+	}
+	if a.Snapshot == "" {
+		a.Snapshot = fmt.Sprintf("%s 剩余 %d 份，预警线 %d 份。请及时补货。", p.Name, p.Stock, threshold)
+	}
+	a.ProductID = p.ID
+	a.ProductName = p.Name
+	a.Stock = p.Stock
+	a.Threshold = threshold
+	a.Status = "open"
+	return tx.Save(&a).Error
+}
+
 func (s *Service) StockAlerts() ([]model.StockAlert, error) {
 	s.RefreshStockAlerts()
 	var rows []model.StockAlert

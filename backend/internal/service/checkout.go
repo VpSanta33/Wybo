@@ -18,6 +18,8 @@ type PublicGateway struct {
 	Crypto      bool   `json:"crypto"`
 	// MaxAmountCents 为渠道单笔限额（分），0 或缺省表示不限制。
 	MaxAmountCents int64 `json:"max_amount_cents,omitempty"`
+	// Estimated fee collected from the buyer by the external cashier.
+	CashierFeeBps int64 `json:"cashier_fee_bps,omitempty"`
 }
 
 func (s *Service) CustomerGateways() ([]PublicGateway, error) {
@@ -57,7 +59,8 @@ func (s *Service) CustomerGateways() ([]PublicGateway, error) {
 				row.PaymentType = "alipay"
 			}
 			row.Label = map[string]string{"alipay": "支付宝", "wxpay": "微信支付", "qqpay": "QQ 钱包", "bank": "银联支付", "jdpay": "京东支付", "paypal": "PayPal", "douyinpay": "抖音支付"}[row.PaymentType]
-			row.Description = "通过牛牛支付收银台完成付款"
+			row.CashierFeeBps = 350
+			row.Description = "牛牛支付收银台另收手续费"
 		case model.GatewayStripe:
 			methods, err := pay.StripePaymentMethods(cfg["payment_methods"])
 			if err != nil {

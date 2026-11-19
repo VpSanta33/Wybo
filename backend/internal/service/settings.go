@@ -38,7 +38,7 @@ func (s *Service) UpdateSettings(values map[string]string) error {
 	}
 	for k, v := range values {
 		if (k == "order_bark_enabled" || k == "order_push_enabled") && v != "true" && v != "false" {
-			return errors.New("成交推送开关无效")
+			return errors.New("店主推送开关无效")
 		}
 		if k == "order_bark_server" {
 			if _, err := barkEndpoint(v); err != nil {

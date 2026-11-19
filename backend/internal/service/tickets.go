@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"github.com/wybo/backend/internal/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -34,10 +35,24 @@ func (s *Service) CreateTicket(no, contact, subject, content string) (*model.Tic
 		if err := tx.Create(t).Error; err != nil {
 			return err
 		}
-		return tx.Create(&model.TicketMessage{TicketID: t.ID, Author: "customer", Content: strings.TrimSpace(content)}).Error
+		return addTicketMessage(tx, t, model.TicketMessage{Author: "customer", Content: strings.TrimSpace(content)}, "顾客提交了新的售后工单")
 	})
 	return t, err
 }
+
+func addTicketMessage(tx *gorm.DB, ticket *model.Ticket, message model.TicketMessage, event string) error {
+	message.TicketID = ticket.ID
+	if err := tx.Create(&message).Error; err != nil {
+		return err
+	}
+	if message.Author != "customer" || message.Internal {
+		return nil
+	}
+	body := fmt.Sprintf("%s\n订单：%s\n工单：%s", event, ticket.OrderNo, ticket.Number)
+	_, err := queueBarkEvent(tx, barkTicket, ticket.OrderID, fmt.Sprint(message.ID), body)
+	return err
+}
+
 func (s *Service) CustomerTickets(no, contact string) ([]map[string]interface{}, error) {
 	o, err := s.VerifyCustomer(no, contact)
 	if err != nil {
@@ -82,7 +97,7 @@ func (s *Service) ReplyTicket(number, content, status string, internal bool, adm
 		if admin {
 			author = "merchant"
 		}
-		if err := tx.Create(&model.TicketMessage{TicketID: t.ID, Author: author, Content: strings.TrimSpace(content), Internal: internal}).Error; err != nil {
+		if err := addTicketMessage(tx, &t, model.TicketMessage{Author: author, Content: strings.TrimSpace(content), Internal: internal}, "顾客回复了售后工单"); err != nil {
 			return err
 		}
 		return tx.Model(&t).Update("status", status).Error

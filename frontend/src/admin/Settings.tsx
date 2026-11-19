@@ -630,12 +630,15 @@ export function Notifications({ notify }: { notify: (m: string) => void }) {
     merchant_email: "店主成交邮件",
     merchant_webhook: "成交 Webhook",
     merchant_bark: "Bark 成交通知",
+    stockout_bark: "Bark 售罄提醒",
+    ticket_bark: "Bark 售后工单",
+    aftersale_bark: "Bark 售后单",
   };
   return (
     <>
       <PageHeading
         title="推送记录"
-        description="每一份好消息，都有送达的回音。"
+        description="查看成交、库存和售后通知的发送结果。"
       >
         <button className="a-button" onClick={q.reload}>
           <RefreshCw size={16} />
@@ -666,7 +669,7 @@ export function Notifications({ notify }: { notify: (m: string) => void }) {
                 <tbody>
                   {q.data.map((n) => (
                     <tr key={n.id}>
-                      <td>#{n.order_id}</td>
+                      <td>{n.order_id ? `#${n.order_id}` : "—"}</td>
                       <td>{channels[n.channel] || n.channel}</td>
                       <td>
                         <Status
@@ -700,7 +703,7 @@ export function Notifications({ notify }: { notify: (m: string) => void }) {
         ) : (
           <Empty
             title="还没有发送记录"
-            text="启用邮件或成交推送后，新成交的通知会记录在这里。"
+            text="启用邮件或店主推送后，可在这里查看发送记录。"
           />
         )}
       </section>

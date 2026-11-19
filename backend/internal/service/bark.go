@@ -13,11 +13,52 @@ import (
 	"strings"
 
 	"github.com/wybo/backend/internal/model"
+	"gorm.io/gorm"
 )
 
 const defaultBarkServer = "https://api.day.app"
 
+const (
+	barkStockout  = "stockout_bark"
+	barkTicket    = "ticket_bark"
+	barkAfterSale = "aftersale_bark"
+)
+
+var barkEventTitles = map[string]string{
+	barkStockout:  "商品已售罄",
+	barkTicket:    "售后工单",
+	barkAfterSale: "新售后单",
+}
+
 var barkDeviceKey = regexp.MustCompile(`^[A-Za-z0-9_-]{1,255}$`)
+
+// Keep the event and its originating change in the same transaction. The
+// worker reads the saved device key only when it actually sends the push.
+func queueBarkEvent(tx *gorm.DB, channel string, orderID uint, key, body string) (bool, error) {
+	var switches int64
+	err := tx.Model(&model.Setting{}).Where("key IN ? AND value = ?", []string{"order_push_enabled", "order_bark_enabled"}, "true").Count(&switches).Error
+	if err != nil || switches != 2 {
+		return false, err
+	}
+	err = enqueueNotification(tx, model.Notification{OrderID: orderID, Channel: channel, EventKey: key, Body: body})
+	return err == nil, err
+}
+
+// The caller holds the product row lock and supplies its sellable stock.
+func syncStockoutBark(tx *gorm.DB, p model.Product) error {
+	empty := p.Enabled && p.DeliveryMode != model.DeliveryManual && p.Stock <= 0
+	if empty == p.StockoutBarkQueued {
+		return nil
+	}
+	if empty {
+		body := fmt.Sprintf("商品：%s（#%d）\n可售库存已降至 0，请及时补货。", p.Name, p.ID)
+		queued, err := queueBarkEvent(tx, barkStockout, 0, randomID(), body)
+		if err != nil || !queued {
+			return err
+		}
+	}
+	return tx.Model(&model.Product{}).Where("id = ?", p.ID).UpdateColumn("stockout_bark_queued", empty).Error
+}
 
 // Bark's REST API keeps the device key in the JSON body, rather than in URLs.
 func barkEndpoint(server string) (string, error) {
@@ -81,7 +122,7 @@ func (s *Service) sendBark(ctx context.Context, title, body string) error {
 
 // TestBark uses saved settings and sends no real order or customer information.
 func (s *Service) TestBark(ctx context.Context) error {
-	return s.sendBark(ctx, "Wybo · Bark 测试通知", "这是一条测试通知，Bark 连接配置已生效。\n开启成交推送和 Bark 后，新付款订单将自动通知。\n本消息不代表真实订单或收款。")
+	return s.sendBark(ctx, "Wybo · Bark 测试通知", "这是一条测试通知，Bark 连接配置已生效。\n开启推送总开关和 Bark 后，成交、售罄和售后都会通知。\n本消息不代表真实订单或收款。")
 }
 
 func barkMoney(cents int64) string {
