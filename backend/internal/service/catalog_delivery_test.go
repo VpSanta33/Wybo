@@ -101,8 +101,8 @@ func TestCatalogDeletionProtectsBusinessRecords(t *testing.T) {
 	}
 	s.RefreshStockAlerts()
 	must(t, s.DeleteProduct(p.ID))
-	must(t, s.DeleteCategory(p.CategoryID, 0))
-	if s.DeleteProduct(p.ID) == nil || s.DeleteCategory(p.CategoryID, 0) == nil {
+	must(t, s.DeleteCategory(p.CategoryID, nil))
+	if s.DeleteProduct(p.ID) == nil || s.DeleteCategory(p.CategoryID, nil) == nil {
 		t.Fatal("missing records reported as deleted")
 	}
 	list, total, err := s.AdminProducts(1, 100)
@@ -157,46 +157,62 @@ func TestCatalogDeletionProtectsBusinessRecords(t *testing.T) {
 	}
 }
 
-func TestDeleteCategoryMovesListingsToSelectedCategory(t *testing.T) {
+func TestDeleteCategoryArchivesOnlyItsRemainingProducts(t *testing.T) {
 	s, db, p := operationsFixture(t)
-	source := model.Category{ID: p.CategoryID, Name: "旧分类"}
+	source := model.Category{ID: p.CategoryID, Name: "商品分组"}
 	must(t, db.Create(&source).Error)
-	dest, err := s.CreateCategory("接收分类", 0)
+	other, err := s.CreateCategory("其他分组", 0)
 	must(t, err)
+	sibling := model.Product{Name: "另一分组的商品", CategoryID: other.ID, Enabled: true}
+	must(t, s.CreateProduct(&sibling))
 	offSale := model.Product{Name: "下架商品", CategoryID: source.ID}
 	must(t, s.CreateProduct(&offSale))
-	for _, invalid := range []uint{0, source.ID, dest.ID + 1} {
-		if s.DeleteCategory(source.ID, invalid) == nil {
-			t.Fatalf("removed nonempty category with destination %d", invalid)
-		}
+	single := model.Product{Name: "单独删除的商品", CategoryID: source.ID, Enabled: true}
+	must(t, s.CreateProduct(&single))
+	must(t, s.DeleteProduct(single.ID))
+	must(t, db.First(&source, source.ID).Error)
+	order, err := s.CreateOrder(CreateOrderReq{ProductID: p.ID, Contact: "category-buyer"})
+	must(t, err)
+	s.RefreshStockAlerts()
+
+	staleCount := int64(1)
+	if s.DeleteCategory(source.ID, &staleCount) == nil {
+		t.Fatal("accepted a stale product count")
 	}
-	var count int64
-	must(t, db.Model(&model.Product{}).Where("category_id = ?", source.ID).Count(&count).Error)
-	if count != 2 {
-		t.Fatal("failed removal changed product categories")
+	must(t, db.First(&source, source.ID).Error)
+	var active int64
+	must(t, db.Model(&model.Product{}).Where("category_id = ?", source.ID).Count(&active).Error)
+	if active != 2 {
+		t.Fatal("failed group deletion partially archived products")
 	}
-	must(t, s.DeleteCategory(source.ID, dest.ID))
+	must(t, db.Where("product_id = ? AND status = ?", p.ID, "open").First(&model.StockAlert{}).Error)
+
+	must(t, s.DeleteCategory(source.ID, nil))
 	categories, err := s.AdminCategories()
 	must(t, err)
-	if len(categories) != 1 || categories[0].ID != dest.ID {
-		t.Fatal("deleted category still listed")
+	list, total, err := s.AdminProducts(1, 100)
+	must(t, err)
+	if len(categories) != 1 || categories[0].ID != other.ID || total != 1 || len(list) != 1 || list[0].ID != sibling.ID {
+		t.Fatal("group deletion affected the wrong catalog entries")
 	}
-	for _, old := range []model.Product{p, offSale} {
-		product, err := s.GetProduct(old.ID)
-		must(t, err)
-		if product.CategoryID != dest.ID || product.Enabled != old.Enabled || product.PriceCents != old.PriceCents {
-			t.Fatalf("product %d incorrectly reassigned", old.ID)
+	for _, id := range []uint{p.ID, offSale.ID} {
+		var archived model.Product
+		must(t, db.Unscoped().First(&archived, id).Error)
+		if !archived.DeletedAt.Valid || archived.Enabled || archived.CategoryID != source.ID {
+			t.Fatalf("product %d was not archived with its category", id)
 		}
 	}
-	if s.UpdateProduct(p.ID, map[string]interface{}{"category_id": source.ID}) == nil ||
+	must(t, db.Where("product_id = ? AND status = ?", p.ID, "resolved").First(&model.StockAlert{}).Error)
+	must(t, db.Where("product_id = ? AND status = ?", sibling.ID, "open").First(&model.StockAlert{}).Error)
+	if s.UpdateProduct(sibling.ID, map[string]interface{}{"category_id": source.ID}) == nil ||
 		s.CreateProduct(&model.Product{Name: "stale", CategoryID: source.ID}) == nil {
 		t.Fatal("assigned product to a deleted category")
 	}
-	must(t, s.DeleteProduct(offSale.ID))
-	inventory, err := s.InventoryProducts()
+	must(t, s.MarkPaid(order.OrderNo, "after-category-delete", "epay", order.TotalCents))
+	cards, err := s.OrderCards(order.ID)
 	must(t, err)
-	if len(inventory) != 1 || inventory[0].ID != p.ID {
-		t.Fatal("unused deleted product still selectable for inventory")
+	if len(cards) != 1 || cards[0].ProductID != p.ID {
+		t.Fatal("could not fulfill an existing order after group deletion")
 	}
 }
 

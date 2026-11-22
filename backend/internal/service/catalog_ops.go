@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"strings"
 
@@ -79,18 +80,30 @@ func (s *Service) UpdateProduct(id uint, updates map[string]interface{}) error {
 	})
 }
 
-// Archive the listing so existing orders can still use its stock and redemption details.
+// Archive listings before resolving their alerts so stock refreshes see the same row locks.
+func archiveProducts(tx *gorm.DB, condition string, id uint) (int64, error) {
+	result := tx.Model(&model.Product{}).Where(condition, id).
+		Updates(map[string]interface{}{"deleted_at": tx.NowFunc(), "enabled": false})
+	if result.Error != nil || result.RowsAffected == 0 {
+		return result.RowsAffected, result.Error
+	}
+	archivedIDs := tx.Unscoped().Model(&model.Product{}).Select("id").
+		Where(condition, id).Where("deleted_at IS NOT NULL")
+	err := tx.Model(&model.StockAlert{}).Where("status = ? AND product_id IN (?)", "open", archivedIDs).
+		Update("status", "resolved").Error
+	return result.RowsAffected, err
+}
+
 func (s *Service) DeleteProduct(id uint) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		result := tx.Model(&model.Product{}).Where("id = ?", id).
-			Updates(map[string]interface{}{"deleted_at": tx.NowFunc(), "enabled": false})
-		if result.Error != nil {
-			return result.Error
+		count, err := archiveProducts(tx, "id = ?", id)
+		if err != nil {
+			return err
 		}
-		if result.RowsAffected == 0 {
+		if count == 0 {
 			return ErrProductNotFound
 		}
-		return tx.Model(&model.StockAlert{}).Where("product_id = ? AND status = ?", id, "open").Update("status", "resolved").Error
+		return nil
 	})
 }
 
@@ -101,40 +114,24 @@ func (s *Service) UpdateCategory(id uint, name string, sort int, enabled bool) e
 	}).Error
 }
 
-// DeleteCategory moves remaining listings only when a destination was selected.
-func (s *Service) DeleteCategory(id, moveTo uint) error {
-	if id == 0 {
-		return errors.New("分类不存在")
-	}
-	ids := []uint{id}
-	if moveTo != 0 {
-		if moveTo == id {
-			return errors.New("请选择其他分类接收商品")
-		}
-		ids = append(ids, moveTo)
-	}
+// DeleteCategory archives the category and all its listings in the same transaction.
+func (s *Service) DeleteCategory(id uint, expectedProducts *int64) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		var categories []model.Category
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").Where("id IN ?", ids).Order("id").Find(&categories).Error; err != nil {
-			return err
+		// Take the category row lock before archiving members. Assignments hold it FOR SHARE.
+		result := tx.Where("id = ?", id).Delete(&model.Category{})
+		if result.Error != nil {
+			return result.Error
 		}
-		if len(categories) != len(ids) {
+		if result.RowsAffected == 0 {
 			return errors.New("分类不存在，请刷新后重试")
 		}
-		products := tx.Model(&model.Product{}).Where("category_id = ?", id)
-		if moveTo != 0 {
-			if err := products.Update("category_id", moveTo).Error; err != nil {
-				return err
-			}
-		} else {
-			var count int64
-			if err := products.Count(&count).Error; err != nil {
-				return err
-			}
-			if count > 0 {
-				return errors.New("分类下仍有商品，请选择接收商品的分类")
-			}
+		count, err := archiveProducts(tx, "category_id = ?", id)
+		if err != nil {
+			return err
 		}
-		return tx.Delete(&model.Category{}, id).Error
+		if expectedProducts != nil && count != *expectedProducts {
+			return fmt.Errorf("该分类当前有 %d 件商品，请核对数量后重新确认删除", count)
+		}
+		return nil
 	})
 }

@@ -361,13 +361,11 @@ export default function Products({
   } | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-  const [moveTo, setMoveTo] = useState(0);
   function requestDelete(
     kind: "products" | "categories",
     item: { id: number; name: string },
   ) {
     setDeleteError("");
-    setMoveTo(0);
     setRemoving({ kind, id: item.id, name: item.name });
   }
   async function remove() {
@@ -375,11 +373,13 @@ export default function Products({
     setDeleteBusy(true);
     setDeleteError("");
     try {
-      const query = memberCount > 0 ? `?move_to=${moveTo}` : "";
+      const query = removing.kind === "categories" ? `?product_count=${memberCount}` : "";
       await adminApi(`/${removing.kind}/${removing.id}${query}`, {
         method: "DELETE",
       });
-      notify(removing.kind === "products" ? "商品已删除" : "分类已删除");
+      notify(memberCount > 0
+        ? `已删除分类「${removing.name}」及其中的 ${memberCount} 件商品`
+        : `「${removing.name}」已删除`);
       setRemoving(null);
     } catch (e) {
       setDeleteError((e as Error).message);
@@ -422,11 +422,6 @@ export default function Products({
   const memberCount = removing?.kind === "categories"
     ? products.filter((p) => p.category_id === removing.id).length
     : 0;
-  const destinations = (c.data || []).filter(
-    (category) => category.id !== removing?.id,
-  );
-  const canRemove = memberCount === 0 ||
-    destinations.some((category) => category.id === moveTo);
   const filtered = products.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase()),
   );
@@ -689,35 +684,14 @@ export default function Products({
         >
           <div className="a-editor">
             <h2>删除{removing.kind === "products" ? "商品" : "分类"}？</h2>
-            <p>即将删除「{removing.name}」。删除后无法在后台恢复。</p>
-            {removing.kind === "products" && (
-              <p className="a-hint">
-                商品将从前台和后台商品列表移除，已有订单、卡密和采购记录会保留。
-              </p>
-            )}
-            {memberCount > 0 && (destinations.length > 0 ? (
-              <Field
-                label="接收商品的分类"
-                hint={`确认后，该分类下的 ${memberCount} 件商品将一起移入接收分类。`}
-              >
-                <select
-                  value={moveTo}
-                  disabled={deleteBusy}
-                  onChange={(e) => setMoveTo(Number(e.target.value))}
-                >
-                  <option value={0} disabled>请选择分类</option>
-                  {destinations.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}{!category.enabled && "（已停用）"}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            ) : (
-              <p className="a-hint">
-                分类中有 {memberCount} 件商品。请先返回添加接收分类，或先删除其中的商品。
-              </p>
-            ))}
+            <p>
+              {removing.kind === "products"
+                ? `将删除商品「${removing.name}」。`
+                : `将删除分类「${removing.name}」及其中的全部商品（共 ${memberCount} 件，含已下架商品）。`}
+            </p>
+            <p className="a-hint">
+              删除后无法在后台恢复。已有订单、卡密和采购记录会保留。
+            </p>
             {deleteError && <Banner>{deleteError}</Banner>}
             <div className="a-form-actions">
               <button
@@ -729,7 +703,7 @@ export default function Products({
               </button>
               <button
                 className="a-button danger"
-                disabled={deleteBusy || !canRemove}
+                disabled={deleteBusy}
                 onClick={() => void remove()}
               >
                 {deleteBusy ? "删除中…" : "确认删除"}

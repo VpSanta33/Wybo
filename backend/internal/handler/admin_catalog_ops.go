@@ -79,12 +79,18 @@ func (h *Handler) AdminDeleteCategory(c *gin.Context) {
 		response.Error(c, 400, "分类编号无效")
 		return
 	}
-	moveTo, err := strconv.Atoi(c.DefaultQuery("move_to", "0"))
-	if err != nil || moveTo < 0 {
-		response.Error(c, 400, "接收分类编号无效")
+	if c.Request.URL.Query().Has("move_to") {
+		response.Error(c, 400, "删除分类将同时删除其中的商品，请刷新页面后重新确认")
 		return
 	}
-	if err := h.svc.DeleteCategory(uint(id), uint(moveTo)); err != nil {
+	var query struct {
+		ProductCount *int64 `form:"product_count" binding:"omitempty,gte=0"`
+	}
+	if err := c.ShouldBindQuery(&query); err != nil {
+		response.Error(c, 400, "商品数量无效，请刷新后重试")
+		return
+	}
+	if err := h.svc.DeleteCategory(uint(id), query.ProductCount); err != nil {
 		response.Error(c, 400, err.Error())
 		return
 	}
