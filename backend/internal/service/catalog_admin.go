@@ -2,9 +2,11 @@ package service
 
 import (
 	"errors"
+	"strings"
+
 	"github.com/wybo/backend/internal/model"
 	"gorm.io/gorm"
-	"strings"
+	"gorm.io/gorm/clause"
 )
 
 // CreateCategory 新增分类
@@ -27,6 +29,19 @@ func (s *Service) AdminCategories() ([]model.Category, error) {
 	return list, err
 }
 
+func catalogProductIDs(db *gorm.DB) *gorm.DB {
+	return db.Model(&model.Product{}).Select("id")
+}
+
+// Hold the destination category until the product assignment commits.
+func lockProductCategory(tx *gorm.DB, categoryID interface{}) error {
+	err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Select("id").Where("id = ?", categoryID).Take(&model.Category{}).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return errors.New("分类不存在")
+	}
+	return err
+}
+
 // CreateProduct 新增商品
 func (s *Service) CreateProduct(p *model.Product) error {
 	if p.DeliveryMode == "" {
@@ -45,12 +60,11 @@ func (s *Service) CreateProduct(p *model.Product) error {
 	if strings.TrimSpace(p.Name) == "" || len(p.Name) > 128 || p.PriceCents < 0 || p.PriceCents > 10000000000 || p.OriginalPriceCents < 0 || p.OriginalPriceCents > 10000000000 || (p.CostCents != nil && (*p.CostCents < 0 || *p.CostCents > 10000000000)) {
 		return errors.New("商品名称、成本或售价不正确")
 	}
-	var cat model.Category
-	if s.db.First(&cat, p.CategoryID).Error != nil {
-		return errors.New("分类不存在")
-	}
 	enabled := p.Enabled
 	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := lockProductCategory(tx, p.CategoryID); err != nil {
+			return err
+		}
 		if err := tx.Create(p).Error; err != nil {
 			return err
 		}

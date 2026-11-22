@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -23,7 +24,7 @@ func (s *Service) ListCoupons() ([]model.Coupon, error) {
 	err := s.db.Order("id DESC").Find(&rows).Error
 	return rows, err
 }
-func (s *Service) validateCoupon(c *model.Coupon) error {
+func (s *Service) validateCoupon(c *model.Coupon, previousIDs ...uint) error {
 	c.Code = strings.TrimSpace(c.Code)
 	if !regexp.MustCompile(`^[A-Za-z0-9_-]{3,32}$`).MatchString(c.Code) || (c.Type != model.CouponFixed && c.Type != model.CouponPercent) || c.Value <= 0 || (c.Type == model.CouponPercent && c.Value >= 100) || c.Value > 1000000000 || c.MinAmountCents < 0 || c.Total < 0 || c.Total > 1000000000 {
 		return errors.New("优惠码须为 3–32 位字母数字；金额、折扣和数量须有效")
@@ -34,7 +35,12 @@ func (s *Service) validateCoupon(c *model.Coupon) error {
 	seen := map[uint]bool{}
 	for _, id := range c.ProductIDs {
 		var count int64
-		if seen[id] || s.db.Model(&model.Product{}).Where("id = ?", id).Count(&count).Error != nil || count != 1 {
+		products := s.db.Model(&model.Product{})
+		if slices.Contains(previousIDs, id) {
+			// Keep an existing restriction when its listing has been archived.
+			products = products.Unscoped()
+		}
+		if seen[id] || products.Where("id = ?", id).Count(&count).Error != nil || count != 1 {
 			return errors.New("适用商品无效或重复")
 		}
 		seen[id] = true
@@ -67,7 +73,7 @@ func (s *Service) UpdateCoupon(c *model.Coupon) error {
 		c.Code = old.Code
 		scoped := *s
 		scoped.db = tx
-		if err := scoped.validateCoupon(c); err != nil {
+		if err := scoped.validateCoupon(c, old.ProductIDs...); err != nil {
 			return err
 		}
 		if c.Total > 0 && c.Total < old.Used {

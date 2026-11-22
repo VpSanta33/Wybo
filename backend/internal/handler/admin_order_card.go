@@ -71,6 +71,15 @@ func (h *Handler) AdminManualFulfill(c *gin.Context) {
 	response.OK(c, nil)
 }
 
+func (h *Handler) AdminInventoryProducts(c *gin.Context) {
+	products, err := h.svc.InventoryProducts()
+	if err != nil {
+		response.Error(c, 500, "库存商品查询失败")
+		return
+	}
+	response.OK(c, products)
+}
+
 // AdminDisableCard 停用卡密
 func (h *Handler) AdminDisableCard(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))

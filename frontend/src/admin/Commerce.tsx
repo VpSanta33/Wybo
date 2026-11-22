@@ -519,6 +519,12 @@ function canDeleteInventoryCard(card: Card) {
   return (card.status === "available" || card.status === "disabled") && card.order_id == null;
 }
 
+type InventoryProduct = { id: number; name: string; deleted: boolean };
+
+function inventoryProductName(product: InventoryProduct) {
+  return product.deleted ? `${product.name}（已删除）` : product.name;
+}
+
 export function Inventory({ notify }: { notify: (m: string) => void }) {
   const [params, setParams] = useSearchParams();
   const product = params.get("product") || "";
@@ -556,7 +562,7 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
   const [removing, setRemoving] = useState<number[] | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-  const p = useAllProducts();
+  const p = useAdminQuery<InventoryProduct[]>("/cards/products");
   const q = useAdminQuery<{ list: Card[]; total: number }>(
     `/cards?product_id=${product}&status=${status}&page=${page}&size=20`,
   );
@@ -637,9 +643,9 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
               }}
             >
               <option value="">全部商品</option>
-              {p.data?.list.map((x) => (
+              {p.data?.map((x) => (
                 <option key={x.id} value={x.id}>
-                  {x.name}
+                  {inventoryProductName(x)}
                 </option>
               ))}
             </select>
@@ -735,7 +741,7 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
                       />
                     </td>
                     <td>
-                      {p.data?.list.find((x) => x.id === c.product_id)?.name ||
+                      {p.data?.find((x) => x.id === c.product_id)?.name ||
                         `商品 #${c.product_id}`}
                     </td>
                     <td>
@@ -831,7 +837,7 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
       )}
       {importing && (
         <ImportCards
-          products={p.data?.list || []}
+          products={p.data || []}
           initialProduct={product}
           onClose={() => setImporting(false)}
           onSaved={(m) => {
@@ -850,7 +856,7 @@ function ImportCards({
   onClose,
   onSaved,
 }: {
-  products: AdminProduct[];
+  products: InventoryProduct[];
   initialProduct: string;
   onClose: () => void;
   onSaved: (m: string) => void;
@@ -910,7 +916,7 @@ function ImportCards({
           >
             {products.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name}
+                {inventoryProductName(p)}
               </option>
             ))}
           </select>

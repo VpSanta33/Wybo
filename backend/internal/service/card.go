@@ -32,15 +32,28 @@ type ImportCardsResult struct {
 	BatchNo       string `json:"batch_no"`
 }
 
+type InventoryProduct struct {
+	ID      uint   `json:"id"`
+	Name    string `json:"name"`
+	Deleted bool   `json:"deleted"`
+}
+
+// Archived listings with cards or orders are still needed for inventory and fulfillment.
+func inventoryProducts(db *gorm.DB) *gorm.DB {
+	return db.Unscoped().Model(&model.Product{}).Where(`(products.deleted_at IS NULL
+		OR EXISTS (SELECT 1 FROM cards WHERE cards.product_id = products.id)
+		OR EXISTS (SELECT 1 FROM order_items WHERE order_items.product_id = products.id))`)
+}
+
+func (s *Service) InventoryProducts() ([]InventoryProduct, error) {
+	var products []InventoryProduct
+	err := inventoryProducts(s.db).Select("id, name, deleted_at IS NOT NULL AS deleted").
+		Order("deleted ASC, id DESC").Scan(&products).Error
+	return products, err
+}
+
 // ImportCards 批量导入卡密，按 (product_id, code) 去重，并刷新冗余库存
 func (s *Service) ImportCards(req ImportCardsReq) (*ImportCardsResult, error) {
-	var p model.Product
-	if err := s.db.First(&p, req.ProductID).Error; err != nil {
-		return nil, ErrProductNotFound
-	}
-	if p.SupplySource == "upstream" {
-		return nil, errors.New("上游映射商品不能导入公共卡密，请先停用映射")
-	}
 	if len(req.Lines) > 10000 || len(req.Note) > 500 || (req.UnitCostCents != nil && (*req.UnitCostCents < 0 || *req.UnitCostCents > 10000000000)) {
 		return nil, errors.New("批次成本或导入数量不正确")
 	}
@@ -48,7 +61,8 @@ func (s *Service) ImportCards(req ImportCardsReq) (*ImportCardsResult, error) {
 	result := &ImportCardsResult{}
 
 	err := s.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&p, req.ProductID).Error; err != nil {
+		var p model.Product
+		if err := inventoryProducts(tx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&p, req.ProductID).Error; err != nil {
 			return ErrProductNotFound
 		}
 		if p.SupplySource == "upstream" {

@@ -10,6 +10,7 @@ import (
 	"github.com/wybo/backend/internal/config"
 	"github.com/wybo/backend/internal/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func main() {
@@ -19,7 +20,7 @@ func main() {
 	}
 	err = db.Transaction(func(tx *gorm.DB) error {
 		var category model.Category
-		err := tx.Where("LOWER(name) = ?", "chatgpt").First(&category).Error
+		err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("LOWER(name) = ?", "chatgpt").First(&category).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			category = model.Category{Name: "ChatGPT", Enabled: true}
 			if err = tx.Create(&category).Error; err != nil {

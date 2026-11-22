@@ -37,7 +37,11 @@ func (h *Handler) AdminUpdateProduct(c *gin.Context) {
 
 // AdminDeleteProduct 删除商品
 func (h *Handler) AdminDeleteProduct(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		response.Error(c, 400, "商品编号无效")
+		return
+	}
 	if err := h.svc.DeleteProduct(uint(id)); err != nil {
 		response.Error(c, 400, err.Error())
 		return
@@ -70,8 +74,17 @@ func (h *Handler) AdminUpdateCategory(c *gin.Context) {
 
 // AdminDeleteCategory 删除分类
 func (h *Handler) AdminDeleteCategory(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
-	if err := h.svc.DeleteCategory(uint(id)); err != nil {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		response.Error(c, 400, "分类编号无效")
+		return
+	}
+	moveTo, err := strconv.Atoi(c.DefaultQuery("move_to", "0"))
+	if err != nil || moveTo < 0 {
+		response.Error(c, 400, "接收分类编号无效")
+		return
+	}
+	if err := h.svc.DeleteCategory(uint(id), uint(moveTo)); err != nil {
 		response.Error(c, 400, err.Error())
 		return
 	}

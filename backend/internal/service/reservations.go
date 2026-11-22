@@ -11,8 +11,9 @@ import (
 const cardReserved = "reserved"
 
 func refreshAvailable(tx *gorm.DB, id uint) error {
+	// Previously placed orders may release or consume stock after catalog deletion.
 	var p model.Product
-	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&p, id).Error; err != nil {
+	if err := tx.Unscoped().Clauses(clause.Locking{Strength: "UPDATE"}).First(&p, id).Error; err != nil {
 		return err
 	}
 	var n int64
@@ -20,10 +21,10 @@ func refreshAvailable(tx *gorm.DB, id uint) error {
 		return err
 	}
 	p.Stock = int(n)
-	if err := tx.Model(&p).Update("stock", n).Error; err != nil {
+	if err := tx.Unscoped().Model(&p).Update("stock", n).Error; err != nil {
 		return err
 	}
-	if p.SupplySource == "upstream" {
+	if p.DeletedAt.Valid || p.SupplySource == "upstream" {
 		return nil
 	}
 	return syncStockoutBark(tx, p)

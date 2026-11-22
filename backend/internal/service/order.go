@@ -399,7 +399,7 @@ func claimOrderCards(tx *gorm.DB, orderID uint) error {
 		if err := refreshAvailable(tx, it.ProductID); err != nil {
 			return err
 		}
-		if err := tx.Model(&model.Product{}).Where("id = ?", it.ProductID).UpdateColumn("sales", gorm.Expr("sales + ?", it.Quantity)).Error; err != nil {
+		if err := tx.Unscoped().Model(&model.Product{}).Where("id = ?", it.ProductID).UpdateColumn("sales", gorm.Expr("sales + ?", it.Quantity)).Error; err != nil {
 			return err
 		}
 	}

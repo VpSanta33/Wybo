@@ -923,6 +923,12 @@ function CouponEditor({
     [ids, setIds] = useState<number[]>(row?.product_ids || []),
     [count, setCount] = useState(1),
     [prefix, setPrefix] = useState("MOON");
+  const choices = [
+    ...products,
+    ...(row?.product_ids || [])
+      .filter((id) => !products.some((p) => p.id === id))
+      .map((id) => ({ id, name: `商品 #${id}` })),
+  ];
   return (
     <ActionDialog
       title={row ? "编辑优惠券" : "创建优惠券"}
@@ -1030,7 +1036,7 @@ function CouponEditor({
             <legend>
               适用商品 <small>不勾选则全部可用</small>
             </legend>
-            {products.map((p) => (
+            {choices.map((p) => (
               <label className="a-check" key={p.id}>
                 <input
                   type="checkbox"

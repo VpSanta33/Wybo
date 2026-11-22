@@ -1,7 +1,7 @@
 package service
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/wybo/backend/internal/model"
@@ -81,39 +81,122 @@ func TestAutomaticDeliveryRemainsAutomaticAfterProductEdit(t *testing.T) {
 }
 
 func TestCatalogDeletionProtectsBusinessRecords(t *testing.T) {
-	s, db, _ := operationsFixture(t)
-	must(t, db.Create(&model.Category{ID: 1, Name: "existing", Enabled: true}).Error)
-	category, err := s.CreateCategory("删除测试分类", 0)
+	s, db, p := operationsFixture(t)
+	must(t, db.Create(&model.Category{ID: p.CategoryID, Name: "existing"}).Error)
+	must(t, s.UpdateProduct(p.ID, map[string]interface{}{"redeem_guide": "原商品的兑换说明"}))
+	order, err := s.CreateOrder(CreateOrderReq{ProductID: p.ID, Contact: "buyer@example.test"})
 	must(t, err)
-	p := model.Product{Name: "unused", CategoryID: category.ID, PriceCents: 11500, Enabled: true}
-	must(t, s.CreateProduct(&p))
-	if s.DeleteCategory(category.ID) == nil {
-		t.Fatal("nonempty category deleted")
+	coupon := model.Coupon{Code: "ORIGINAL", Type: model.CouponFixed, Value: 10, ProductIDs: []uint{p.ID}, Enabled: true}
+	must(t, s.CreateCoupon(&coupon))
+	relations := []interface{}{
+		&model.InventoryBatch{ProductID: p.ID, BatchNo: "original-batch"},
+		&model.AgentPrice{ProductID: p.ID},
+		&model.Purchase{ProductID: p.ID, Number: "original-purchase"},
+		&model.StationProduct{ProductID: p.ID},
+		&model.PeerGrant{ProductID: p.ID},
+		&model.PeerMapping{ProductID: p.ID},
 	}
+	for _, row := range relations {
+		must(t, db.Create(row).Error)
+	}
+	s.RefreshStockAlerts()
 	must(t, s.DeleteProduct(p.ID))
-	must(t, s.DeleteCategory(category.ID))
-	if s.DeleteProduct(p.ID) == nil || s.DeleteCategory(category.ID) == nil {
+	must(t, s.DeleteCategory(p.CategoryID, 0))
+	if s.DeleteProduct(p.ID) == nil || s.DeleteCategory(p.CategoryID, 0) == nil {
 		t.Fatal("missing records reported as deleted")
 	}
-	for i, relation := range []interface{}{&model.OrderItem{}, &model.Card{}, &model.InventoryBatch{}, &model.Purchase{}, &model.AgentPrice{}} {
-		p := model.Product{Name: fmt.Sprintf("protected-%d", i), CategoryID: 1, PriceCents: 100, Enabled: true}
-		must(t, db.Create(&p).Error)
-		switch row := relation.(type) {
-		case *model.OrderItem:
-			row.ProductID = p.ID
-		case *model.Card:
-			row.ProductID, row.Code = p.ID, "protected-card"
-		case *model.InventoryBatch:
-			row.ProductID, row.BatchNo = p.ID, "protected-batch"
-		case *model.Purchase:
-			row.ProductID, row.Number = p.ID, "protected-purchase"
-		case *model.AgentPrice:
-			row.ProductID = p.ID
+	list, total, err := s.AdminProducts(1, 100)
+	must(t, err)
+	public, publicTotal, err := s.ListProducts(0, "", 1, 100)
+	must(t, err)
+	if len(list) != 0 || total != 0 || len(public) != 0 || publicTotal != 0 {
+		t.Fatal("deleted product still in catalog")
+	}
+	if _, err := s.CreateOrder(CreateOrderReq{ProductID: p.ID, Contact: "new-buyer"}); !errors.Is(err, ErrProductNotFound) {
+		t.Fatalf("new order after deletion: %v", err)
+	}
+	if s.UpdateProduct(p.ID, map[string]interface{}{"enabled": true}) == nil {
+		t.Fatal("stale edit restored deleted product")
+	}
+	coupon.Enabled = false
+	must(t, s.UpdateCoupon(&coupon))
+	if len(coupon.ProductIDs) != 1 || coupon.ProductIDs[0] != p.ID {
+		t.Fatal("coupon lost its product restriction")
+	}
+	inventory, err := s.InventoryProducts()
+	must(t, err)
+	if len(inventory) != 1 || inventory[0].ID != p.ID || !inventory[0].Deleted {
+		t.Fatal("archived product unavailable for inventory")
+	}
+	var alert model.StockAlert
+	must(t, db.Where("product_id = ?", p.ID).First(&alert).Error)
+	if alert.Status != "resolved" {
+		t.Fatal("archived product still has an open stock alert")
+	}
+	for _, row := range relations {
+		var count int64
+		must(t, db.Model(row).Where("product_id = ?", p.ID).Count(&count).Error)
+		if count != 1 {
+			t.Fatalf("lost existing %T", row)
 		}
-		must(t, db.Create(relation).Error)
-		if s.DeleteProduct(p.ID) == nil {
-			t.Fatal("referenced product deleted", i)
+	}
+	must(t, s.MarkPaid(order.OrderNo, "after-archive", "epay", order.TotalCents))
+	cards, err := s.OrderCards(order.ID)
+	must(t, err)
+	redemptions, err := s.OrderRedemptions(order.ID)
+	must(t, err)
+	if len(cards) != 1 || len(redemptions) != 1 || redemptions[0].ProductName != p.Name || redemptions[0].RedeemGuide != "原商品的兑换说明" {
+		t.Fatal("could not deliver or redeem an existing order after catalog deletion")
+	}
+	_, err = s.ImportCards(ImportCardsReq{ProductID: p.ID, Lines: []CardLine{{Code: "additional-stock"}}})
+	must(t, err)
+	var archived model.Product
+	must(t, db.Unscoped().First(&archived, p.ID).Error)
+	if archived.Enabled || archived.Stock != 3 || archived.Sales != 1 {
+		t.Fatalf("wrong archived inventory: stock %d, sales %d, enabled %t", archived.Stock, archived.Sales, archived.Enabled)
+	}
+}
+
+func TestDeleteCategoryMovesListingsToSelectedCategory(t *testing.T) {
+	s, db, p := operationsFixture(t)
+	source := model.Category{ID: p.CategoryID, Name: "旧分类"}
+	must(t, db.Create(&source).Error)
+	dest, err := s.CreateCategory("接收分类", 0)
+	must(t, err)
+	offSale := model.Product{Name: "下架商品", CategoryID: source.ID}
+	must(t, s.CreateProduct(&offSale))
+	for _, invalid := range []uint{0, source.ID, dest.ID + 1} {
+		if s.DeleteCategory(source.ID, invalid) == nil {
+			t.Fatalf("removed nonempty category with destination %d", invalid)
 		}
+	}
+	var count int64
+	must(t, db.Model(&model.Product{}).Where("category_id = ?", source.ID).Count(&count).Error)
+	if count != 2 {
+		t.Fatal("failed removal changed product categories")
+	}
+	must(t, s.DeleteCategory(source.ID, dest.ID))
+	categories, err := s.AdminCategories()
+	must(t, err)
+	if len(categories) != 1 || categories[0].ID != dest.ID {
+		t.Fatal("deleted category still listed")
+	}
+	for _, old := range []model.Product{p, offSale} {
+		product, err := s.GetProduct(old.ID)
+		must(t, err)
+		if product.CategoryID != dest.ID || product.Enabled != old.Enabled || product.PriceCents != old.PriceCents {
+			t.Fatalf("product %d incorrectly reassigned", old.ID)
+		}
+	}
+	if s.UpdateProduct(p.ID, map[string]interface{}{"category_id": source.ID}) == nil ||
+		s.CreateProduct(&model.Product{Name: "stale", CategoryID: source.ID}) == nil {
+		t.Fatal("assigned product to a deleted category")
+	}
+	must(t, s.DeleteProduct(offSale.ID))
+	inventory, err := s.InventoryProducts()
+	must(t, err)
+	if len(inventory) != 1 || inventory[0].ID != p.ID {
+		t.Fatal("unused deleted product still selectable for inventory")
 	}
 }
 

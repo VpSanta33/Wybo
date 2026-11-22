@@ -138,7 +138,7 @@ func (s *Service) ReceivePurchase(id uint, lines []CardLine) (*ImportCardsResult
 			return errors.New("采购单已入库或已取消")
 		}
 		var product model.Product
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&product, p.ProductID).Error; err != nil {
+		if err := tx.Unscoped().Clauses(clause.Locking{Strength: "UPDATE"}).First(&product, p.ProductID).Error; err != nil {
 			return err
 		}
 		if product.SupplySource == "upstream" {

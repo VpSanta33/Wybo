@@ -132,7 +132,7 @@ func (s *Service) SyncPeerConnection(ctx context.Context, id uint) (err error) {
 			}
 		}
 		var mappings []model.PeerMapping
-		if e := tx.Where("connection_id = ? AND enabled = ?", id, true).Find(&mappings).Error; e != nil {
+		if e := tx.Where("connection_id = ? AND enabled = ? AND product_id IN (?)", id, true, catalogProductIDs(tx)).Find(&mappings).Error; e != nil {
 			return e
 		}
 		for _, mapping := range mappings {
@@ -520,7 +520,7 @@ func (s *Service) applyPeerResult(connectionID uint, result PeerOrderResult) err
 				return err
 			}
 		}
-		if err := tx.Model(&model.Product{}).Where("id = ?", item.ProductID).UpdateColumn("sales", gorm.Expr("sales + ?", job.Quantity)).Error; err != nil {
+		if err := tx.Unscoped().Model(&model.Product{}).Where("id = ?", item.ProductID).UpdateColumn("sales", gorm.Expr("sales + ?", job.Quantity)).Error; err != nil {
 			return err
 		}
 		if err := tx.Model(&order).Updates(map[string]interface{}{"status": model.OrderCompleted, "cost_cents": result.TotalCents, "cost_source": "peer", "cleaned_at": nil}).Error; err != nil {

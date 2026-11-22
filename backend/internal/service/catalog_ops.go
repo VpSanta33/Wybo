@@ -62,13 +62,12 @@ func (s *Service) UpdateProduct(id uint, updates map[string]interface{}) error {
 			return errors.New("商品名称需要 1–128 字节")
 		}
 	}
-	if v, ok := updates["category_id"]; ok {
-		var cat model.Category
-		if s.db.Where("id = ?", v).First(&cat).Error != nil {
-			return errors.New("分类不存在")
-		}
-	}
 	return s.db.Transaction(func(tx *gorm.DB) error {
+		if v, ok := updates["category_id"]; ok {
+			if err := lockProductCategory(tx, v); err != nil {
+				return err
+			}
+		}
 		var p model.Product
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&p, id).Error; err != nil {
 			return errors.New("商品不存在")
@@ -80,23 +79,18 @@ func (s *Service) UpdateProduct(id uint, updates map[string]interface{}) error {
 	})
 }
 
-// DeleteProduct only removes unused products; business records remain intact.
+// Archive the listing so existing orders can still use its stock and redemption details.
 func (s *Service) DeleteProduct(id uint) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		var p model.Product
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&p, id).Error; err != nil {
-			return errors.New("商品不存在")
+		result := tx.Model(&model.Product{}).Where("id = ?", id).
+			Updates(map[string]interface{}{"deleted_at": tx.NowFunc(), "enabled": false})
+		if result.Error != nil {
+			return result.Error
 		}
-		for _, table := range []interface{}{&model.OrderItem{}, &model.Card{}, &model.InventoryBatch{}, &model.Purchase{}, &model.AgentPrice{}, &model.StationProduct{}, &model.PeerMapping{}, &model.PeerGrant{}} {
-			var count int64
-			if err := tx.Model(table).Where("product_id = ?", id).Count(&count).Error; err != nil {
-				return err
-			}
-			if count > 0 {
-				return errors.New("该商品有关联订单、卡密、采购或代理价格，请保留记录并将商品下架；仅未使用的商品可删除")
-			}
+		if result.RowsAffected == 0 {
+			return ErrProductNotFound
 		}
-		return tx.Delete(&p).Error
+		return tx.Model(&model.StockAlert{}).Where("product_id = ? AND status = ?", id, "open").Update("status", "resolved").Error
 	})
 }
 
@@ -107,20 +101,40 @@ func (s *Service) UpdateCategory(id uint, name string, sort int, enabled bool) e
 	}).Error
 }
 
-// DeleteCategory 删除分类（有商品时禁止）
-func (s *Service) DeleteCategory(id uint) error {
-	return s.db.Transaction(func(tx *gorm.DB) error {
-		var category model.Category
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&category, id).Error; err != nil {
-			return errors.New("分类不存在")
+// DeleteCategory moves remaining listings only when a destination was selected.
+func (s *Service) DeleteCategory(id, moveTo uint) error {
+	if id == 0 {
+		return errors.New("分类不存在")
+	}
+	ids := []uint{id}
+	if moveTo != 0 {
+		if moveTo == id {
+			return errors.New("请选择其他分类接收商品")
 		}
-		var count int64
-		if err := tx.Model(&model.Product{}).Where("category_id = ?", id).Count(&count).Error; err != nil {
+		ids = append(ids, moveTo)
+	}
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var categories []model.Category
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").Where("id IN ?", ids).Order("id").Find(&categories).Error; err != nil {
 			return err
 		}
-		if count > 0 {
-			return errors.New("该分类下仍有商品，请先将商品移到其他分类或删除未使用的商品")
+		if len(categories) != len(ids) {
+			return errors.New("分类不存在，请刷新后重试")
 		}
-		return tx.Delete(&category).Error
+		products := tx.Model(&model.Product{}).Where("category_id = ?", id)
+		if moveTo != 0 {
+			if err := products.Update("category_id", moveTo).Error; err != nil {
+				return err
+			}
+		} else {
+			var count int64
+			if err := products.Count(&count).Error; err != nil {
+				return err
+			}
+			if count > 0 {
+				return errors.New("分类下仍有商品，请选择接收商品的分类")
+			}
+		}
+		return tx.Delete(&model.Category{}, id).Error
 	})
 }

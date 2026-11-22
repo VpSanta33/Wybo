@@ -71,7 +71,7 @@ func (s *Service) FulfillManualOrder(orderNo string, lines []CardLine) error {
 					return err
 				}
 			}
-			if err := tx.Model(&model.Product{}).Where("id = ?", item.ProductID).UpdateColumn("sales", gorm.Expr("sales + ?", item.Quantity)).Error; err != nil {
+			if err := tx.Unscoped().Model(&model.Product{}).Where("id = ?", item.ProductID).UpdateColumn("sales", gorm.Expr("sales + ?", item.Quantity)).Error; err != nil {
 				return err
 			}
 		}

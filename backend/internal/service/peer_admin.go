@@ -27,8 +27,13 @@ func (s *Service) PeerOverview() (map[string]interface{}, error) {
 	for _, q := range []struct {
 		dest  interface{}
 		limit int
-	}{{&accounts, 1000}, {&connections, 1000}, {&grants, 10000}, {&catalog, 10000}, {&jobs, 200}, {&ledger, 500}, {&events, 200}, {&mappings, 10000}} {
+	}{{&accounts, 1000}, {&connections, 1000}, {&catalog, 10000}, {&jobs, 200}, {&ledger, 500}, {&events, 200}} {
 		if err := s.db.Order("id DESC").Limit(q.limit).Find(q.dest).Error; err != nil {
+			return nil, err
+		}
+	}
+	for _, dest := range []interface{}{&grants, &mappings} {
+		if err := s.db.Where("product_id IN (?)", catalogProductIDs(s.db)).Order("id DESC").Limit(10000).Find(dest).Error; err != nil {
 			return nil, err
 		}
 	}

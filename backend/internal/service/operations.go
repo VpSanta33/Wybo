@@ -237,7 +237,9 @@ func (s *Service) ListAgents() ([]map[string]interface{}, error) {
 	out := []map[string]interface{}{}
 	for _, a := range agents {
 		var prices []model.AgentPrice
-		s.db.Where("agent_id = ?", a.ID).Find(&prices)
+		if err := s.db.Where("agent_id = ? AND product_id IN (?)", a.ID, catalogProductIDs(s.db)).Find(&prices).Error; err != nil {
+			return nil, err
+		}
 		var count, revenue int64
 		s.db.Model(&model.Order{}).Where("agent_id = ? AND status IN ?", a.ID, []string{model.OrderPaid, model.OrderCompleted}).Count(&count)
 		s.db.Model(&model.Order{}).Where("agent_id = ? AND status IN ?", a.ID, []string{model.OrderPaid, model.OrderCompleted}).Select("COALESCE(SUM(total_cents),0)").Scan(&revenue)
@@ -284,7 +286,7 @@ func (s *Service) SaveAgent(a *model.Agent, prices []model.AgentPrice) error {
 				return errors.New("代理不存在")
 			}
 		}
-		if err := tx.Where("agent_id = ?", a.ID).Delete(&model.AgentPrice{}).Error; err != nil {
+		if err := tx.Where("agent_id = ? AND product_id IN (?)", a.ID, catalogProductIDs(tx)).Delete(&model.AgentPrice{}).Error; err != nil {
 			return err
 		}
 		for _, p := range prices {

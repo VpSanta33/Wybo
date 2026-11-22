@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 // 本文件定义全部数据表模型与业务枚举常量。
 // 金额统一以「分」(int64) 存储，避免浮点误差。
@@ -38,6 +42,8 @@ type Category struct {
 	Enabled   bool      `gorm:"default:true" json:"enabled"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 // ============ 商品 ============
@@ -73,6 +79,8 @@ type Product struct {
 	Sort               int        `gorm:"default:0" json:"sort"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
+
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 // ============ 卡密/CDK ============
