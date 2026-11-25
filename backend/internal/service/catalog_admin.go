@@ -9,11 +9,21 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// CreateCategory 新增分类
-func (s *Service) CreateCategory(name string, sort int) (*model.Category, error) {
+var ErrCategoryName = errors.New("分类名称需要 1–64 字节")
+
+func categoryName(name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" || len(name) > 64 {
-		return nil, errors.New("分类名称需要 1–64 字节")
+		return "", ErrCategoryName
+	}
+	return name, nil
+}
+
+// CreateCategory 新增分类
+func (s *Service) CreateCategory(name string, sort int) (*model.Category, error) {
+	name, err := categoryName(name)
+	if err != nil {
+		return nil, err
 	}
 	c := &model.Category{Name: name, Sort: sort, Enabled: true}
 	if err := s.db.Create(c).Error; err != nil {

@@ -352,6 +352,7 @@ export default function Products({
   const [edit, setEdit] = useState<AdminProduct | null | undefined>(undefined);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [newCategory, setNewCategory] = useState("");
+  const [renaming, setRenaming] = useState<Pick<AdminCategory, "id" | "name"> | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<{
@@ -391,21 +392,30 @@ export default function Products({
   }
   async function categorySave(e: FormEvent) {
     e.preventDefault();
+    if (busy || !can("catalog.write")) return;
+    const name = (renaming?.name ?? newCategory).trim();
+    if (!name) return;
     setBusy(true);
     setError("");
     try {
-      await adminApi("/categories", {
-        method: "POST",
-        body: JSON.stringify({ name: newCategory.trim() }),
+      await adminApi(renaming ? `/categories/${renaming.id}` : "/categories", {
+        method: renaming ? "PUT" : "POST",
+        body: JSON.stringify({ name }),
       });
-      setNewCategory("");
+      if (renaming) setRenaming(null);
+      else setNewCategory("");
       c.reload();
-      notify("分类已添加");
+      notify(renaming ? "分类名称已保存" : "分类已添加");
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(false);
     }
+  }
+  function closeRename() {
+    if (busy) return;
+    setError("");
+    setRenaming(null);
   }
   if ((q.loading && !q.data) || (c.loading && !c.data)) return <Busy />;
   if (q.error || c.error)
@@ -435,7 +445,10 @@ export default function Products({
         <button
           className="a-button"
           disabled={!can("catalog.write")}
-          onClick={() => setCategoryOpen(true)}
+          onClick={() => {
+            setError("");
+            setCategoryOpen(true);
+          }}
         >
           <Tags size={15} />
           商品分类
@@ -631,7 +644,7 @@ export default function Products({
             <span className="a-eyebrow">CATEGORIES</span>
             <h2>商品分类</h2>
             <p>用于前台顶部分类和商品归属。</p>
-            {error && <Banner>{error}</Banner>}
+            {!renaming && error && <Banner>{error}</Banner>}
             <div className="a-category-list">
               {c.data?.map((x) => (
                 <div key={x.id}>
@@ -644,6 +657,18 @@ export default function Products({
                       value={x.enabled ? "completed" : "disabled"}
                       label={x.enabled ? "启用中" : "已停用"}
                     />
+                    <button
+                      className="a-table-button"
+                      aria-label={`改名 ${x.name}`}
+                      disabled={busy || deleteBusy || !can("catalog.write")}
+                      onClick={() => {
+                        setError("");
+                        setRenaming({ id: x.id, name: x.name });
+                      }}
+                    >
+                      <Pencil size={14} />
+                      改名
+                    </button>
                     <button
                       className="a-table-button a-danger-text"
                       aria-label={`删除分类 ${x.name}`}
@@ -667,12 +692,39 @@ export default function Products({
                   placeholder="例如 Gemini"
                 />
               </Field>
-              <button className="a-button primary" disabled={busy}>
+              <button className="a-button primary" disabled={busy || !newCategory.trim()}>
                 <Plus size={15} />
                 添加分类
               </button>
             </form>
           </div>
+        </Modal>
+      )}
+      {renaming && (
+        <Modal title="修改分类名称" onClose={closeRename}>
+          <form className="a-editor" onSubmit={categorySave}>
+            <h2>修改分类名称</h2>
+            <Field label="分类名称">
+              <input
+                autoFocus
+                required
+                maxLength={64}
+                disabled={busy}
+                value={renaming.name}
+                onChange={(e) => setRenaming({ ...renaming, name: e.target.value })}
+              />
+            </Field>
+            {error && <Banner>{error}</Banner>}
+            <div className="a-form-actions">
+              <button type="button" className="a-button" disabled={busy} onClick={closeRename}>
+                取消
+              </button>
+              <button className="a-button primary" disabled={busy || !renaming.name.trim()}>
+                {busy ? <LoaderCircle size={16} className="spin" /> : <Check size={16} />}
+                保存名称
+              </button>
+            </div>
+          </form>
         </Modal>
       )}
       {removing && (

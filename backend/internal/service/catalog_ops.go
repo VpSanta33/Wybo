@@ -108,10 +108,23 @@ func (s *Service) DeleteProduct(id uint) error {
 }
 
 // UpdateCategory 更新分类
-func (s *Service) UpdateCategory(id uint, name string, sort int, enabled bool) error {
-	return s.db.Model(&model.Category{}).Where("id = ?", id).Updates(map[string]interface{}{
-		"name": name, "sort": sort, "enabled": enabled,
-	}).Error
+func (s *Service) UpdateCategory(id uint, name string, sort *int, enabled *bool) error {
+	name, err := categoryName(name)
+	if err != nil {
+		return err
+	}
+	fields := map[string]interface{}{"name": name}
+	if sort != nil {
+		fields["sort"] = *sort
+	}
+	if enabled != nil {
+		fields["enabled"] = *enabled
+	}
+	result := s.db.Model(&model.Category{}).Where("id = ?", id).Updates(fields)
+	if result.Error == nil && result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return result.Error
 }
 
 // DeleteCategory archives the category and all its listings in the same transaction.

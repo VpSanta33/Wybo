@@ -1,10 +1,13 @@
 package handler
 
 import (
+	"errors"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/wybo/backend/internal/service"
 	"github.com/wybo/backend/pkg/response"
+	"gorm.io/gorm"
 )
 
 // AdminUpdateProduct 更新商品（白名单字段）
@@ -51,25 +54,31 @@ func (h *Handler) AdminDeleteProduct(c *gin.Context) {
 
 // AdminUpdateCategory 更新分类
 func (h *Handler) AdminUpdateCategory(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		response.Error(c, 400, "分类编号无效")
+		return
+	}
 	var req struct {
 		Name    string `json:"name"`
-		Sort    int    `json:"sort"`
+		Sort    *int   `json:"sort"`
 		Enabled *bool  `json:"enabled"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, 400, "参数错误")
 		return
 	}
-	enabled := true
-	if req.Enabled != nil {
-		enabled = *req.Enabled
-	}
-	if err := h.svc.UpdateCategory(uint(id), req.Name, req.Sort, enabled); err != nil {
+	err = h.svc.UpdateCategory(uint(id), req.Name, req.Sort, req.Enabled)
+	switch {
+	case err == nil:
+		response.OK(c, nil)
+	case errors.Is(err, service.ErrCategoryName):
+		response.Error(c, 400, err.Error())
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		response.Error(c, 404, "分类不存在，请刷新后重试")
+	default:
 		response.Error(c, 500, "更新失败")
-		return
 	}
-	response.OK(c, nil)
 }
 
 // AdminDeleteCategory 删除分类

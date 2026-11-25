@@ -1206,6 +1206,8 @@
   padding: 12px 0;
   border-bottom: 1px solid var(--a-border);
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: space-between;
   align-items: center;
 }
@@ -1215,6 +1217,10 @@
   gap: 10px;
   color: #7d8da8;
   font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.a-category-list .a-catalog-actions {
+  margin-left: auto;
 }
 .a-detail-grid {
   display: grid;

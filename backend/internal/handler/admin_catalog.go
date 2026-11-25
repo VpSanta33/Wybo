@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"errors"
+
 	"github.com/gin-gonic/gin"
 	"github.com/wybo/backend/internal/model"
+	"github.com/wybo/backend/internal/service"
 	"github.com/wybo/backend/pkg/response"
 )
 
@@ -17,6 +20,10 @@ func (h *Handler) AdminCreateCategory(c *gin.Context) {
 		return
 	}
 	cat, err := h.svc.CreateCategory(req.Name, req.Sort)
+	if errors.Is(err, service.ErrCategoryName) {
+		response.Error(c, 400, err.Error())
+		return
+	}
 	if err != nil {
 		response.Error(c, 500, "创建失败")
 		return

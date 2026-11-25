@@ -2,9 +2,11 @@ package service
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/wybo/backend/internal/model"
+	"gorm.io/gorm"
 )
 
 func TestManualDeliveryPaymentSnapshotAndNotifications(t *testing.T) {
@@ -77,6 +79,42 @@ func TestAutomaticDeliveryRemainsAutomaticAfterProductEdit(t *testing.T) {
 	must(t, err)
 	if fresh.Status != model.OrderCompleted {
 		t.Fatal("product edit changed existing automatic order")
+	}
+}
+
+func TestCategoryRenamePreservesSettingsAndProducts(t *testing.T) {
+	s, db, product := productPricingFixture(t, 100)
+	must(t, db.AutoMigrate(&model.Category{}))
+	category := model.Category{ID: product.CategoryID, Name: "原分类", Sort: 27, Icon: "star"}
+	must(t, db.Create(&category).Error)
+	must(t, db.Model(&category).Update("enabled", false).Error)
+
+	must(t, s.UpdateCategory(category.ID, "  新分类  ", nil, nil))
+	for _, invalid := range []string{"  ", strings.Repeat("汉", 22)} {
+		if err := s.UpdateCategory(category.ID, invalid, nil, nil); !errors.Is(err, ErrCategoryName) {
+			t.Fatalf("invalid name %q returned %v", invalid, err)
+		}
+	}
+	must(t, db.First(&category, category.ID).Error)
+	if category.Name != "新分类" || category.Enabled || category.Sort != 27 || category.Icon != "star" {
+		t.Fatalf("unexpected category after rename: %+v", category)
+	}
+	var savedProduct model.Product
+	must(t, db.First(&savedProduct, product.ID).Error)
+	if savedProduct.CategoryID != category.ID {
+		t.Fatalf("product moved to category %d", savedProduct.CategoryID)
+	}
+
+	sort, enabled := 0, true
+	must(t, s.UpdateCategory(category.ID, category.Name, &sort, &enabled))
+	public, err := s.ListCategories()
+	must(t, err)
+	if len(public) != 1 || public[0].ID != category.ID || public[0].Name != "新分类" || public[0].Sort != 0 {
+		t.Fatalf("explicit category update missing from storefront: %+v", public)
+	}
+	must(t, db.Delete(&category).Error)
+	if err := s.UpdateCategory(category.ID, "已过期", nil, nil); !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("rename on deleted category returned %v", err)
 	}
 }
 
