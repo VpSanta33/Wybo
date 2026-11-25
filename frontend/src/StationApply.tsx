@@ -57,22 +57,22 @@ export default function StationApply() {
         <SiteBrand />
         <Link className="a-button" to="/">
           <ArrowLeft size={16} />
-          返回小铺
+          返回商店
         </Link>
       </header>
       <main className="station-application">
         <section className="station-application-intro">
           <span className="station-kicker">
             <Store size={16} />
-            一起经营
+            代理分站合作
           </span>
           <h1>
             开一家属于你的
             <br />
-            望月小铺。
+            {site.site_name}分站。
           </h1>
           <p>
-            独立店铺与管理后台，共享商品和库存。无需准备服务器和域名，把时间留给经营。
+            独立店铺品牌与管理后台，共享主站商品和库存。无需准备服务器与域名，专注商品定价与经营增长。
           </p>
           <ol>
             <li>
@@ -103,7 +103,7 @@ export default function StationApply() {
                 。请留意收件箱与垃圾邮件。
               </p>
               <Link className="a-button primary" to="/">
-                回到小铺
+                返回商店
               </Link>
             </div>
           ) : !enabled ? (

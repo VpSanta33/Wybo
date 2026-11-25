@@ -89,7 +89,7 @@ export async function loadCatalog(signal?: AbortSignal): Promise<Catalog> {
         ...p,
         art,
         kind: "ai" as const,
-        subtitle: p.description?.split("\n")[0] || "月兔为你挑选的数字好物",
+        subtitle: p.description?.split("\n")[0] || "青屿精选数字商品与实用工具",
         tags: /chatgpt\s*pro\s*(5|20|50)\s*x/i.test(p.name)
           ? ["Pro 系列", `${p.name.match(/(5|20|50)\s*x/i)?.[0]} 套餐`]
           : [

@@ -1,4 +1,4 @@
-export function BunnyMark({ className = "" }: { className?: string }) {
+export function QingyuMark({ className = "" }: { className?: string }) {
   return (
     <svg
       className={className}
@@ -6,179 +6,124 @@ export function BunnyMark({ className = "" }: { className?: string }) {
       fill="none"
       aria-hidden="true"
     >
-      <rect width="40" height="40" rx="12" fill="currentColor" />
+      <rect width="40" height="40" rx="11" fill="currentColor" />
+      <rect
+        x="1"
+        y="1"
+        width="38"
+        height="38"
+        rx="10"
+        stroke="#FFFFFF"
+        strokeOpacity="0.16"
+      />
+      <circle cx="28.5" cy="11.5" r="1.8" fill="#E8FAF8" />
       <path
-        d="M14.7 18.2c-1.3-3.8-2-9.4.3-9.8 2.6-.4 4.5 5.1 4.8 8.1 1-.1 1.8-.1 2.6.1.6-3.5 2.2-8.6 4.5-7.9 2.2.7.7 6.3-.9 10a8.2 8.2 0 0 1 3.7 6.5c0 4.8-4.3 7.4-9.6 7.4-5.1 0-9.3-2.7-9.3-7.4 0-3 1.5-5.5 3.9-7Z"
-        fill="white"
+        d="M7 23.5C11 23.5 13 12.5 18 12.5C22.5 12.5 24.5 23.5 29 23.5Z"
+        fill="#F6FBFA"
       />
       <path
-        d="M22.7 26.5a5.4 5.4 0 0 1-7.2-5.6 5.6 5.6 0 1 0 7.2 5.6Z"
-        fill="currentColor"
+        d="M19.5 23.5C22 23.5 24 16.2 27.5 16.2C30.5 16.2 31.8 23.5 33.5 23.5Z"
+        fill="#8CDAD1"
       />
-      <circle cx="24.5" cy="23" r="1" fill="currentColor" />
+      <path
+        d="M6.5 27.2Q12 24.7 17.5 27.2T28.5 27.2T33.5 27.2"
+        stroke="#F6FBFA"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M9.5 32.2Q15 29.7 20.5 32.2T30.5 32.2"
+        stroke="#8CDAD1"
+        strokeWidth="2.1"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
 
-export function MoonRabbit({ variant = 0 }: { variant?: number }) {
-  const colors = [
-    ["#277bff", "#0050e5", "#0047bd"],
-    ["#6f79ff", "#5754e8", "#4342bc"],
-    ["#2c99ea", "#0874d9", "#0054a6"],
-    ["#7772ef", "#5c4add", "#3f32ae"],
-  ][variant % 4];
+export function IslandVisual({ variant = 0 }: { variant?: number }) {
+  const palettes = [
+    { deep: "#0B3E44", mid: "#0F4C52", light: "#196F77", foam: "#8CDAD1", glow: "#DDF5F2" },
+    { deep: "#0C424D", mid: "#135863", light: "#1F7C86", foam: "#95DFD8", glow: "#E1F6F5" },
+    { deep: "#0E4643", mid: "#155D58", light: "#238077", foam: "#8FE0CE", glow: "#E0F7F1" },
+    { deep: "#103D4C", mid: "#175264", light: "#257084", foam: "#96D6E3", glow: "#E4F3F8" },
+  ];
+  const p = palettes[variant % palettes.length];
+  const uid = `qy-${variant % palettes.length}`;
   return (
     <svg
-      className="moon-rabbit"
+      className="island-visual"
       viewBox="0 0 480 460"
-      role="img"
-      aria-label="一只蓝色的小兔子，抱着弯弯的月亮"
+      aria-hidden="true"
     >
       <defs>
-        <linearGradient
-          id="rabbit-blue"
-          x1="170"
-          y1="105"
-          x2="340"
-          y2="370"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor={colors[0]} />
-          <stop offset=".5" stopColor={colors[1]} />
-          <stop offset="1" stopColor={colors[2]} />
+        <linearGradient id={`${uid}-sea`} x1="70" y1="60" x2="400" y2="390" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor={p.deep} />
+          <stop offset=".55" stopColor={p.mid} />
+          <stop offset="1" stopColor={p.light} />
         </linearGradient>
-        <linearGradient
-          id="moon-blue"
-          x1="90"
-          y1="100"
-          x2="360"
-          y2="375"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor="#8cbaff" />
-          <stop offset=".4" stopColor="#bed8ff" />
-          <stop offset="1" stopColor="#649eff" />
+        <linearGradient id={`${uid}-peak`} x1="180" y1="120" x2="210" y2="275" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#FFFFFF" />
+          <stop offset="1" stopColor="#DCF3F0" />
         </linearGradient>
-        <linearGradient
-          id="ear-shine"
-          x1="170"
-          y1="82"
-          x2="210"
-          y2="229"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor="#c7e2ff" stopOpacity=".72" />
-          <stop offset="1" stopColor="#9ec9ff" stopOpacity="0" />
-        </linearGradient>
-        <linearGradient
-          id="moon-shine"
-          x1="100"
-          y1="180"
-          x2="350"
-          y2="330"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor="#e5f0ff" />
-          <stop offset="1" stopColor="#a7caff" />
-        </linearGradient>
-        <radialGradient id="bunny-highlight" cx=".35" cy=".18" r=".8">
-          <stop stopColor="#8ac4ff" stopOpacity=".58" />
-          <stop offset="1" stopColor="#0055e7" stopOpacity="0" />
+        <radialGradient id={`${uid}-beacon`} cx=".5" cy=".5" r=".5">
+          <stop offset="0" stopColor="#FFFFFF" stopOpacity=".95" />
+          <stop offset=".45" stopColor={p.foam} stopOpacity=".45" />
+          <stop offset="1" stopColor={p.foam} stopOpacity="0" />
         </radialGradient>
-        <filter id="rabbit-shadow" x="-50%" y="-50%" width="200%" height="220%">
-          <feDropShadow
-            dx="0"
-            dy="16"
-            stdDeviation="13"
-            floodColor="#195cd6"
-            floodOpacity=".17"
-          />
-        </filter>
-        <filter id="ground-blur">
-          <feGaussianBlur stdDeviation="9" />
+        <filter id={`${uid}-shadow`} x="-25%" y="-25%" width="150%" height="150%">
+          <feDropShadow dx="0" dy="18" stdDeviation="16" floodColor={p.deep} floodOpacity=".18" />
         </filter>
       </defs>
-      <ellipse
-        cx="248"
-        cy="405"
-        rx="103"
-        ry="9"
-        fill="#9bb9ed"
-        opacity=".2"
-        filter="url(#ground-blur)"
-      />
-      <g filter="url(#rabbit-shadow)">
-        <path
-          d="M149 100c-52 30-82 89-70 151 17 85 99 139 182 119 53-12 95-55 106-106-26 37-75 54-121 38-63-21-96-90-74-152 6-18 17-34 30-47-18-9-37-10-53-3Z"
-          fill="url(#moon-blue)"
-        />
-        <path
-          d="M148 109c-43 29-69 79-59 131"
-          fill="none"
-          stroke="url(#moon-shine)"
-          strokeWidth="6"
-          strokeLinecap="round"
-          opacity=".85"
-        />
-        <path
-          d="M165 224c-20-27-39-98-31-133 3-14 12-20 23-16 27 10 40 77 46 112 11-42 28-105 54-111 15-4 23 6 24 20 3 37-22 97-38 128 25 16 40 43 40 73 0 50-37 80-85 80-47 0-85-30-85-78 0-33 21-61 52-75Z"
-          fill="url(#rabbit-blue)"
-        />
-        <path
-          d="M165 224c-20-27-39-98-31-133 3-14 12-20 23-16 27 10 40 77 46 112 11-42 28-105 54-111 15-4 23 6 24 20 3 37-22 97-38 128 25 16 40 43 40 73 0 50-37 80-85 80-47 0-85-30-85-78 0-33 21-61 52-75Z"
-          fill="url(#bunny-highlight)"
-        />
-        <path
-          d="M146 91c-6 21 3 66 20 105 5 10 12 5 9-6-5-29-12-75-23-98-2-4-4-4-6-1Z"
-          fill="url(#ear-shine)"
-        />
-        <path
-          d="M262 91c-13 11-25 42-33 68"
-          fill="none"
-          stroke="#94c4ff"
-          strokeWidth="5"
-          strokeLinecap="round"
-          opacity=".5"
-        />
-        <path
-          d="M146 273c5-16 18-28 34-33"
-          stroke="#81baff"
-          strokeWidth="5"
-          fill="none"
-          strokeLinecap="round"
-          opacity=".5"
-        />
-        <ellipse cx="178" cy="279" rx="4.4" ry="6" fill="#f6faff" />
-        <ellipse cx="225" cy="277" rx="4.4" ry="6" fill="#f6faff" />
-        <path
-          d="m197 293 5 3 5-3m-5 3v5"
-          stroke="#d5e9ff"
-          fill="none"
-          strokeWidth="2.7"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M220 329c17-38 41-49 71-45-5 38-31 66-68 68-10 0-10-11-3-23Z"
-          fill="url(#moon-shine)"
-        />
-        <ellipse
-          cx="218"
-          cy="334"
-          rx="18"
-          ry="13"
-          transform="rotate(-30 218 334)"
-          fill={colors[1]}
-        />
-        <path
-          d="M299 187c2-14 8-22 23-25-15-3-21-11-23-25-3 14-9 22-24 25 15 3 21 11 24 25Z"
-          fill={colors[0]}
-        />
-        <path
-          d="M339 223c1-7 5-11 12-13-7-1-11-5-12-12-2 7-5 11-12 12 7 2 10 6 12 13Z"
-          fill="#99bbf4"
-        />
+
+      <circle cx="240" cy="226" r="196" fill="none" stroke={p.mid} strokeOpacity=".1" strokeWidth="1" />
+      <circle cx="240" cy="226" r="164" fill="none" stroke={p.mid} strokeOpacity=".12" strokeDasharray="5 7" strokeWidth="1" />
+
+      <g filter={`url(#${uid}-shadow)`}>
+        <rect x="76" y="64" width="328" height="328" rx="84" fill={`url(#${uid}-sea)`} />
+        <rect x="82" y="70" width="316" height="316" rx="78" fill="none" stroke="#FFFFFF" strokeOpacity=".15" strokeWidth="2" />
       </g>
+
+      <circle cx="316" cy="148" r="36" fill={`url(#${uid}-beacon)`} />
+      <circle cx="316" cy="148" r="11" fill="#F4FCFB" opacity=".94" />
+
+      <path
+        d="M126 260 C162 260 180 156 222 156 C262 156 280 260 318 260 Z"
+        fill={`url(#${uid}-peak)`}
+      />
+      <path
+        d="M236 260 C258 260 274 192 308 192 C334 192 346 260 362 260 Z"
+        fill={p.foam}
+        opacity=".92"
+      />
+      <path
+        d="M158 260 C178 260 192 214 218 214 C242 214 256 260 276 260 Z"
+        fill={p.glow}
+        opacity=".35"
+      />
+
+      <path
+        d="M120 286 Q160 268 200 286 T280 286 T360 286"
+        stroke="#FFFFFF"
+        strokeWidth="12"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M144 322 Q184 304 224 322 T304 322 T344 322"
+        stroke={p.foam}
+        strokeWidth="10"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M180 352 Q212 340 244 352 T304 352"
+        stroke={p.glow}
+        strokeOpacity=".55"
+        strokeWidth="6"
+        strokeLinecap="round"
+        fill="none"
+      />
     </svg>
   );
 }

@@ -151,7 +151,7 @@ const statuses: Record<string, string> = {
   preview: "演示订单",
   pending: "等待支付",
   paid: "正在发货",
-  completed: "美好已送达",
+  completed: "已发货",
   closed: "订单已关闭",
   refunded: "已退款",
   refunding: "退款处理中",

@@ -1,4 +1,4 @@
-# Wybo 望月AI代充小铺 —— 后端配置模板
+# 青屿集后端配置模板
 # 环境变量优先级高于本文件（如 DB_DRIVER / DB_DSN / JWT_SECRET / SERVER_ADDR）
 
 server:

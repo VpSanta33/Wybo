@@ -1,37 +1,29 @@
-# Wybo 品牌资源（望月AI代充小铺）
+# 青屿集 Qingyu 品牌资源
 
-望月主题：夜空 + 满月 + 望月小兔子 + 星星。
+青屿集主题：深青海域 + 岛屿轮廓 + 双重浪线 + 柔白留白。
 
 ## 文件说明
 
 | 文件 | 说明 |
 |------|------|
 | `logo-icon.svg` | 方形图标（源文件），用于生成 favicon / PNG |
-| `logo.svg` | 横版文字标（图标 + Wybo + 望月AI代充小铺） |
+| `logo.svg` | 横版文字标（图标 + Qingyu + 青屿集 · 数字商品商店） |
 | `favicon.ico` | 多尺寸 ICO（16/32/48/64/128/256） |
 | `png/logo-*.png` | 各尺寸 PNG（含 180 = apple-touch-icon） |
 
 ## 配色
 
-- 夜空蓝紫 `#3D3A8C`（主）
-- 奶油月亮黄 `#FFD166`
-- 樱粉 `#FF9EC4`
-- 星光浅蓝 `#A8D8EA`
+- 深青主色 `#0F4C52`（深海青）
+- 青碧辅色 `#196F77`
+- 海沫浅青 `#8CDAD1`
+- 柔白表面 `#F4F7F6` / `#FFFFFF`
 
-## 重新生成 PNG / ICO
+## 同步到前端
 
-```bash
-cd tools/assets
-npm install            # 安装 sharp（SVG→PNG 渲染）
-node render.mjs        # 由 logo-icon.svg 生成 png/logo-*.png
-python3 make_ico.py    # 由 PNG 组装 favicon.ico（需 Pillow）
-```
+`frontend/public/` 中保留同步后的 `favicon.svg`、`favicon.ico`、`apple-touch-icon.png`、`logo-icon.svg` 与 `logo.svg`。
 
-生成后同步到前端：
+## 商城海岸横幅
 
-```bash
-cp assets/logo-icon.svg frontend/public/logo-icon.svg
-cp assets/logo.svg frontend/public/logo.svg
-cp assets/favicon.ico frontend/public/favicon.ico
-cp assets/png/logo-180.png frontend/public/apple-touch-icon.png
-```
+商品预览使用内置图像生成工具制作的海岸图，发布文件为 [qingyu-coast.webp](../frontend/public/images/qingyu-coast.webp)。原始生成提示如下。
+
+> Photorealistic-natural. Panoramic editorial photograph for the Qingyu digital storefront. A small mountainous sea island with pine-covered ridges and a pale granite headland on the right half, surrounded by layers of deep jade and misty teal water. The left half is quiet darker open water for a white Chinese heading added later. Soft morning haze, natural light, subdued paper-like grain. Wide landscape composition that works as a shallow banner, with the island centered vertically. No lettering, logos, borders or people.

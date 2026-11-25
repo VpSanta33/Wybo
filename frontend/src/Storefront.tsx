@@ -22,13 +22,13 @@ import {
   LockKeyhole,
   Mail,
   Minus,
-  Moon,
   PackageCheck,
   Plus,
   ShoppingBag,
   Sparkles,
   Ticket,
   WandSparkles,
+  Waves,
   Zap,
 } from "lucide-react";
 import { api, track, createOrder, type Catalog, type ShopOrder, type PaymentGateway } from "./api";
@@ -42,18 +42,12 @@ import CheckoutVerification, {
   type VerificationState,
 } from "./CheckoutVerification";
 
-function categoryPresentation(name = "") {
-  if (/claude/i.test(name))
-    return { icon: WandSparkles, caption: "认真倾听，回应每个好想法。" };
-  if (/grok/i.test(name))
-    return { icon: Zap, caption: "让好奇，发现更大的世界。" };
-  if (/影音|音乐|video|spotify|youtube/i.test(name))
-    return { icon: Headphones, caption: "把时间，留给喜欢。" };
-  if (/工具|效率|tool/i.test(name))
-    return { icon: WandSparkles, caption: "让每一天，轻盈一点。" };
-  if (/游戏|game/i.test(name))
-    return { icon: Gamepad2, caption: "下一站，快乐世界。" };
-  return { icon: Sparkles, caption: "一点灵感，无限可能。" };
+function categoryIcon(name: string) {
+  if (/影音|音乐|video|spotify|youtube/i.test(name)) return Headphones;
+  if (/工具|效率|tool|claude/i.test(name)) return WandSparkles;
+  if (/游戏|game/i.test(name)) return Gamepad2;
+  if (/grok/i.test(name)) return Zap;
+  return Sparkles;
 }
 
 function compactPlanName(name: string) {
@@ -197,7 +191,7 @@ function CategoryNavigation({
         >
           {categories.length ? (
             categories.map((c, index) => {
-              const Icon = categoryPresentation(c.name).icon;
+              const Icon = categoryIcon(c.name);
               const active = c.id === activeId;
               return (
                 <button
@@ -224,7 +218,7 @@ function CategoryNavigation({
               );
             })
           ) : (
-            <span className="tabs-loading">正在准备小美好…</span>
+            <span className="tabs-loading">正在加载商品分类…</span>
           )}
         </div>
       </div>
@@ -310,6 +304,7 @@ export default function Storefront({
     catalog?.products.filter((p) => p.category_id === activeCategory?.id) ?? [];
   const product =
     products.find((p) => p.id === selectedId) ??
+    products.find((p) => !pricePending(p) && (p.delivery_mode === "manual" || p.stock > 0)) ??
     products.find((p) => p.delivery_mode === "manual" || p.stock > 0) ??
     products[0];
   useEffect(() => {
@@ -429,28 +424,34 @@ export default function Storefront({
 
   return (
     <>
-      <header className="store-header container">
-        <SiteBrand />
-        <CategoryNavigation
-          categories={categories}
-          activeId={activeCategory?.id}
-          disabled={busy}
-          onSelect={chooseCategory}
-        />
-        <div className="store-header-actions">
-          <button
-            className="language-button"
-            type="button"
-            onClick={onHelp}
-            aria-label="打开帮助中心"
-          >
-            <Headphones size={16} aria-hidden="true" />
-            <span>帮助中心</span>
-          </button>
-          <Link to="/orders" className="my-orders">
-            <ShoppingBag size={17} aria-hidden="true" />
-            <span>我的订单</span>
-          </Link>
+      <header className="store-header-shell">
+        <div className="store-topbar container">
+          <SiteBrand />
+          <div className="store-header-actions">
+            <button
+              className="language-button"
+              type="button"
+              onClick={onHelp}
+              aria-label="打开帮助中心"
+            >
+              <Headphones size={16} aria-hidden="true" />
+              <span>帮助中心</span>
+            </button>
+            <Link to="/orders" className="my-orders">
+              <ShoppingBag size={17} aria-hidden="true" />
+              <span>我的订单</span>
+            </Link>
+          </div>
+        </div>
+        <div className="category-dock">
+          <div className="container">
+            <CategoryNavigation
+              categories={categories}
+              activeId={activeCategory?.id}
+              disabled={busy}
+              onSelect={chooseCategory}
+            />
+          </div>
         </div>
       </header>
 
@@ -462,58 +463,47 @@ export default function Storefront({
           activeCategory ? `category-${activeCategory.id}` : undefined
         }
       >
-        <div className="product-showcase">
-          <div className="showcase-art" key={product?.id ?? "loading"}>
-            <span className="showcase-halo" />
-            <ProductVisual
-              product={product}
-              categoryName={activeCategory?.name ?? ""}
-              variant={categoryIndex}
-            />
-          </div>
-          <div className="showcase-caption">
-            <span className="showcase-overline">A LITTLE MOON MAGIC</span>
-            <h2>{product?.name ?? activeCategory?.name ?? "望月小铺"}</h2>
-            <p>{categoryPresentation(activeCategory?.name).caption}</p>
-            <div className="showcase-pagination" aria-hidden="true">
-              {categories.length > 7 ? (
-                <small>
-                  {categoryIndex + 1} / {categories.length}
-                </small>
-              ) : (
-                (categories.length ? categories : [0, 1, 2, 3]).map((c, i) => (
-                  <span
-                    className={i === categoryIndex ? "current" : ""}
-                    key={typeof c === "number" ? c : c.id}
-                  />
-                ))
-              )}
+        {product && (
+          <article className="product-showcase">
+            <div className="showcase-banner">
+              <div className="showcase-identity">
+                <span>{activeCategory?.name}</span>
+                <h1>{product.name}</h1>
+                <span className="showcase-delivery-pill">
+                  <PackageCheck size={15} aria-hidden="true" />
+                  {product.delivery_mode === "manual" ? "手工发货" : "自动发卡"}
+                </span>
+              </div>
+              <div className="showcase-art" key={product.id}>
+                <ProductVisual product={product} variant={categoryIndex} />
+              </div>
             </div>
-          </div>
-          <div className="showcase-footnote">
-            <Zap size={13} aria-hidden="true" />
-            <span>自助选购</span>
-            <span className="dot-separator" />
-            <span>
-              {product?.delivery_mode === "manual"
-                ? "付款后由店主手工发货"
-                : "支付后自动发货"}
-            </span>
-          </div>
-        </div>
+            {(product.description || product.tags.length > 0) && (
+              <div className="showcase-details">
+                <h2>商品说明</h2>
+                {product.description && <p className="showcase-desc">{product.description}</p>}
+                {product.tags.length > 0 && (
+                  <div className="showcase-tags">
+                    {product.tags.map((tag) => <span key={tag}>{tag}</span>)}
+                  </div>
+                )}
+              </div>
+            )}
+          </article>
+        )}
 
         <div className="purchase-card" aria-busy={!catalog}>
           {!catalog ? (
             <div className="store-loading" role="status">
               <LoaderCircle className="spin" size={26} />
-              <h2>正在准备小美好</h2>
-              <p>马上就好，请稍等一下。</p>
+              <h2>正在加载商品目录</h2>
+              <p>马上就好，请稍等片刻。</p>
             </div>
           ) : !product ? (
             <div className="store-loading">
               <PackageCheck size={30} />
-              <h2>{catalog.notice ? "小铺暂时无法加载" : "新品即将到来"}</h2>
-              <p>{catalog.notice || "月兔正在整理商品，稍后再来看看。"}</p>
+              <h2>{catalog.notice ? "商店暂时无法加载" : "新品即将上架"}</h2>
+              <p>{catalog.notice || "商品正在整理上架中，请稍后再来看看。"}</p>
               {catalog.notice && (
                 <button
                   type="button"
@@ -528,9 +518,6 @@ export default function Storefront({
             <>
               <div className="purchase-heading">
                 <div className="purchase-heading-top">
-                  <span className="purchase-eyebrow">
-                    PICK YOUR LITTLE HAPPINESS
-                  </span>
                   {demo && (
                     <span className="demo-badge">
                       <span />
@@ -540,13 +527,13 @@ export default function Storefront({
                 </div>
                 <div className="purchase-title">
                   <BrandImage name={activeCategory?.name ?? ""} />
-                  <h1>{activeCategory?.name}</h1>
+                  <h2>选购 {activeCategory?.name}</h2>
                 </div>
-                <p>选一份喜欢的，美好即刻抵达。</p>
+                <p>选择套餐并填写接收邮箱，付款后按商品说明交付。</p>
               </div>
               {catalog.notice && (
                 <p className="store-notice">
-                  <Moon size={14} aria-hidden="true" />
+                  <Waves size={14} aria-hidden="true" />
                   {catalog.notice}
                 </p>
               )}
@@ -713,7 +700,7 @@ export default function Storefront({
                     {!!gateways?.length && <PaymentChoices gateways={gateways} value={gateway} onChange={setGateway} disabled={busy || paused || pendingPrice} amountCents={total} name="checkout-payment" checkout />}
                     {!!gateways?.length && !pendingPrice && <PaymentLimitNotice gateways={gateways} amountCents={total} />}
                     {gatewayError && <ErrorMessage>{gatewayError}<button type="button" className="payment-reload" onClick={() => setGatewayRevision((v) => v + 1)}>重新读取支付方式</button></ErrorMessage>}
-                    {gateways?.length === 0 && !gatewayError && <p className="soft-note" role="status">小铺暂未启用支付方式，请稍后再试或联系店主。</p>}
+                    {gateways?.length === 0 && !gatewayError && <p className="soft-note" role="status">商店暂未启用支付方式，请稍后再试或联系店主。</p>}
                   </div>
                 )}
 
@@ -847,7 +834,6 @@ export default function Storefront({
               <div className="result-icon">
                 <CheckCircle2 size={32} />
               </div>
-              <span className="eyebrow">YOUR ORDER IS READY</span>
               <h2 ref={resultRef} tabIndex={-1}>
                 {demo ? "演示订单已创建" : "订单已创建，等待支付"}
               </h2>
@@ -877,9 +863,8 @@ export default function Storefront({
               <span className="review-icon">
                 <ShoppingBag size={26} />
               </span>
-              <span className="eyebrow">ONE MORE LITTLE STEP</span>
               <h2>确认你的订单</h2>
-              <p className="muted">核对一下，美好就要出发了。</p>
+              <p className="muted">请核对商品、数量与接收邮箱后提交订单。</p>
               <div className="review-summary">
                 <div>
                   <span>商品</span>

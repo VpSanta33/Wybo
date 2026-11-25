@@ -12,7 +12,7 @@ import {
   Clock3,
   Mail,
   CalendarDays,
-  Moon,
+  ListChecks,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -127,9 +127,8 @@ export default function Dashboard({ base }: { base: string }) {
   return (
     <>
       <PageHeading
-        eyebrow="A LITTLE GROWTH, EVERY DAY"
         title="经营概览"
-        description="把每一份好生意，都记得清清楚楚。"
+        description="按所选周期查看收入、订单和待处理事项。"
       >
         <span className="a-period">
           <CalendarDays size={15} />
@@ -146,7 +145,7 @@ export default function Dashboard({ base }: { base: string }) {
         <button
           className="a-button"
           onClick={() =>
-            exportCSV("Wybo-经营报表.csv", [
+            exportCSV("经营报表.csv", [
               [
                 "日期",
                 "收入（分）",
@@ -239,22 +238,22 @@ export default function Dashboard({ base }: { base: string }) {
             {chart === "sales" ? (
               <>
                 <span>
-                  <i style={{ background: "#6688e3" }} />
+                  <i style={{ background: "#0f4c52" }} />
                   成交收入
                 </span>
                 <span>
-                  <i style={{ background: "#49a38d" }} />
+                  <i style={{ background: "#2c8a6d" }} />
                   经营净利润
                 </span>
               </>
             ) : (
               <>
                 <span>
-                  <i style={{ background: "#6688e3" }} />
+                  <i style={{ background: "#0f4c52" }} />
                   浏览量 PV
                 </span>
                 <span>
-                  <i style={{ background: "#a6b8ee" }} />
+                  <i style={{ background: "#63bfb5" }} />
                   访问人数 UV
                 </span>
               </>
@@ -269,8 +268,8 @@ export default function Dashboard({ base }: { base: string }) {
                 >
                   <defs>
                     <linearGradient id="incomeFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#7896e7" stopOpacity={0.2} />
-                      <stop offset="100%" stopColor="#7896e7" stopOpacity={0} />
+                      <stop offset="0%" stopColor="#0f4c52" stopOpacity={0.22} />
+                      <stop offset="100%" stopColor="#0f4c52" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid
@@ -303,7 +302,7 @@ export default function Dashboard({ base }: { base: string }) {
                   <Area
                     type="monotone"
                     dataKey="revenue_cents"
-                    stroke="#6688e3"
+                    stroke="#0f4c52"
                     strokeWidth={2.5}
                     fill="url(#incomeFill)"
                     isAnimationActive={false}
@@ -311,7 +310,7 @@ export default function Dashboard({ base }: { base: string }) {
                   <Area
                     type="monotone"
                     dataKey="net_profit_cents"
-                    stroke="#49a38d"
+                    stroke="#2c8a6d"
                     strokeWidth={2}
                     fill="transparent"
                     isAnimationActive={false}
@@ -349,14 +348,14 @@ export default function Dashboard({ base }: { base: string }) {
                   />
                   <Bar
                     dataKey="pv"
-                    fill="#6688e3"
+                    fill="#0f4c52"
                     radius={[4, 4, 0, 0]}
                     maxBarSize={20}
                     isAnimationActive={false}
                   />
                   <Bar
                     dataKey="uv"
-                    fill="#a6b8ee"
+                    fill="#63bfb5"
                     radius={[4, 4, 0, 0]}
                     maxBarSize={20}
                     isAnimationActive={false}
@@ -376,9 +375,9 @@ export default function Dashboard({ base }: { base: string }) {
           <div className="a-panel-heading">
             <div>
               <h2>小铺待办</h2>
-              <p>经营中的小事，也值得被照顾</p>
+              <p>查看库存、待付款订单和通知</p>
             </div>
-            <Moon size={23} className="a-tiny-moon" />
+            <ListChecks size={23} aria-hidden="true" />
           </div>
           <Link to={base + "/stock"}>
             <i className="a-icon-amber">

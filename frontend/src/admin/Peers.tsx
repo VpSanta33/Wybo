@@ -297,7 +297,7 @@ export default function Peers({ notify }: Props) {
     <div className="p-page">
       <PageHeading
         title="站点互联"
-        description="与其他 Wybo 站点连接，自动采购商品，也向下游开放供货。"
+        description="与其他兼容站点连接，自动采购商品，也向下游开放供货。"
       >
         <button
           className="a-button"
@@ -734,7 +734,7 @@ export default function Peers({ notify }: Props) {
                 ) : (
                   <Empty
                     title="尚无下游账户"
-                    text="为独立部署的 Wybo 店铺创建采购账户，再配置商品授权和供货价格。"
+                    text="为独立部署的店铺创建采购账户，再配置商品授权和供货价格。"
                   />
                 ))}
               {tab === "orders" && (
@@ -1016,7 +1016,7 @@ export default function Peers({ notify }: Props) {
             q.reload();
           }}
         >
-          <p className="a-hint">请及时在对方 Wybo 的上游连接中替换凭证。</p>
+          <p className="a-hint">请及时在对方站点的上游连接中替换凭证。</p>
         </Editor>
       )}
       {refund && (
@@ -1115,7 +1115,7 @@ function ConnectionEditor({
   return (
     <Editor
       title={value ? "编辑上游连接" : "新增上游连接"}
-      description="填写上游 Wybo 的站点地址和对方提供的采购凭证。"
+      description="填写上游站点的站点地址和对方提供的采购凭证。"
       onClose={onClose}
       submit={async () => {
         await write(
@@ -1132,7 +1132,7 @@ function ConnectionEditor({
           maxLength={80}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="例如：月兔供货站"
+          placeholder="例如：海湾供货站"
         />
       </Field>
       <Field
@@ -1196,7 +1196,7 @@ function AccountEditor({
   return (
     <Editor
       title={value ? "编辑下游账户" : "新增下游账户"}
-      description="为下游 Wybo 创建独立采购账户，余额与代理佣金分开管理。"
+      description="为下游店铺创建独立采购账户，余额与代理佣金分开管理。"
       onClose={onClose}
       submit={async () => {
         const result = await write<Credential>(
@@ -1644,7 +1644,7 @@ function CredentialDialog({
       <div className="a-editor">
         <h2>保存 API 凭证</h2>
         <p>
-          密钥仅在本次展示。请交给对应下游，并在对方 Wybo 的上游连接中填写。
+          密钥仅在本次展示。请交给对应下游，并在对方站点的上游连接中填写。
         </p>
         {error && <Banner>{error}</Banner>}
         <Field label="API Key">

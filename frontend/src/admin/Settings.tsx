@@ -826,7 +826,7 @@ export function Security({
           <div>
             <Field
               label="后台访问路径"
-              hint="以 / 开头，仅一层路径，3–64 位，支持字母、数字、_、-，例如 /moon-console"
+              hint="以 / 开头，仅一层路径，3–64 位，支持字母、数字、_、-，例如 /shop-console"
             >
               <input
                 disabled={user.role !== "super"}

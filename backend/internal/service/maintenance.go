@@ -167,7 +167,7 @@ func (s *Service) sendStockAlerts(ctx context.Context) {
 	s.db.Where("status = ? AND notified = ? AND attempts < ?", "open", false, 5).Find(&alerts)
 	for _, a := range alerts {
 		key := fmt.Sprintf("wybo-stock-%d-%s", a.ID, a.Cycle)
-		err := s.sendResend(ctx, s.setting("order_notify_email", ""), "库存预警 · Wybo", a.Snapshot, key)
+		err := s.sendResend(ctx, s.setting("order_notify_email", ""), "库存预警 · "+s.shopName(), a.Snapshot, key)
 		v := map[string]interface{}{"attempts": gorm.Expr("attempts+1")}
 		if err == nil {
 			v["notified"] = true

@@ -237,7 +237,7 @@ func (h *Handler) Pay(c *gin.Context) {
 	}
 	createReq := &pay.CreateReq{
 		OrderNo: order.OrderNo, AmountCents: order.TotalCents,
-		Subject: "望月AI代充-" + orderNo, ClientIP: c.ClientIP(),
+		ClientIP: c.ClientIP(),
 		Extra: map[string]string{
 			"notify_url": strings.TrimRight(notifyBase, "/") + "/" + req.Gateway,
 			"return_url": returnURL,

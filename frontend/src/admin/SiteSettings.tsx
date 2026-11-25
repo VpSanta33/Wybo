@@ -325,7 +325,7 @@ function SettingsForm({
                     {input(
                       "site_brand",
                       "品牌短名称",
-                      "例如 Wybo，用于 Logo 旁的品牌文字。",
+                      "例如 Qingyu，用于 Logo 旁的品牌文字。",
                       "text",
                       60,
                     )}
@@ -338,7 +338,7 @@ function SettingsForm({
                   {imageField(
                     "site_favicon",
                     "浏览器图标",
-                    "建议 64 × 64 或 128 × 128；留空使用默认月兔图标。",
+                    "建议 64 × 64 或 128 × 128；留空使用默认海岛图标。",
                   )}
                   <div className="a-site-brand-preview">
                     <SiteLogo url={v.site_logo} />
@@ -498,7 +498,7 @@ function SettingsForm({
                   {input(
                     "order_bark_group",
                     "Bark 消息分组",
-                    "留空使用「Wybo 成交订单」，最多 60 个字。",
+                    "留空时按站点名称生成成交订单分组，最多 60 个字。",
                     "text",
                     60,
                   )}
@@ -556,7 +556,7 @@ function SettingsForm({
                   {input(
                     "resend_from",
                     "发件邮箱",
-                    "例如：望月小铺 <orders@example.com>",
+                    "例如：青屿集 <orders@example.com>",
                   )}
                 </div>
               </section>

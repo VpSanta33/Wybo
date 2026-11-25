@@ -256,7 +256,7 @@ func (s *Service) TestEmail(ctx context.Context) error {
 	if s.setting("resend_enabled", "false") != "true" || s.setting("order_notify_email", "") == "" {
 		return errors.New("请先启用 Resend 并设置通知邮箱")
 	}
-	e := s.sendResend(ctx, s.setting("order_notify_email", ""), "Wybo 上线联调测试", "这是一封由管理员主动触发的测试邮件。请核对收件及发件域名配置。", "wybo-test-"+randomID())
+	e := s.sendResend(ctx, s.setting("order_notify_email", ""), s.shopName()+" 上线联调测试", "这是一封由管理员主动触发的测试邮件。请核对收件及发件域名配置。", "wybo-test-"+randomID())
 	if e != nil {
 		s.RecordDiagnostic("email", "", "failed", "Resend 未接受测试邮件")
 		return e

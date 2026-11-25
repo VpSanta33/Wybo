@@ -94,7 +94,7 @@ func (s *Service) sendNotification(ctx context.Context, job model.Notification) 
 		if s.setting("order_push_enabled", "false") != "true" || s.setting("order_bark_enabled", "false") != "true" {
 			return errNotificationDisabled
 		}
-		return s.sendBark(ctx, s.setting("site_name", "Wybo")+" · "+title, job.Body)
+		return s.sendBark(ctx, s.shopName()+" · "+title, job.Body)
 	}
 	var o model.Order
 	if err := s.db.First(&o, job.OrderID).Error; err != nil {
@@ -141,8 +141,12 @@ func (s *Service) sendNotification(ctx context.Context, job model.Notification) 
 				b.WriteString("请回到小铺查询订单，通过订单售后联系店主获取使用说明。\n")
 			}
 		}
-		b.WriteString("\n请妥善保管商品信息。\nWybo · 望月小铺")
-		return s.sendResend(ctx, o.Email, "您的商品已送达 · Wybo", b.String(), key)
+		shop := s.shopName()
+		if o.StationID != nil && o.AgentName != "" {
+			shop = o.AgentName // 分站订单保存了买家下单时的店名。
+		}
+		b.WriteString("\n请妥善保管商品信息。\n" + shop)
+		return s.sendResend(ctx, o.Email, "您的商品已送达 · "+shop, b.String(), key)
 	}
 	if job.Channel == "merchant_bark" {
 		return s.sendBarkOrder(ctx, o)
@@ -152,7 +156,7 @@ func (s *Service) sendNotification(ctx context.Context, job model.Notification) 
 		text += fmt.Sprintf("\n成本：¥%.2f\n销售利润：¥%.2f", float64(*o.CostCents)/100, float64(o.TotalCents-*o.CostCents)/100)
 	}
 	if job.Channel == "merchant_email" {
-		return s.sendResend(ctx, s.setting("order_notify_email", ""), "新成交订单 · Wybo", text, key)
+		return s.sendResend(ctx, s.setting("order_notify_email", ""), "新成交订单 · "+s.shopName(), text, key)
 	}
 	if job.Channel != "merchant_webhook" {
 		return errors.New("未知推送类型")

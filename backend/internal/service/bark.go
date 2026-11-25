@@ -85,7 +85,7 @@ func (s *Service) sendBark(ctx context.Context, title, body string) error {
 	}
 	group := s.setting("order_bark_group", "")
 	if group == "" {
-		group = "Wybo 成交订单"
+		group = s.shopName() + " 成交订单"
 	}
 	data, _ := json.Marshal(map[string]string{
 		"device_key": key, "title": title, "body": body, "group": group, "level": "active",
@@ -122,7 +122,7 @@ func (s *Service) sendBark(ctx context.Context, title, body string) error {
 
 // TestBark uses saved settings and sends no real order or customer information.
 func (s *Service) TestBark(ctx context.Context) error {
-	return s.sendBark(ctx, "Wybo · Bark 测试通知", "这是一条测试通知，Bark 连接配置已生效。\n开启推送总开关和 Bark 后，成交、售罄和售后都会通知。\n本消息不代表真实订单或收款。")
+	return s.sendBark(ctx, s.shopName()+" · Bark 测试通知", "这是一条测试通知，Bark 连接配置已生效。\n开启推送总开关和 Bark 后，成交、售罄和售后都会通知。\n本消息不代表真实订单或收款。")
 }
 
 func barkMoney(cents int64) string {
@@ -175,5 +175,5 @@ func (s *Service) sendBarkOrder(ctx context.Context, o model.Order) error {
 	if o.PaidAt != nil {
 		fmt.Fprintf(&b, "\n成交时间：%s", o.PaidAt.In(businessLocation()).Format("2006-01-02 15:04:05"))
 	}
-	return s.sendBark(ctx, s.setting("site_name", "Wybo")+" · 新成交订单", b.String())
+	return s.sendBark(ctx, s.shopName()+" · 新成交订单", b.String())
 }

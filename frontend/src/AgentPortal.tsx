@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { LogOut, Copy, Moon, ArrowLeft, HandCoins } from "lucide-react";
+import { LogOut, Copy, Waves, ArrowLeft, HandCoins } from "lucide-react";
 import { SiteLogo, useSite } from "./Site";
 import { api } from "./api";
 import { yuan, type Agent } from "./admin/api";
@@ -108,18 +108,18 @@ export default function AgentPortal() {
         ) : (
           <Link to="/" className="a-button">
             <ArrowLeft size={15} />
-            返回小铺
+            返回商店
           </Link>
         )}
       </header>
       <main>
         {!token ? (
           <section className="a-panel a-agent-login">
-            <span className="a-agent-moon">
-              <Moon size={28} />
+            <span className="a-agent-mark">
+              <SiteLogo url={site.site_logo} />
             </span>
-            <h1>一起经营，一起成长</h1>
-            <p>使用商家为你开通的代理码和密码登录。</p>
+            <h1>推广伙伴工作台</h1>
+            <p>使用商家为你开通的代理码和密码登录，查看归属订单与佣金结算。</p>
             {error && <Banner>{error}</Banner>}
             <form onSubmit={login}>
               <Field label="代理码">
@@ -152,7 +152,6 @@ export default function AgentPortal() {
             <>
               <div className="a-page-heading">
                 <div>
-                  <span className="a-eyebrow">A LITTLE GROWTH, TOGETHER</span>
                   <h1>你好，{data.agent.name}</h1>
                   <p>
                     佣金比例 {data.agent.commission_bps / 100}% · 结算等待期{" "}
@@ -285,7 +284,7 @@ export default function AgentPortal() {
         )}
       </main>
       <footer className="a-footer">
-        Wybo · 望月小铺 · 伙伴工作台 <Moon size={13} />
+        {site.site_brand} · {site.site_name} · 伙伴工作台 <Waves size={13} aria-hidden="true" />
       </footer>
     </div>
   );

@@ -20,7 +20,7 @@
 }
 .p-summary span {
   min-width: 0;
-  color: #62718a;
+  color: #556b6d;
   font-size: 12px;
 }
 .p-summary strong {
@@ -47,13 +47,13 @@
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
-  color: #62718a;
+  color: #556b6d;
   transition:
     background-color 0.15s,
     color 0.15s;
 }
 .p-tabs button:hover {
-  background: #edf1fa;
+  background: #eaf5f3;
 }
 .p-tabs button[aria-selected="true"] {
   background: #fff;
@@ -92,7 +92,7 @@
   border-radius: 5px;
   padding: 3px 8px;
   background: #f0f3f7;
-  color: #62718a;
+  color: #556b6d;
   font-size: 12px;
   white-space: nowrap;
 }
@@ -102,7 +102,7 @@
 }
 .p-state.is-attention {
   background: #fff3e8;
-  color: #945315;
+  color: #8a4b14;
 }
 .p-subheading {
   display: flex;
@@ -113,12 +113,12 @@
   border-top: 1px solid var(--a-border);
 }
 .p-subheading span {
-  color: #62718a;
+  color: #556b6d;
   font-size: 12px;
 }
 .p-empty-note {
   padding: 0 23px 24px;
-  color: #62718a;
+  color: #556b6d;
   font-size: 13px;
 }
 .p-editor fieldset {
@@ -138,7 +138,7 @@
 }
 .p-grants > span {
   display: block;
-  color: #62718a;
+  color: #556b6d;
   font-size: 12px;
   margin-bottom: 8px;
 }
@@ -157,11 +157,11 @@
 }
 .p-grant:hover,
 .p-grant.is-current {
-  background: #f1f5fd;
+  background: #eaf5f3;
 }
 .p-grant span:last-child {
   white-space: nowrap;
-  color: #62718a;
+  color: #556b6d;
   font-size: 12px;
 }
 @media (max-width: 1100px) {

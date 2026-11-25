@@ -18,7 +18,7 @@ func (s *Service) GetSettings() (map[string]string, error) {
 	}
 	m := s.SiteInfo()
 	for _, r := range rows {
-		if r.Key == "admin_path" || ((r.Key == "site_name" || r.Key == "site_brand") && strings.TrimSpace(r.Value) == "") {
+		if r.Key == "admin_path" || strings.HasPrefix(r.Key, "migration:") || ((r.Key == "site_name" || r.Key == "site_brand") && strings.TrimSpace(r.Value) == "") {
 			continue
 		}
 		if sensitiveKey(r.Key) && r.Value != "" {

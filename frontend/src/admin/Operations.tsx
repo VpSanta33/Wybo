@@ -186,7 +186,7 @@ export function Reports() {
           disabled={!d || q.loading}
           onClick={() =>
             d &&
-            exportCSV(`Wybo-${month}-财务.csv`, [
+            exportCSV(`财务报表-${month}.csv`, [
               [
                 "订单",
                 "状态",
@@ -922,7 +922,7 @@ function CouponEditor({
     [enabled, setEnabled] = useState(row?.enabled ?? true),
     [ids, setIds] = useState<number[]>(row?.product_ids || []),
     [count, setCount] = useState(1),
-    [prefix, setPrefix] = useState("MOON");
+    [prefix, setPrefix] = useState("SHOP");
   const choices = [
     ...products,
     ...(row?.product_ids || [])
@@ -1080,7 +1080,7 @@ function CouponEditor({
             method: "POST",
             body: JSON.stringify({ template, count, prefix }),
           });
-          exportCSV("Wybo-批量优惠码.csv", [
+          exportCSV("批量优惠码.csv", [
             ["优惠码"],
             ...coupons.map((c) => [c.code]),
           ]);

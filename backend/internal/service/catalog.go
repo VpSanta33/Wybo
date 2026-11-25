@@ -1,8 +1,9 @@
 package service
 
 import (
-	"github.com/wybo/backend/internal/model"
 	"strings"
+
+	"github.com/wybo/backend/internal/model"
 )
 
 // ListCategories 分类列表
@@ -84,17 +85,28 @@ func (s *Service) ListAnnouncements() ([]model.Announcement, error) {
 	return list, err
 }
 
+func (s *Service) shopName() string {
+	if s.station != nil && s.station.SiteName != "" {
+		return s.station.SiteName
+	}
+	name := strings.TrimSpace(s.setting("site_name", ""))
+	if name == "" {
+		return model.DefaultSiteName
+	}
+	return name
+}
+
 // SiteInfo 站点信息（settings 表 + 默认值）
 func (s *Service) SiteInfo() map[string]string {
 	defaults := map[string]string{
-		"site_name":          "望月AI代充小铺",
-		"site_brand":         "Wybo",
+		"site_name":          model.DefaultSiteName,
+		"site_brand":         model.DefaultSiteBrand,
 		"site_logo":          "",
 		"site_favicon":       "",
-		"site_footer":        "一点月光，刚好喜欢。",
+		"site_footer":        "",
 		"turnstile_enabled":  "false",
 		"turnstile_site_key": "",
-		"site_desc":          "ChatGPT · Claude · Grok 会员充值，支付成功自动发放卡密",
+		"site_desc":          model.DefaultSiteDescription,
 		"announcement":       "",
 		"customer_service":   "",
 	}

@@ -26,7 +26,6 @@ import {
   LogOut,
   Mail,
   Menu,
-  Moon,
   Package,
   ShieldCheck,
   ShoppingBag,
@@ -40,8 +39,8 @@ import {
   Database,
   Boxes,
   Store,
+  Waves,
 } from "lucide-react";
-import { BunnyMark } from "../Illustrations";
 import {
   adminApi,
   adminBase,
@@ -324,33 +323,22 @@ function Login({ onLogin }: { onLogin: () => void }) {
     <div className="a-login">
       <Link className="a-login-back" to="/">
         <ArrowLeft size={16} />
-        返回小铺
+        返回商店
       </Link>
       <div className="a-login-art">
         <div className="a-login-orbit">
-          <Moon size={38} />
-          <BunnyMark />
+          <Waves size={32} aria-hidden="true" />
+          <SiteLogo url={site.site_logo} />
         </div>
-        <span className="a-eyebrow">WYBO MERCHANT CONSOLE</span>
-        <h1>
-          好好经营，
-          <br />
-          每一份小美好。
-        </h1>
-        <p>
-          从第一份期待，到每一次成交。
-          <br />
-          让月兔陪你，照顾小铺的每一天。
-        </p>
-        <small>{site.site_name} · 商家工作台</small>
+        <h1>{site.site_name}</h1>
+        <p>商家工作台 · 清晰管理商品、库存与订单</p>
       </div>
       <section className="a-login-card">
         <span className="a-login-mark">
           <SiteLogo url={site.site_logo} /> {site.site_brand}
-          <span>.</span>
         </span>
-        <h2>欢迎回到小铺</h2>
-        <p>登录商家后台，开始今天的好生意。</p>
+        <h2>商家登录</h2>
+        <p>使用管理员账号登录。</p>
         <form onSubmit={submit}>
           {error && <Banner>{error}</Banner>}
           <label>
@@ -518,11 +506,11 @@ export default function AdminApp() {
   if (!entry)
     return (
       <div className="a-root a-not-found">
-        <Moon size={38} />
-        <h1>这个角落，还没有开门。</h1>
+        <Store size={38} />
+        <h1>页面未找到</h1>
         <p>页面不存在，或后台入口已修改。</p>
         <Link className="a-button primary" to="/">
-          返回望月小铺
+          返回{site.site_name}
         </Link>
       </div>
     );
@@ -592,27 +580,19 @@ export default function AdminApp() {
             </button>
           )}
           <Link to={base} className="a-brand">
-            <SiteLogo url={site.site_logo} />
+            <span className="a-brand-badge">
+              <SiteLogo url={site.site_logo} />
+            </span>
             <span>
-              {site.site_brand}
-              <b>.</b>
-              <small>{site.site_name} · 商家后台</small>
+              {site.site_name}
+              <small>{site.site_brand} · 商家后台</small>
             </span>
           </Link>
-          <span className="a-nav-label">小铺工作台</span>
+          <span className="a-nav-label">工作台导航</span>
           <AdminNavigation key={user.id} base={base} pathname={location.pathname} user={user} onNavigate={() => setOpen(false)} />
           <div className="a-sidebar-bottom">
-            <div className="a-sidebar-tip">
-              <Moon size={20} />
-              <strong>一点一滴，皆是成长</strong>
-              <p>
-                认真经营的每一天，
-                <br />
-                都在靠近更好的小铺。
-              </p>
-            </div>
             <a href="/" target="_blank" rel="noreferrer">
-              前往小铺 <ArrowUpRight size={16} />
+              查看商店 <ArrowUpRight size={16} />
             </a>
           </div>
         </aside>
@@ -647,10 +627,7 @@ export default function AdminApp() {
                   notify={setToast}
                 />
               )}
-              <span className="a-live">
-                <i />
-                小铺营业中
-              </span>
+
               <span className="a-user-avatar">
                 {user?.username.slice(0, 1).toUpperCase() || "W"}
               </span>
@@ -776,7 +753,7 @@ export default function AdminApp() {
                 <span className="a-muted"> · {site.site_name}</span>
               </span>
               <span>
-                认真记录每一份美好 <Moon size={12} />
+                安全运营 · 数据实时同步 <Waves size={13} aria-hidden="true" />
               </span>
             </footer>
           </main>

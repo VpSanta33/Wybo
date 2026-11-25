@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { MoonRabbit } from "./Illustrations";
+import { IslandVisual } from "./Illustrations";
 import { productBrand, productTier } from "./productBrands";
 import type { Product } from "./data";
 
@@ -72,18 +72,14 @@ function CoverImage({
 
 export default function ProductVisual({
   product,
-  categoryName,
   variant,
 }: {
-  product?: Product;
-  categoryName: string;
+  product: Product;
   variant: number;
 }) {
-  const brand = productBrand(product?.name ?? categoryName);
+  const brand = productBrand(product.name);
   const artwork = brand ? (
     <div className={`brand-visual visual-brand-${brand.id}`}>
-      <span className="brand-visual-orbit" aria-hidden="true" />
-      <span className="brand-visual-orbit orbit-inner" aria-hidden="true" />
       <div className="brand-visual-logo">
         <img
           src={brand.image}
@@ -93,16 +89,13 @@ export default function ProductVisual({
         />
       </div>
       <span className="brand-visual-tier">
-        {productTier(product?.name ?? categoryName)}
+        {productTier(product.name)}
       </span>
-      <div className="brand-visual-bunny" aria-hidden="true">
-        <MoonRabbit variant={variant} />
-      </div>
     </div>
   ) : (
-    <MoonRabbit variant={variant} />
+    <IslandVisual variant={variant} />
   );
-  return product?.cover ? (
+  return product.cover ? (
     <CoverImage
       key={product.cover}
       src={product.cover}

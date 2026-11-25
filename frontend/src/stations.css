@@ -1,6 +1,6 @@
 .station-shell {
   min-height: 100vh;
-  background: #f5f7fb;
+  background: #f3f6f6;
 }
 .station-header {
   display: flex;
@@ -9,18 +9,21 @@
   gap: 16px;
   padding: 20px max(24px, calc((100% - 1200px) / 2));
   background: white;
-  border-bottom: 1px solid #e7ebf2;
+  border-bottom: 1px solid #dce5e4;
 }
 .station-brand {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: #23324c;
+  color: #102426;
   text-decoration: none;
   min-width: 0;
 }
 .station-brand span {
   min-width: 0;
+}
+.station-brand > svg {
+  color: #0f4c52;
 }
 .station-brand > svg,
 .station-brand > img {
@@ -38,7 +41,7 @@
 }
 .station-brand small {
   display: block;
-  color: #60708b;
+  color: #556b6d;
   margin-top: 5px;
   white-space: nowrap;
 }
@@ -63,19 +66,19 @@
   gap: 8px;
   min-height: 44px;
   padding: 10px 17px;
-  border: 1px solid #e2e7f0;
+  border: 1px solid #dce5e4;
   border-radius: 10px;
   background: white;
-  color: #52617b;
+  color: #365052;
   text-decoration: none;
   font: inherit;
   cursor: pointer;
 }
 .station-nav a.active,
 .station-tabs button[aria-pressed="true"] {
-  background: #eaf1ff;
-  color: #2458b1;
-  border-color: #bed0f4;
+  background: #0f4c52;
+  color: #ffffff;
+  border-color: #0f4c52;
 }
 .station-main {
   max-width: 1248px;
@@ -94,14 +97,14 @@
   margin-bottom: 20px;
 }
 .station-note {
-  color: #556681;
+  color: #556b6d;
   font-size: 13px;
   line-height: 1.7;
   margin: 14px 0;
 }
 .station-price span,
 .station-product-heading p {
-  color: #556681;
+  color: #556b6d;
   font-size: 13px;
 }
 .station-price strong {
@@ -111,7 +114,7 @@
 }
 .station-product {
   padding: 22px;
-  border: 1px solid #e3e9f2;
+  border: 1px solid #dce5e4;
   border-radius: 12px;
   background: white;
   min-width: 0;
@@ -159,7 +162,7 @@
 .station-check input {
   width: 18px !important;
   height: 18px;
-  accent-color: #3266cf;
+  accent-color: #0f4c52;
 }
 .station-shell fieldset,
 .station-public fieldset,
@@ -187,7 +190,7 @@
   align-items: center;
   flex-wrap: wrap;
   padding: 16px;
-  background: #f7f9fc;
+  background: #f4f9f8;
   border-radius: 10px;
 }
 .station-upload label {
@@ -209,7 +212,7 @@
   object-fit: contain;
 }
 .station-brand-uploads small {
-  color: #556681;
+  color: #556b6d;
 }
 .station-login {
   max-width: 440px;
@@ -236,7 +239,7 @@
 }
 .station-main .a-table td small {
   display: block;
-  color: #60708b;
+  color: #556b6d;
   margin-top: 6px;
 }
 .station-main .a-table-wrap {
@@ -245,7 +248,7 @@
 }
 .station-public {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: #f4f7f6;
   padding: 0 24px 48px;
 }
 .station-public-header {
@@ -271,18 +274,18 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #3b65aa;
+  color: #0f4c52;
   font-size: 14px;
 }
 .station-application-intro h1 {
   font-size: 42px;
   line-height: 1.45;
   letter-spacing: -1px;
-  color: #26334b;
+  color: #102426;
   margin: 20px 0;
 }
 .station-application-intro > p {
-  color: #586a84;
+  color: #466163;
   font-size: 16px;
   line-height: 1.9;
 }
@@ -306,28 +309,28 @@
   height: 30px;
   border-radius: 50%;
   background: #e9effb;
-  color: #3b65aa;
+  color: #0f4c52;
   display: grid;
   place-items: center;
 }
 .station-application-intro li strong {
   display: block;
   font-size: 15px;
-  color: #293a54;
+  color: #102426;
 }
 .station-application-intro li span {
   display: block;
   margin-top: 6px;
   font-size: 13px;
-  color: #596d89;
+  color: #556b6d;
 }
 .station-trust {
   display: flex;
   align-items: start;
   gap: 12px;
-  border-top: 1px solid #e0e6ef;
+  border-top: 1px solid #dce5e4;
   padding-top: 20px;
-  color: #486387;
+  color: #325558;
 }
 .station-trust svg {
   flex: none;
@@ -347,7 +350,7 @@
   font-size: 22px;
 }
 .station-application-form > p {
-  color: #5c6e88;
+  color: #556b6d;
   line-height: 1.8;
   font-size: 13px;
   overflow-wrap: anywhere;
@@ -366,7 +369,7 @@
 }
 .station-domain-input span {
   font-size: 12px;
-  color: #556681;
+  color: #556b6d;
   overflow-wrap: anywhere;
   max-width: 50%;
 }
@@ -378,10 +381,10 @@
 .station-success {
   text-align: center;
   padding: 40px 0;
-  color: #385b9b;
+  color: #0f4c52;
 }
 .station-success p {
-  color: #566d8c;
+  color: #466163;
   line-height: 1.8;
   overflow-wrap: anywhere;
 }
@@ -396,7 +399,7 @@
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   padding: 15px;
-  background: #f3f6fc;
+  background: #eaf5f3;
   border-radius: 10px;
   user-select: all;
   font-size: 13px;
@@ -429,14 +432,14 @@
   text-align: left;
   padding: 18px;
   background: #fff;
-  border: 1px solid #e2e8f1;
+  border: 1px solid #dce5e4;
   border-radius: 10px;
   font: inherit;
   cursor: pointer;
 }
 .station-ticket small {
   display: block;
-  color: #5a6d88;
+  color: #556b6d;
   margin-top: 8px;
 }
 .station-message {
@@ -451,7 +454,7 @@
 .station-empty {
   padding: 30px;
   text-align: center;
-  color: #526782;
+  color: #556b6d;
 }
 .station-card-list {
   display: grid;
@@ -459,7 +462,7 @@
 }
 .station-admin-card {
   padding: 22px;
-  border: 1px solid #e2e8f1;
+  border: 1px solid #dce5e4;
   border-radius: 12px;
   background: white;
 }
@@ -467,7 +470,7 @@
   margin: 0 0 8px;
 }
 .station-admin-card p {
-  color: #546b88;
+  color: #466163;
   font-size: 13px;
   line-height: 1.8;
   overflow-wrap: anywhere;
@@ -483,18 +486,18 @@
   margin-bottom: 20px;
   padding: 20px;
   background: #fff;
-  border: 1px solid #e4e9f1;
+  border: 1px solid #dce5e4;
   border-radius: 12px;
 }
 .station-root-status p {
   margin: 5px 0 0;
-  color: #5b6b84;
+  color: #556b6d;
   font-size: 13px;
 }
 .station-shell a:focus-visible,
 .station-tabs button:focus-visible,
 .station-public a:focus-visible {
-  outline: 3px solid #3e72cc;
+  outline: 3px solid #196f77;
   outline-offset: 3px;
 }
 @media (max-width: 900px) {

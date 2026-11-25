@@ -62,7 +62,7 @@ function Entry() {
   ) : (
     <Suspense
       fallback={
-        <div style={{ padding: 60, textAlign: "center", color: "#8293b8" }}>
+        <div style={{ padding: 60, textAlign: "center", color: "#556b6d" }}>
           正在打开工作台…
         </div>
       }

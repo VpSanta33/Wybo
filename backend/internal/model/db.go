@@ -9,6 +9,7 @@ import (
 	"github.com/wybo/backend/internal/config"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
 )
 
@@ -119,5 +120,36 @@ func AutoMigrate(db *gorm.DB) error {
 	if err := db.Model(&Order{}).Where("coupon_id IS NOT NULL AND (coupon_state IS NULL OR coupon_state = '') AND status = ?", OrderPending).Update("coupon_state", "held").Error; err != nil {
 		return err
 	}
-	return db.Model(&Order{}).Where("coupon_id IS NOT NULL AND (coupon_state IS NULL OR coupon_state = '') AND paid_at IS NOT NULL").Update("coupon_state", "used").Error
+	if err := db.Model(&Order{}).Where("coupon_id IS NOT NULL AND (coupon_state IS NULL OR coupon_state = '') AND paid_at IS NOT NULL").Update("coupon_state", "used").Error; err != nil {
+		return err
+	}
+	return migrateStorefrontBrand(db)
+}
+
+const (
+	DefaultSiteName        = "青屿集"
+	DefaultSiteBrand       = "Qingyu"
+	DefaultSiteDescription = "数字商品、会员服务与兑换码，支持在线下单和订单查询。"
+)
+
+// Older versions saved the displayed defaults when the merchant saved site settings.
+// Claim this migration once so future edits, including reusing an old name, survive restarts.
+func migrateStorefrontBrand(db *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		claim := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&Setting{Key: "migration:qingyu-brand", Value: "1"})
+		if claim.Error != nil || claim.RowsAffected == 0 {
+			return claim.Error
+		}
+		for _, field := range []struct{ key, previous, current string }{
+			{"site_name", "望月AI代充小铺", DefaultSiteName},
+			{"site_brand", "Wybo", DefaultSiteBrand},
+			{"site_desc", "ChatGPT · Claude · Grok 会员充值，支付成功自动发放卡密", DefaultSiteDescription},
+			{"site_footer", "一点月光，刚好喜欢。", ""},
+		} {
+			if err := tx.Model(&Setting{}).Where("key = ? AND value = ?", field.key, field.previous).Update("value", field.current).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }

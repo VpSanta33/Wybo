@@ -55,11 +55,7 @@ func (s *Service) CreateCheckout(ctx context.Context, code string, req *pay.Crea
 	if req.Extra == nil {
 		req.Extra = map[string]string{}
 	}
-	if s.station != nil {
-		req.Extra["sitename"] = s.station.SiteName
-	} else {
-		req.Extra["sitename"] = s.setting("site_name", "望月小铺")
-	}
+	req.Extra["sitename"] = s.shopName()
 	var attempt model.CheckoutAttempt
 	if s.db.Where("order_id = ? AND gateway = ?", order.ID, code).First(&attempt).Error == nil {
 		if stripeMinimumRejected(attempt) {

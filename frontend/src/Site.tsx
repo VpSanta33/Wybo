@@ -10,15 +10,15 @@ import {
 } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { api } from "./api";
-import { BunnyMark } from "./Illustrations";
+import { QingyuMark } from "./Illustrations";
 
 const defaults: Record<string, string> = {
-  site_name: "望月AI代充小铺",
-  site_brand: "Wybo",
+  site_name: "青屿集",
+  site_brand: "Qingyu",
   site_logo: "",
   site_favicon: "",
-  site_desc: "ChatGPT · Claude · Grok 会员充值，支付成功自动发放卡密",
-  site_footer: "一点月光，刚好喜欢。",
+  site_desc: "数字商品、会员服务与兑换码，支持在线下单和订单查询。",
+  site_footer: "",
 };
 const SiteContext = createContext({
   site: defaults,
@@ -77,18 +77,13 @@ export function SiteProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("focus", onFocus);
   }, [refresh]);
   useEffect(() => {
-    const consolePage = !["/", "/orders", "/guide"].includes(pathname);
-    document.title =
-      site.site_name +
-      (pathname === "/apply"
-        ? " · 分站申请"
-        : site.is_station === "true" && consolePage
-          ? " · 分站工作台"
-          : pathname === "/agent"
-            ? " · 代理工作台"
-            : consolePage
-              ? " · 商家工作台"
-              : "");
+    const storePages: Record<string, string> = {
+      "/": "", "/orders": "我的订单", "/guide": "购买指南", "/apply": "分站申请",
+    };
+    const page = storePages[pathname] ?? (site.is_station === "true"
+      ? (pathname === "/activate" ? "分站激活" : "分站工作台")
+      : (pathname === "/agent" ? "代理工作台" : "商家工作台"));
+    document.title = page ? `${site.site_name} · ${page}` : site.site_name;
     document
       .querySelector('meta[name="description"]')
       ?.setAttribute("content", site.site_desc);
@@ -132,7 +127,7 @@ export function SiteLogo({
       onError={() => setFailed(src)}
     />
   ) : (
-    <BunnyMark />
+    <QingyuMark className={`site-logo ${className}`} />
   );
 }
 export function SiteBrand() {
@@ -140,12 +135,9 @@ export function SiteBrand() {
   return (
     <Link className="store-brand" to="/" aria-label={site.site_name + "首页"}>
       <SiteLogo url={site.site_logo} />
-      <span title={site.site_brand}>
-        {site.site_brand}
-        <span className="brand-period">.</span>
-      </span>
-      <span className="brand-chinese" title={site.site_name}>
-        {site.site_name}
+      <span className="store-wordmark">
+        <strong title={site.site_name}>{site.site_name}</strong>
+        {site.site_brand && site.site_brand !== site.site_name && <small>{site.site_brand}</small>}
       </span>
     </Link>
   );

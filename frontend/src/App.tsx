@@ -28,11 +28,10 @@ import {
   type ShopOrder,
 } from "./api";
 import { faqs } from "./data";
-import { BunnyMark } from "./Illustrations";
 import OrderResult from "./OrderResult";
 import { ErrorMessage, Modal } from "./components";
 import Storefront from "./Storefront";
-import { SiteBrand, useSite } from "./Site";
+import { SiteBrand, SiteLogo, useSite } from "./Site";
 import { paymentSession, closeCashierWindow, hasCashierWindow } from "./paymentSession";
 
 function App() {
@@ -115,7 +114,7 @@ function App() {
       )}
       <main id="main-content" ref={mainRef} tabIndex={-1}>
         {site.is_station === "true" && site.station_status !== "active" && (
-          <p className="container" role="status">
+          <p className="container store-paused-banner" role="status">
             店铺暂停营业，已有订单仍可查询及申请售后。
           </p>
         )}
@@ -145,9 +144,9 @@ function App() {
             path="*"
             element={
               <div className="empty-page container">
-                <BunnyMark />
-                <h1>这个页面还没有开门</h1>
-                <p>回到小铺，看看新的小美好。</p>
+                <SiteLogo url={site.site_logo} />
+                <h1>这个页面还没有开放</h1>
+                <p>返回首页，继续浏览当前在售的数字商品。</p>
                 <Link className="button button-primary" to="/">
                   返回首页
                   <ArrowRight size={17} />
@@ -160,7 +159,7 @@ function App() {
       <footer className="store-footer container">
         <span>
           © {new Date().getFullYear()} {site.site_name}
-          <span className="footer-moon">{site.site_footer}</span>
+          {site.site_footer && <span className="footer-tagline">{site.site_footer}</span>}
         </span>
         <div>
           {site.station_apply_enabled === "true" &&
@@ -173,7 +172,7 @@ function App() {
             aria-label="联系与帮助"
           >
             <Headphones size={17} aria-hidden="true" />
-            <span>联系小兔</span>
+            <span>联系客服</span>
           </button>
         </div>
       </footer>
@@ -189,15 +188,14 @@ function App() {
           onClose={() => setInfo(null)}
         >
           <div className="info-icon">
-            <BunnyMark />
+            <SiteLogo url={site.site_logo} />
           </div>
-          <span className="eyebrow">WYBO STORE</span>
           <h2>
             {info === "help"
-              ? "小兔在，慢慢说。"
+              ? "客服与购买帮助"
               : info === "terms"
-                ? "购买前，请读一读"
-                : "好好保管你的信息"}
+                ? "购买前，请先阅读"
+                : "隐私与凭证保护"}
           </h2>
           {info === "help" ? (
             <>
@@ -404,7 +402,7 @@ function Orders({ onCopy }: { onCopy: (value: string) => void }) {
     <section className="container inner-page order-page">
       <Link to="/" className="back-link">
         <ArrowLeft size={16} />
-        回小铺逛逛
+        返回商店
       </Link>
       <div className="page-intro">
         <h1>
@@ -555,12 +553,12 @@ function Orders({ onCopy }: { onCopy: (value: string) => void }) {
             </>
           ) : (
             <div className="order-lookup-empty">
-              <BunnyMark />
-              <h2>找到订单，也找到下一步</h2>
-              <p>输入订单信息后，即可查看支付状态、卡密和兑换说明。</p>
+              <Search size={32} aria-hidden="true" />
+              <h2>输入订单号与联系方式</h2>
+              <p>提交查询信息后，即可查看付款状态、卡密内容与兑换说明。</p>
               <span>
                 <ShieldCheck size={15} aria-hidden="true" />
-                无需登录，验证信息后即可领取
+                无需登录，验证订单凭证即可领取
               </span>
             </div>
           )}
@@ -591,42 +589,41 @@ function Guide({ onHelp, demo }: { onHelp: () => void; demo: boolean }) {
   const steps = [
     {
       icon: ShoppingBag,
-      title: "挑一份喜欢",
-      text: "在顶部切换商品类别，选择商品，并阅读适用范围与兑换说明。",
+      title: "选择商品套餐",
+      text: "在商品类目中切换所需产品，确认套餐规格、适用范围与兑换说明。",
     },
     {
       icon: Mail,
-      title: "留下小凭证",
-      text: "填写接收邮箱、确认购买数量，核对订单后保存好订单号。",
+      title: "填写接收邮箱",
+      text: "填写准确的接收邮箱与购买数量，核对订单并保存订单号。",
     },
     {
       icon: ShieldCheck,
-      title: "安心去支付",
-      text: "正式订单会跳转收银台。请在订单有效期内完成付款。",
+      title: "完成在线支付",
+      text: "正式订单会跳转收银台或展示收款码。请在订单有效期内完成付款。",
     },
     {
       icon: Gift,
-      title: "收下小美好",
-      text: "自动发货商品付款后发卡；手工发货商品付款后等待店主处理。在订单页领取商品并查看使用说明。",
+      title: "领取卡密与兑换",
+      text: "自动发货商品付款后即刻发卡；手工发货商品由店主处理。前往我的订单领取使用。",
     },
   ];
   return (
     <section className="container inner-page guide-page">
       <Link to="/" className="back-link">
         <ArrowLeft size={16} />
-        回小铺逛逛
+        返回商店
       </Link>
       <div className="page-intro">
-        <span className="eyebrow">YOUR FIRST LITTLE ADVENTURE</span>
         <h1>
-          第一次来？让小兔带路<span>✧</span>
+          四步完成选购与收货<span>·</span>
         </h1>
-        <p>把复杂的事交给我们，你只管期待下一份美好。</p>
+        <p>从选择套餐到领取卡密，流程清晰透明，随时可查。</p>
       </div>
       <div className="guide-steps">
         {steps.map((step, i) => (
           <article key={step.title}>
-            <span className="step-number">STEP 0{i + 1}</span>
+            <span className="step-number">{i + 1}</span>
             <div className="step-icon">
               <step.icon size={31} strokeWidth={1.4} />
             </div>
@@ -642,7 +639,7 @@ function Guide({ onHelp, demo }: { onHelp: () => void; demo: boolean }) {
         <Sparkles size={19} />
         <p>
           <strong>
-            {demo ? "来一次轻松的橱窗体验" : "把购物凭证，好好保管"}
+            {demo ? "演示预览说明" : "请妥善保管订单凭证"}
           </strong>
           {demo
             ? "当前样例商品可创建演示订单，不会产生真实付款。演示订单只在当前标签页内有效，刷新后可以重新体验。"
@@ -650,23 +647,22 @@ function Guide({ onHelp, demo }: { onHelp: () => void; demo: boolean }) {
         </p>
       </div>
       <div className="guide-faq-heading">
-        <span className="eyebrow">A FEW LITTLE ANSWERS</span>
-        <h2>这些小问题，我们替你想到了。</h2>
+        <h2>常见问题解答</h2>
       </div>
       <Faq items={faqs} />
       <div className="guide-bottom">
-        <BunnyMark />
+        <Headphones size={28} aria-hidden="true" />
         <div>
-          <h2>还有没解开的小问号？</h2>
-          <p>小兔的帮助口袋，也为你留着位置。</p>
+          <h2>还有其他疑问？</h2>
+          <p>查看帮助中心或进入订单查询页联系售后，我们会协助处理。</p>
         </div>
         <button onClick={onHelp} className="button button-secondary">
-          找小兔帮忙
+          打开帮助中心
           <Headphones size={17} />
         </button>
       </div>
       <Link className="button button-primary guide-cta" to="/">
-        准备好了，去逛逛
+        前往选购商品
         <ArrowDown size={17} />
       </Link>
     </section>

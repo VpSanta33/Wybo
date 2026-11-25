@@ -12,6 +12,35 @@ import (
 	"github.com/wybo/backend/internal/model"
 )
 
+func TestUpgradeStorefrontBrand(t *testing.T) {
+	s, db, _ := productPricingFixture(t, 100)
+	must(t, db.AutoMigrate(&model.Setting{}))
+	must(t, db.Create(&[]model.Setting{
+		{Key: "site_name", Value: "望月AI代充小铺"},
+		{Key: "site_brand", Value: "Wybo"},
+		{Key: "site_footer", Value: "一点月光，刚好喜欢。"},
+		{Key: "site_desc", Value: "我自己的商品说明"},
+		{Key: "site_logo", Value: "/uploads/shop.png"},
+	}).Error)
+	must(t, model.AutoMigrate(db))
+	admin, err := s.GetSettings()
+	must(t, err)
+	for _, settings := range []map[string]string{s.SiteInfo(), admin} {
+		if settings["site_name"] != "青屿集" || settings["site_brand"] != "Qingyu" || settings["site_footer"] != "" ||
+			settings["site_desc"] != "我自己的商品说明" || settings["site_logo"] != "/uploads/shop.png" {
+			t.Fatalf("unexpected migrated brand: %#v", settings)
+		}
+		if _, ok := settings["migration:qingyu-brand"]; ok {
+			t.Fatal("migration marker leaked into site settings")
+		}
+	}
+	must(t, s.UpdateSettings(map[string]string{"site_name": "望月AI代充小铺"}))
+	must(t, model.AutoMigrate(db))
+	if s.shopName() != "望月AI代充小铺" {
+		t.Fatal("a subsequent restart overwrote an explicit merchant choice")
+	}
+}
+
 func TestSiteBrandingAndTurnstileSettings(t *testing.T) {
 	s, db, _ := operationsFixture(t)
 	values := map[string]string{
