@@ -64,6 +64,7 @@ class NativeDeployTest(unittest.TestCase):
         deploy.render(self.state, out)
         config = json.loads((out / "config.yaml").read_text())
         self.assertEqual(config["server"]["addr"], "127.0.0.1:8080")
+        self.assertEqual(config["server"]["frontend_index"], "/opt/wybo/current/frontend/index.html")
         self.assertEqual(config["server"]["trusted_proxies"], ["127.0.0.1", "::1"])
         self.assertEqual(config["db"]["driver"], "postgres")
         self.assertEqual(config["pay"]["notify_base"], "https://shop.example.com/api/v1/pay/notify")
@@ -82,6 +83,9 @@ class NativeDeployTest(unittest.TestCase):
         self.assertIn("location ^~ /api/", nginx)
         self.assertIn("proxy_set_header X-Forwarded-For $remote_addr", nginx)
         self.assertIn("try_files $uri $uri/ /index.html", nginx)
+        self.assertIn("sitemap[.]xml$", nginx)
+        private_shell = nginx.split("location = /index.html {")[1].split("}")[0]
+        self.assertIn('X-Robots-Tag "noindex, nofollow" always', private_shell)
         self.assertIn("/etc/letsencrypt/live/shop.example.com/fullchain.pem", nginx)
         self.assertNotIn("access_log /", nginx)
 

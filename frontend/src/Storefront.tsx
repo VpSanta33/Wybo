@@ -273,11 +273,13 @@ function CategoryNavigation({
 
 export default function Storefront({
   catalog,
+  detail,
   onTerms,
   onHelp,
   onCopy,
 }: {
   catalog: Catalog | null;
+  detail: boolean;
   onTerms: () => void;
   onHelp: () => void;
   onCopy: (value: string) => void;
@@ -306,6 +308,7 @@ export default function Storefront({
   const resultRef = useRef<HTMLHeadingElement>(null);
   const demo = catalog?.demo ?? true;
   const hasCatalogItems = !catalog || catalog.products.length > 0;
+  const catalogError = catalog && !catalog.demo && !catalog.site ? catalog.notice : "";
   useEffect(() => {
     if (demo) { setGateways([]); setGateway(""); setGatewayError(""); return; }
     const controller = new AbortController();
@@ -480,45 +483,53 @@ export default function Storefront({
         </div>
       </header>
 
-      <section className="market-postcard container" aria-labelledby="market-name">
-        <div className="postcard-copy">
-          <h1 id="market-name">{site.site_name}</h1>
-          {site.site_desc && <p>{site.site_desc}</p>}
-          <div className="postcard-links">
-            {hasCatalogItems && (
-              <a className="postcard-browse" href="#store-catalog">
-                挑选商品 <ArrowDown size={16} aria-hidden="true" />
-              </a>
-            )}
-            <Link to="/guide" className={hasCatalogItems ? undefined : "postcard-browse"}>
-              <BookOpen size={16} aria-hidden="true" />购买指南
-            </Link>
-          </div>
-        </div>
-        <IslandPostmark />
-        <img className="postcard-art" src="/images/island-shop.webp" width="1134" height="756" fetchPriority="high" alt="" />
-      </section>
+      {detail ? (
+        <nav className="container product-back" aria-label="商品导航">
+          <Link className="back-link" to="/"><ArrowLeft size={16} />返回商店</Link>
+        </nav>
+      ) : (
+        <>
+          <section className="market-postcard container" aria-labelledby="market-name">
+            <div className="postcard-copy">
+              <h1 id="market-name">{site.site_name}</h1>
+              {site.site_desc && <p>{site.site_desc}</p>}
+              <div className="postcard-links">
+                {hasCatalogItems && (
+                  <a className="postcard-browse" href="#store-catalog">
+                    挑选商品 <ArrowDown size={16} aria-hidden="true" />
+                  </a>
+                )}
+                <Link to="/guide" className={hasCatalogItems ? undefined : "postcard-browse"}>
+                  <BookOpen size={16} aria-hidden="true" />购买指南
+                </Link>
+              </div>
+            </div>
+            <IslandPostmark />
+            <img className="postcard-art" src="/images/island-shop.webp" width="1134" height="756" fetchPriority="high" alt="" />
+          </section>
 
-      <div id="store-catalog" className="container">
-        {categories.length > 0 && (
-          <div className="category-dock">
-            <h2><LayoutGrid size={19} aria-hidden="true" />商品分类</h2>
-            <CategoryNavigation
-              categories={categories}
-              activeId={activeCategory?.id}
-              disabled={busy}
-              onSelect={chooseCategory}
-            />
+          <div id="store-catalog" className="container">
+            {categories.length > 0 && (
+              <div className="category-dock">
+                <h2><LayoutGrid size={19} aria-hidden="true" />商品分类</h2>
+                <CategoryNavigation
+                  categories={categories}
+                  activeId={activeCategory?.id}
+                  disabled={busy}
+                  onSelect={chooseCategory}
+                />
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       <section
         className="store-stage container"
         id="store-product-panel"
-        role={activeCategory ? "tabpanel" : undefined}
+        role={!detail && activeCategory ? "tabpanel" : undefined}
         aria-labelledby={
-          activeCategory ? `category-${activeCategory.id}` : undefined
+          !detail && activeCategory ? `category-${activeCategory.id}` : undefined
         }
       >
         {product && (
@@ -529,7 +540,9 @@ export default function Storefront({
                   <PackageCheck size={15} aria-hidden="true" />
                   {product.delivery_mode === "manual" ? "手工发货" : "自动发卡"}
                 </span>
-                <h2>{product.name}</h2>
+                {detail ? <h1>{product.name}</h1> : (
+                  <h2><Link to={`/p/${product.id}`} title="打开商品详情">{product.name}</Link></h2>
+                )}
                 <div className="showcase-price">
                   <strong>{pendingPrice ? "待定价" : `¥${money(product.price_cents)}`}</strong>
                   {product.delivery_mode !== "manual" && !pendingPrice && (
@@ -541,57 +554,59 @@ export default function Storefront({
                 <ProductVisual product={product} variant={categoryIndex} />
               </div>
             </div>
-            <fieldset className="plan-fieldset">
-              <legend>选择套餐</legend>
-              <div className="plan-options">
-                {products.map((p) => (
-                  <label
-                    className={`plan-option ${p.id === product.id ? "is-selected" : ""} ${p.delivery_mode !== "manual" && p.stock <= 0 && !pricePending(p) ? "is-unavailable" : ""} ${pricePending(p) ? "is-pending" : ""}`}
-                    key={p.id}
-                  >
-                    <input
-                      type="radio"
-                      name="product-plan"
-                      form="store-order-form"
-                      aria-label={p.name}
-                      aria-describedby={`plan-price-${p.id}`}
-                      value={p.id}
-                      checked={p.id === product.id}
-                      disabled={
-                        (p.delivery_mode !== "manual" &&
-                          p.stock <= 0 &&
-                          !pricePending(p)) ||
-                        busy
-                      }
-                      onChange={() => chooseProduct(p)}
-                    />
-                    <span className="plan-radio" aria-hidden="true">
-                      {p.id === product.id && (
-                        <Check size={11} strokeWidth={3} />
-                      )}
-                    </span>
-                    <ProductThumbnail product={p} />
-                    <span className="plan-copy">
-                      <strong title={p.name}>
-                        {compactPlanName(p.name)}
-                      </strong>
-                    </span>
-                    <span className="plan-price" id={`plan-price-${p.id}`}>
-                      {pricePending(p) ? (
-                        <span className="pending-price">待定价</span>
-                      ) : p.delivery_mode !== "manual" && p.stock <= 0 ? (
-                        <span>暂时售罄</span>
-                      ) : (
-                        <>
-                          <small>¥</small>
-                          <strong>{money(p.price_cents)}</strong>
-                        </>
-                      )}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
+            {!detail && (
+              <fieldset className="plan-fieldset">
+                <legend>选择套餐</legend>
+                <div className="plan-options">
+                  {products.map((p) => (
+                    <label
+                      className={`plan-option ${p.id === product.id ? "is-selected" : ""} ${p.delivery_mode !== "manual" && p.stock <= 0 && !pricePending(p) ? "is-unavailable" : ""} ${pricePending(p) ? "is-pending" : ""}`}
+                      key={p.id}
+                    >
+                      <input
+                        type="radio"
+                        name="product-plan"
+                        form="store-order-form"
+                        aria-label={p.name}
+                        aria-describedby={`plan-price-${p.id}`}
+                        value={p.id}
+                        checked={p.id === product.id}
+                        disabled={
+                          (p.delivery_mode !== "manual" &&
+                            p.stock <= 0 &&
+                            !pricePending(p)) ||
+                          busy
+                        }
+                        onChange={() => chooseProduct(p)}
+                      />
+                      <span className="plan-radio" aria-hidden="true">
+                        {p.id === product.id && (
+                          <Check size={11} strokeWidth={3} />
+                        )}
+                      </span>
+                      <ProductThumbnail product={p} />
+                      <span className="plan-copy">
+                        <strong title={p.name}>
+                          {compactPlanName(p.name)}
+                        </strong>
+                      </span>
+                      <span className="plan-price" id={`plan-price-${p.id}`}>
+                        {pricePending(p) ? (
+                          <span className="pending-price">待定价</span>
+                        ) : p.delivery_mode !== "manual" && p.stock <= 0 ? (
+                          <span>暂时售罄</span>
+                        ) : (
+                          <>
+                            <small>¥</small>
+                            <strong>{money(p.price_cents)}</strong>
+                          </>
+                        )}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            )}
             {pendingPrice && (
               <p className="pending-plan-note" role="status">
                 套餐即将上架，定价后开放购买。
@@ -613,9 +628,9 @@ export default function Storefront({
           ) : !product ? (
             <div className="store-loading">
               <SiteLogo url={site.site_logo} />
-              <h2>{catalog.notice ? "商店暂时无法加载" : "新品即将上架"}</h2>
-              <p>{catalog.notice || "商品正在整理上架中，请稍后再来看看。"}</p>
-              {catalog.notice && (
+              <h2>{catalogError ? "商店暂时无法加载" : detail ? "商品不存在或已下架" : "新品即将上架"}</h2>
+              <p>{catalogError || (detail ? "返回商店查看当前上架的商品。" : catalog.notice || "商品正在整理上架中，请稍后再来看看。")}</p>
+              {catalogError && (
                 <button
                   type="button"
                   className="button button-secondary"
@@ -863,6 +878,13 @@ export default function Storefront({
           )}
         </div>
       </section>
+
+      {!detail && !!catalog?.products.length && (
+        <details className="container catalog-links">
+          <summary>全部商品（{catalog.products.length}）</summary>
+          <ul>{catalog.products.map((p) => <li key={p.id}><Link to={`/p/${p.id}`}>{p.name}</Link></li>)}</ul>
+        </details>
+      )}
 
       {review && product && (
         <Modal

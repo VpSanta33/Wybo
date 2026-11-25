@@ -4,6 +4,7 @@ import { BrowserRouter, useLocation } from "react-router-dom";
 import App from "./App";
 import "./styles.css";
 import { SiteProvider, useSite } from "./Site";
+import { isProductPath } from "./metadata";
 
 const StationApp = lazy(() => import("./StationApp"));
 const StationActivate = lazy(() =>
@@ -46,20 +47,14 @@ function Entry() {
         <StationActivate />
       </Suspense>
     );
-  if (
-    site.is_station === "true" &&
-    pathname !== "/" &&
-    pathname !== "/orders" &&
-    pathname !== "/guide"
-  )
+  if (["/", "/orders", "/guide"].includes(pathname) || isProductPath(pathname)) return <App />;
+  if (site.is_station === "true")
     return (
       <Suspense fallback={<p role="status">正在打开分站后台…</p>}>
         <StationApp />
       </Suspense>
     );
-  return ["/", "/orders", "/guide"].includes(pathname) ? (
-    <App />
-  ) : (
+  return (
     <Suspense
       fallback={
         <div style={{ padding: 60, textAlign: "center", color: "#556b6d" }}>

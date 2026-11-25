@@ -16,6 +16,7 @@ import (
 	"github.com/wybo/backend/internal/service"
 	"github.com/wybo/backend/pkg/response"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 // Site 站点信息
@@ -55,13 +56,27 @@ func (h *Handler) Products(c *gin.Context) {
 
 // ProductDetail 商品详情
 func (h *Handler) ProductDetail(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
-	p, err := h.publicService(c).GetProduct(uint(id))
-	if err != nil || !p.Enabled {
+	id, err := strconv.ParseInt(c.Param("id"), 10, strconv.IntSize)
+	if err != nil || id < 1 {
 		response.Error(c, 404, "商品不存在")
 		return
 	}
-	response.OK(c, publicProduct(*p))
+	svc := h.publicService(c)
+	p, err := svc.GetProduct(uint(id))
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) && !errors.Is(err, service.ErrProductNotFound) {
+		response.Error(c, 500, "查询失败")
+		return
+	}
+	if p == nil || !p.Enabled {
+		response.Error(c, 404, "商品不存在")
+		return
+	}
+	products := []model.Product{*p}
+	if err := svc.ApplyPublicAgentPrices(c.Query("agent"), products); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.OK(c, publicProduct(products[0]))
 }
 
 // Announcements 公告列表

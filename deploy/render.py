@@ -124,6 +124,7 @@ server {
         proxy_read_timeout 60s;
         proxy_send_timeout 60s;
         add_header Cache-Control "no-store" always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
     }
     location ^~ /uploads/ {
         proxy_pass http://127.0.0.1:8080;
@@ -137,7 +138,15 @@ server {
         expires 1y;
         add_header Cache-Control "public, immutable";
     }
-    location = /index.html { add_header Cache-Control "no-store"; }
+    location ~ ^/(?:$|guide/?$|p(?:/|$)|robots[.]txt$|sitemap[.]xml$) {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    location = /index.html {
+        add_header Cache-Control "no-store" always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+    }
     location ~ /\\. { deny all; }
     location / { try_files $uri $uri/ /index.html; }
 }
@@ -186,7 +195,7 @@ def render(state, output):
     domain = state["domain"]
     url = "https://" + domain
     config = {
-        "server": {"public_host": domain,"station_root":state.get("station_root", ""),"addr": "127.0.0.1:8080", "mode": "release", "trusted_proxies": ["127.0.0.1", "::1"]},
+        "server": {"public_host": domain,"station_root":state.get("station_root", ""),"addr": "127.0.0.1:8080", "mode": "release", "frontend_index": "/opt/wybo/current/frontend/index.html", "trusted_proxies": ["127.0.0.1", "::1"]},
         "db": {"driver": "postgres"}, "jwt": {"expire_hours": 24},
         "pay": {"return_url": url + "/orders", "notify_base": url + "/api/v1/pay/notify"},
         "upload": {"dir": "/var/lib/wybo/uploads", "max_size": 5 * 1024 * 1024},

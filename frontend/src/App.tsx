@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import {
   api,
+  demoMode,
   loadCatalog,
   queryOrder,
   checkOrderPayment,
@@ -31,15 +32,20 @@ import { faqs } from "./data";
 import OrderResult from "./OrderResult";
 import { ErrorMessage, Modal } from "./components";
 import Storefront from "./Storefront";
+import { isProductPath } from "./metadata";
 import { SiteBrand, SiteLogo, useSite } from "./Site";
 import { paymentSession, closeCashierWindow, hasCashierWindow } from "./paymentSession";
 
 function App() {
   const { site } = useSite();
-  const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [listing, setListing] = useState<{ path: string; catalog: Catalog } | null>(null);
   const [info, setInfo] = useState<"help" | "terms" | "privacy" | null>(null);
   const [toast, setToast] = useState("");
   const location = useLocation();
+  const detail = isProductPath(location.pathname);
+  const isShop = location.pathname === "/" || detail;
+  const shopPath = isShop ? location.pathname : null;
+  const catalog = listing && listing.path === shopPath ? listing.catalog : null;
   const mainRef = useRef<HTMLElement>(null);
   const firstRoute = useRef(true);
   const visitPath = useRef("");
@@ -48,7 +54,7 @@ function App() {
     if (agent) sessionStorage.setItem("wybo-agent", agent);
   }, [location.search]);
   useEffect(() => {
-    if (!catalog || catalog.demo || visitPath.current === location.pathname)
+    if (demoMode || visitPath.current === location.pathname)
       return;
     visitPath.current = location.pathname;
     void api("/visits", {
@@ -58,16 +64,18 @@ function App() {
         source: document.referrer,
       }),
     }).catch(() => {});
-  }, [catalog, location.pathname]);
-  const isHome = location.pathname === "/";
+  }, [location.pathname]);
 
   useEffect(() => {
+    if (shopPath === null) return;
     const controller = new AbortController();
-    loadCatalog(controller.signal)
-      .then(setCatalog)
+    loadCatalog(controller.signal, shopPath === "/" ? undefined : shopPath.slice(3))
+      .then((result) => {
+        if (!controller.signal.aborted) setListing({ path: shopPath, catalog: result });
+      })
       .catch(() => {});
     return () => controller.abort();
-  }, []);
+  }, [shopPath]);
 
   useEffect(() => {
     if (firstRoute.current) {
@@ -93,12 +101,23 @@ function App() {
     }
   }
 
+  const shop = (
+    <Storefront
+      key={location.pathname}
+      detail={detail}
+      catalog={catalog}
+      onTerms={() => setInfo("terms")}
+      onHelp={() => setInfo("help")}
+      onCopy={copy}
+    />
+  );
+
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">
         跳到主要内容
       </a>
-      {!isHome && (
+      {!isShop && (
         <header className="store-header container">
           <SiteBrand />
           <nav className="inner-nav" aria-label="主导航">
@@ -119,24 +138,15 @@ function App() {
           </p>
         )}
         <Routes>
-          <Route
-            path="/"
-            element={
-              <Storefront
-                catalog={catalog}
-                onTerms={() => setInfo("terms")}
-                onHelp={() => setInfo("help")}
-                onCopy={copy}
-              />
-            }
-          />
+          <Route path="/" element={shop} />
+          <Route path="/p/*" element={shop} />
           <Route path="/orders" element={<Orders onCopy={copy} />} />
           <Route
             path="/guide"
             element={
               <Guide
                 onHelp={() => setInfo("help")}
-                demo={catalog?.demo ?? true}
+                demo={demoMode}
               />
             }
           />
@@ -221,7 +231,7 @@ function App() {
                 </Link>
               </div>
               <p className="soft-note">
-                {catalog?.demo
+                {demoMode
                   ? "当前为演示预览，订单不会扣款，也不会发放真实卡密。"
                   : catalog?.site?.customer_service ||
                     "店主暂未公布人工客服联系方式，请先查看购买指南或查询订单。"}

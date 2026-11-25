@@ -8,6 +8,7 @@ import (
 
 // ServerConfig HTTP 服务配置
 type ServerConfig struct {
+	FrontendIndex  string   `mapstructure:"frontend_index"`
 	PublicHost     string   `mapstructure:"public_host"`
 	StationRoot    string   `mapstructure:"station_root"`
 	Addr           string   `mapstructure:"addr"`
@@ -78,6 +79,7 @@ func Load() *Config {
 	v.AddConfigPath(".")
 
 	v.SetDefault("server.public_host", "")
+	v.SetDefault("server.frontend_index", "../frontend/dist/index.html")
 	v.SetDefault("server.station_root", "")
 	_ = v.BindEnv("server.public_host", "SERVER_PUBLIC_HOST")
 	_ = v.BindEnv("server.station_root", "SERVER_STATION_ROOT")

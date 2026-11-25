@@ -24,6 +24,12 @@ func New(db *gorm.DB, cfg *config.Config, logger *zap.Logger) *gin.Engine {
 	}
 	r.GET("/healthz", handler.Health)
 	r.Static("/uploads", cfg.Upload.Dir)
+	pages := r.Group("/", h.StorefrontScope)
+	for _, route := range []string{"/", "/guide", "/p/*item"} {
+		pages.Match([]string{"GET", "HEAD"}, route, h.StorefrontPage)
+	}
+	pages.Match([]string{"GET", "HEAD"}, "/robots.txt", h.Robots)
+	pages.Match([]string{"GET", "HEAD"}, "/sitemap.xml", h.Sitemap)
 	peer := r.Group("/api/v1/peer")
 	peer.Use(middleware.RateLimit(300, time.Minute))
 	peer.POST("/callback/:id", h.PeerCallback)
@@ -40,6 +46,7 @@ func New(db *gorm.DB, cfg *config.Config, logger *zap.Logger) *gin.Engine {
 	{
 		// 公开接口
 		api.GET("/site", h.Site)
+		api.GET("/page-meta", h.PageMetadata)
 		api.GET("/categories", h.Categories)
 		api.GET("/products", h.Products)
 		api.GET("/products/:id", h.ProductDetail)

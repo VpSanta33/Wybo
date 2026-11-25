@@ -80,6 +80,25 @@ func (s *Service) ResolveStorefront(rawHost string) (*Service, error) {
 	return &scoped, nil
 }
 func (s *Service) CurrentStation() *model.Station { return s.station }
+
+// StorefrontOrigin is derived from operator configuration, never from forwarded request headers.
+func (s *Service) StorefrontOrigin() string {
+	if s.station != nil {
+		return s.StationURL(*s.station)
+	}
+	if raw := s.setting("site_url", ""); validHTTPURL(raw) {
+		u, _ := url.Parse(raw)
+		return u.Scheme + "://" + u.Host
+	}
+	if host := s.cfg.Server.PublicHost; host != "" {
+		return "https://" + host
+	}
+	if raw := s.cfg.Pay.ReturnURL; s.cfg.Server.Mode != "release" && validHTTPURL(raw) {
+		u, _ := url.Parse(raw)
+		return u.Scheme + "://" + u.Host
+	}
+	return ""
+}
 func (s *Service) orderScope(q *gorm.DB) *gorm.DB {
 	if !s.publicScope {
 		return q

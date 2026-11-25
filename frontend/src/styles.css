@@ -3228,7 +3228,7 @@ summary::-webkit-details-marker {
   font-size: 11px;
   font-weight: 700;
 }
-.showcase-identity h2 { margin: 8px 0; font-size: clamp(23px, 2.25vw, 34px); font-weight: 800; line-height: 1.23; text-wrap: balance; }
+.showcase-identity :is(h1, h2) { margin: 8px 0; font-size: clamp(23px, 2.25vw, 34px); font-weight: 800; line-height: 1.23; text-wrap: balance; }
 .showcase-price { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .showcase-price strong { font-size: 23px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .showcase-price span { font-size: 12px; color: #3b5e4a; }
@@ -3377,7 +3377,7 @@ summary::-webkit-details-marker {
   .postcard-links a { font-size: 12px; }
   .postcard-links .postcard-browse { padding: 6px 12px; }
   .showcase-banner { min-height: 125px; padding-block: 13px; grid-template-columns: minmax(0,1fr) 76px; }
-  .showcase-identity h2 { font-size: 23px; }
+  .showcase-identity :is(h1, h2) { font-size: 23px; }
   .showcase-price strong { font-size: 20px; }
   .plan-fieldset { margin-top: 13px; }
   .plan-options { grid-template-columns: repeat(auto-fit, minmax(min(118px,100%),1fr)); }
@@ -3395,3 +3395,15 @@ summary::-webkit-details-marker {
   .postcard-browse + a { display: none; }
   .category-scroll-button { border-radius: 10px; }
 }
+
+.product-back { margin-top: 12px; }
+.showcase-identity h2 a { display: block; }
+.showcase-identity h2 a:hover, .catalog-links a:hover, .storefront-summary a:hover { text-decoration: underline; }
+.catalog-links { padding: 0 16px; border: 1px dashed #9da992; border-radius: 13px; background: var(--market-paper); }
+.catalog-links summary { min-height: 44px; align-content: center; font-size: 14px; font-weight: 700; }
+.catalog-links ul, .storefront-summary ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(215px,100%),1fr)); gap: 6px 18px; list-style: none; padding: 0 0 15px; }
+.catalog-links a, .storefront-summary a { color: var(--color-primary); overflow-wrap: anywhere; }
+.catalog-links a { display: inline-block; padding-block: 6px; }
+.storefront-summary { line-height: 1.7; overflow-wrap: anywhere; }
+.storefront-summary h1, .storefront-summary h2 { margin: 18px 0 8px; }
+.storefront-summary p { margin-block: 10px; white-space: pre-line; }

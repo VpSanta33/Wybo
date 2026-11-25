@@ -4,6 +4,13 @@ import { pricePending } from "./productBrands";
 
 const env = (import.meta as ImportMeta & { env: Record<string, string> }).env;
 const API_BASE = env.VITE_API_BASE_URL || "/api/v1";
+export const demoMode = env.VITE_DEMO_MODE === "true";
+
+class ApiError extends Error {
+  constructor(readonly code: number, message: string) {
+    super(message);
+  }
+}
 
 export async function api<T>(
   path: string,
@@ -22,7 +29,7 @@ export async function api<T>(
     );
   const body = await response.json();
   if (body.code !== 0)
-    throw new Error(body.message || "请求失败，请稍后重试。");
+    throw new ApiError(body.code, body.message || "请求失败，请稍后重试。");
   return body.data as T;
 }
 
@@ -53,17 +60,28 @@ async function loadAllProducts(signal?: AbortSignal) {
   return [...products.values()];
 }
 
-export async function loadCatalog(signal?: AbortSignal): Promise<Catalog> {
-  if (env.VITE_DEMO_MODE === "true")
+async function loadProduct(id: string, signal?: AbortSignal): Promise<CatalogProduct[]> {
+  if (!/^[1-9]\d*$/.test(id)) return [];
+  try {
+    const product = await api<CatalogProduct>(`/products/${id}?agent=${encodeURIComponent(agentCode())}`, { signal });
+    return [product];
+  } catch (error) {
+    if (error instanceof ApiError && error.code === 404) return [];
+    throw error;
+  }
+}
+
+export async function loadCatalog(signal?: AbortSignal, productId?: string): Promise<Catalog> {
+  if (demoMode)
     return {
-      products: demoProducts,
+      products: productId === undefined ? demoProducts : demoProducts.filter((p) => String(p.id) === productId),
       categories: demoCategories,
       demo: true,
       notice: "",
     };
   try {
     const [products, categories, announcements, site] = await Promise.all([
-      loadAllProducts(signal),
+      productId === undefined ? loadAllProducts(signal) : loadProduct(productId, signal),
       api<Category[]>("/categories", { signal }),
       api<{ title: string; content: string }[]>("/announcements", {
         signal,

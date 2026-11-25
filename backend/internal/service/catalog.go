@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/wybo/backend/internal/model"
+	"gorm.io/gorm"
 )
 
 // ListCategories 分类列表
@@ -17,14 +18,37 @@ func (s *Service) ListCategories() ([]model.Category, error) {
 	return list, err
 }
 
-// ListProducts 商品列表（分类/关键字/分页）
-func (s *Service) ListProducts(categoryID uint, keyword string, page, size int) ([]model.Product, int64, error) {
-	var list []model.Product
-	var total int64
+func (s *Service) listedProducts() *gorm.DB {
 	q := s.db.Model(&model.Product{}).Where("enabled = ?", true)
 	if s.station != nil {
 		q = q.Where("id IN (?)", s.db.Model(&model.StationProduct{}).Select("product_id").Where("station_id = ? AND authorized = ? AND listed = ? AND wholesale_cents > 0 AND retail_cents >= wholesale_cents", s.station.ID, true, true))
 	}
+	return q
+}
+
+type CatalogueLink struct {
+	ID   uint
+	Name string
+}
+
+// CatalogueLinks uses the storefront's listing rules without loading prices, stock or private fields.
+func (s *Service) CatalogueLinks(offset, limit int) ([]CatalogueLink, error) {
+	var links []CatalogueLink
+	err := s.listedProducts().Select("id, name").Order("id").Offset(offset).Limit(limit).Find(&links).Error
+	return links, err
+}
+
+func (s *Service) CatalogueSize() (int64, error) {
+	var count int64
+	err := s.listedProducts().Count(&count).Error
+	return count, err
+}
+
+// ListProducts 商品列表（分类/关键字/分页）
+func (s *Service) ListProducts(categoryID uint, keyword string, page, size int) ([]model.Product, int64, error) {
+	var list []model.Product
+	var total int64
+	q := s.listedProducts()
 	if categoryID > 0 {
 		q = q.Where("category_id = ?", categoryID)
 	}

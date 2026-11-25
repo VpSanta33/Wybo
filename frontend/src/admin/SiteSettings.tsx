@@ -356,7 +356,7 @@ function SettingsForm({
                   <p>让顾客找到店铺介绍、客服和购买后的兑换入口。</p>
                 </div>
                 <div>
-                  <Field label="网站简介">
+                  <Field label="网站简介" hint="显示在商店首页，也是搜索引擎和分享预览使用的首页摘要。">
                     <textarea
                       rows={2}
                       maxLength={500}
@@ -405,7 +405,7 @@ function SettingsForm({
                   {input(
                     "site_url",
                     "网站正式地址",
-                    "例如 https://shop.example.com；必须与 Cloudflare 允许的主机名一致。",
+                    "用于生成主站商品的标准网址和站点地图。启用 Cloudflare 验证时，域名须与允许的主机名一致。",
                     "url",
                   )}
                   {input(

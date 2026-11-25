@@ -9,7 +9,8 @@ import {
   type ReactNode,
 } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { api } from "./api";
+import { api, demoMode } from "./api";
+import { useDocumentMetadata } from "./metadata";
 
 const defaults: Record<string, string> = {
   site_name: "青屿集",
@@ -55,8 +56,7 @@ export function SiteProvider({ children }: { children: ReactNode }) {
       // 已经加载过站点信息时，后台刷新失败只保留旧数据，不把整个应用替换成错误页。
       if (loaded.current) return;
       setError(
-        (import.meta as ImportMeta & { env: Record<string, string> }).env
-          .VITE_DEMO_MODE === "true"
+        demoMode
           ? ""
           : e instanceof Error
             ? e.message
@@ -75,23 +75,15 @@ export function SiteProvider({ children }: { children: ReactNode }) {
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [refresh]);
+  useDocumentMetadata(pathname, site, loading);
   useEffect(() => {
-    const storePages: Record<string, string> = {
-      "/": "", "/orders": "我的订单", "/guide": "购买指南", "/apply": "分站申请",
-    };
-    const page = storePages[pathname] ?? (site.is_station === "true"
-      ? (pathname === "/activate" ? "分站激活" : "分站工作台")
-      : (pathname === "/agent" ? "代理工作台" : "商家工作台"));
-    document.title = page ? `${site.site_name} · ${page}` : site.site_name;
-    document
-      .querySelector('meta[name="description"]')
-      ?.setAttribute("content", site.site_desc);
+    if (loading) return;
     const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
     if (icon) {
       icon.href = safeSiteImage(site.site_favicon) || "/favicon.svg";
       icon.removeAttribute("type");
     }
-  }, [site, pathname]);
+  }, [site, loading]);
   const value = useMemo(
     () => ({ site, refresh, loading, error }),
     [site, refresh, loading, error],

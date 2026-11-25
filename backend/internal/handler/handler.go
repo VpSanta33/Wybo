@@ -3,7 +3,9 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"html/template"
 	"strconv"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/wybo/backend/internal/config"
@@ -14,9 +16,11 @@ import (
 
 // Handler HTTP 处理层
 type Handler struct {
-	svc    *service.Service
-	cfg    *config.Config
-	logger *zap.Logger
+	svc        *service.Service
+	cfg        *config.Config
+	logger     *zap.Logger
+	frontendMu sync.Mutex
+	frontend   *template.Template
 }
 
 // New 构造 Handler

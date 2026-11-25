@@ -1,0 +1,34 @@
+{{define "metadata"}}
+<link rel="icon" href="{{.Favicon}}">
+<title>{{.Meta.Title}}</title>
+<meta name="description" content="{{.Meta.Description}}">
+<meta name="robots" content="{{if .Meta.Indexable}}index, follow{{else}}noindex, nofollow{{end}}">
+<meta name="storefront-path" content="{{.Path}}">
+{{if .Meta.URL}}<link rel="canonical" href="{{.Meta.URL}}">{{end}}
+<meta property="og:locale" content="zh_CN">
+<meta property="og:site_name" content="{{.Name}}">
+<meta property="og:type" content="{{.Meta.Type}}">
+<meta property="og:title" content="{{.Meta.Title}}">
+<meta property="og:description" content="{{.Meta.Description}}">
+{{if .Meta.URL}}<meta property="og:url" content="{{.Meta.URL}}">{{end}}
+{{if .Meta.Image}}<meta property="og:image" content="{{.Meta.Image}}">{{end}}
+{{if .Meta.Structured}}<script id="store-structured-data" type="application/ld+json">{{.Meta.Structured}}</script>{{end}}
+{{end}}
+
+{{define "content"}}
+<main class="container inner-page storefront-summary">
+  <nav aria-label="商店导航"><a href="/">{{.Name}}</a> · <a href="/guide">购买指南</a></nav>
+  <h1>{{.Heading}}</h1>
+  {{if .Body}}<p>{{.Body}}</p>{{end}}
+  {{if .Price}}<p>{{.Price}} · {{.Availability}}</p>{{end}}
+  {{if .Cover}}<img src="{{.Cover}}" alt="{{.Heading}}" width="160" height="160">{{end}}
+  {{if .Links}}<h2>商品目录</h2><ul>{{range .Links}}<li><a href="/p/{{.ID}}">{{.Name}}</a></li>{{end}}</ul>{{end}}
+  {{if eq .Path "/guide"}}<ol>
+    <li>选择商品和套餐，核对价格与发货方式。</li>
+    <li>填写接收邮箱、数量并确认订单，保存订单号。</li>
+    <li>按订单显示的金额和渠道完成支付。</li>
+    <li>使用订单号与下单时的联系方式查询付款、发货及兑换说明。</li>
+  </ol>{{end}}
+  <noscript><p>在线下单和订单查询需要启用 JavaScript。</p></noscript>
+</main>
+{{end}}

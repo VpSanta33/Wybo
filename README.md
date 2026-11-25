@@ -191,6 +191,14 @@ npm run build
 
 前端构建包含 TypeScript 检查，产物位于 `frontend/dist`。生产部署优先使用根目录脚本，避免遗漏数据库、反向代理或上传文件配置。
 
+### 搜索收录与商品分享
+
+首页、`/guide` 和独立商品页 `/p/商品编号` 由服务器直接输出页面标题、摘要、标准网址和分享预览。已定价商品还会标注当前售价、币种和库存状态。店主可在「站点设置」修改网站正式地址、名称和简介，商品名称与说明在「商品与定价」维护。
+
+每个营业中的站点都有自己的 `/robots.txt` 和 `/sitemap.xml`。分站只列出本站获授权且已上架的商品。删除或下架的商品网址返回 HTTP 404。正式域名上线后，可将该域名下的 `/sitemap.xml` 提交至 Google Search Console。 [Google 站点地图说明](https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap?hl=zh-cn)
+
+原生部署的 Nginx 配置已包含这些路由。自建反向代理时，把以上公开页面、`/robots.txt` 和 `/sitemap.xml` 转发到 Go 服务并保留 Host。后端通过 `SERVER_FRONTEND_INDEX` 读取 Vite 构建的 `index.html`，其余前端静态资源照常提供。
+
 ## 项目结构
 
 | 路径 | 内容 |
