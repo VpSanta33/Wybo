@@ -10,6 +10,10 @@ export type Station = {
   site_desc: string;
   announcement: string;
   customer_service: string;
+  support_qq_group: string;
+  support_qq: string;
+  support_telegram: string;
+  support_whatsapp: string;
   default_redeem_url: string;
   redeem_guide: string;
   email: string;
@@ -110,6 +114,10 @@ export const emptyStation: Station = {
   site_desc: "",
   announcement: "",
   customer_service: "",
+  support_qq_group: "",
+  support_qq: "",
+  support_telegram: "",
+  support_whatsapp: "",
   default_redeem_url: "",
   redeem_guide: "",
   email: "",

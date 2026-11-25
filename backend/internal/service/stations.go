@@ -128,6 +128,27 @@ func (s *Service) stationProduct(id uint) (*model.StationProduct, error) {
 	}
 	return &row, nil
 }
+func stationContactFields(st *model.Station) map[string]*string {
+	return map[string]*string{
+		"support_qq_group": &st.SupportQQGroup,
+		"support_qq":       &st.SupportQQ,
+		"support_telegram": &st.SupportTelegram,
+		"support_whatsapp": &st.SupportWhatsApp,
+	}
+}
+
+func stationBrandValues(st *model.Station) map[string]interface{} {
+	values := map[string]interface{}{
+		"site_name": st.SiteName, "site_brand": st.SiteBrand, "logo": st.Logo, "favicon": st.Favicon,
+		"description": st.Description, "announcement": st.Announcement, "customer_service": st.CustomerService,
+		"redeem_url": st.RedeemURL, "redeem_guide": st.RedeemGuide,
+	}
+	for key, field := range stationContactFields(st) {
+		values[key] = *field
+	}
+	return values
+}
+
 func (s *Service) stationSiteInfo(m map[string]string) map[string]string {
 	m["station_root"] = s.StationRoot()
 	m["station_apply_enabled"] = s.setting("station_apply_enabled", "false")
@@ -143,6 +164,9 @@ func (s *Service) stationSiteInfo(m map[string]string) map[string]string {
 	m["station_apply_enabled"] = "false"
 	m["site_name"], m["site_brand"], m["site_logo"], m["site_favicon"] = st.SiteName, st.SiteBrand, st.Logo, st.Favicon
 	m["site_desc"], m["announcement"], m["customer_service"] = st.Description, st.Announcement, st.CustomerService
+	for key, field := range stationContactFields(st) {
+		m[key] = *field
+	}
 	if s.stationCanSell() != nil {
 		m["station_status"] = "paused"
 	}
@@ -167,6 +191,13 @@ func validateStation(st *model.Station) error {
 	}
 	if len(st.Description) > 1000 || len(st.Announcement) > 4000 || len(st.CustomerService) > 1000 || len(st.RedeemGuide) > 4000 {
 		return errors.New("店铺说明过长")
+	}
+	for key, field := range stationContactFields(st) {
+		value, err := normalizeSupportContact(key, strings.TrimSpace(*field))
+		if err != nil {
+			return err
+		}
+		*field = value
 	}
 	addr, e := mail.ParseAddress(st.Email)
 	if e != nil || addr.Address != st.Email || len(st.Email) > 254 {
@@ -306,7 +337,9 @@ func (s *Service) UpdateStation(id uint, st model.Station, days int) error {
 		if days < 0 || days > 365 {
 			return errors.New("结算等待期须为 0–365 天")
 		}
-		if e := tx.Model(&old).Updates(map[string]interface{}{"status": st.Status, "site_name": st.SiteName, "site_brand": st.SiteBrand, "logo": st.Logo, "favicon": st.Favicon, "description": st.Description, "announcement": st.Announcement, "customer_service": st.CustomerService, "redeem_url": st.RedeemURL, "redeem_guide": st.RedeemGuide}).Error; e != nil {
+		brand := stationBrandValues(&st)
+		brand["status"] = st.Status
+		if e := tx.Model(&old).Updates(brand).Error; e != nil {
 			return e
 		}
 		return tx.Model(&model.Agent{}).Where("id = ?", old.AgentID).Update("settlement_days", days).Error
@@ -394,7 +427,7 @@ func (s *Service) SaveStationBrand(st model.Station) error {
 	if e := validateStation(&st); e != nil {
 		return e
 	}
-	return s.db.Model(&model.Station{}).Where("id = ?", s.station.ID).Updates(map[string]interface{}{"site_name": st.SiteName, "site_brand": st.SiteBrand, "logo": st.Logo, "favicon": st.Favicon, "description": st.Description, "announcement": st.Announcement, "customer_service": st.CustomerService, "redeem_url": st.RedeemURL, "redeem_guide": st.RedeemGuide}).Error
+	return s.db.Model(&model.Station{}).Where("id = ?", s.station.ID).Updates(stationBrandValues(&st)).Error
 }
 func (s *Service) StationDashboard() (map[string]interface{}, error) {
 	if s.station == nil {

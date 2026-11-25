@@ -37,6 +37,7 @@ import {
 import { api, track, createOrder, type Catalog, type ShopOrder, type PaymentGateway } from "./api";
 import { money, type Category, type Product } from "./data";
 import { SiteBrand, SiteLogo, useSite } from "./Site";
+import { ContactButton, SupportContacts } from "./SupportContacts";
 import { IslandPostmark } from "./Illustrations";
 import ProductVisual, { BrandImage, ProductThumbnail } from "./ProductVisual";
 import ProductInformation from "./ProductInformation";
@@ -438,15 +439,7 @@ export default function Storefront({
         <div className="store-topbar container">
           <SiteBrand />
           <div className="store-header-actions">
-            <button
-              className="language-button"
-              type="button"
-              onClick={onHelp}
-              aria-label="打开帮助中心"
-            >
-              <Headphones size={16} aria-hidden="true" />
-              <span>帮助中心</span>
-            </button>
+            <ContactButton onClick={onHelp} />
             <Link to="/orders" className="my-orders">
               <ShoppingBag size={17} aria-hidden="true" />
               <span>我的订单</span>
@@ -480,6 +473,7 @@ export default function Storefront({
             <img className="postcard-art" src="/images/island-shop.webp" width="1134" height="756" fetchPriority="high" alt="" />
           </section>
 
+          <SupportContacts placement="storefront" />
           <div id="store-catalog" className="container">
             {categories.length > 0 && (
               <div className="category-dock">

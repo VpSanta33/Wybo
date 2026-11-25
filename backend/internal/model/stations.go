@@ -15,6 +15,10 @@ type Station struct {
 	Description     string    `json:"site_desc"`
 	Announcement    string    `json:"announcement"`
 	CustomerService string    `json:"customer_service"`
+	SupportQQGroup  string    `gorm:"column:support_qq_group" json:"support_qq_group"`
+	SupportQQ       string    `json:"support_qq"`
+	SupportTelegram string    `json:"support_telegram"`
+	SupportWhatsApp string    `gorm:"column:support_whatsapp" json:"support_whatsapp"`
 	RedeemURL       string    `json:"default_redeem_url"`
 	RedeemGuide     string    `json:"redeem_guide"`
 	Email           string    `gorm:"size:254" json:"email"`

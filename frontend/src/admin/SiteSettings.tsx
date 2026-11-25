@@ -13,6 +13,7 @@ import {
   Webhook,
 } from "lucide-react";
 import { SiteLogo, useSite } from "../Site";
+import { supportChannels } from "../SupportContacts";
 import { adminApi, useAdminQuery } from "./api";
 import { Banner, Busy, Field, PageHeading, QueryError } from "./ui";
 
@@ -29,6 +30,7 @@ const tabs = [
       "site_desc",
       "announcement",
       "customer_service",
+      ...supportChannels.map(({ key }) => key),
       "site_footer",
       "default_redeem_url",
     ],
@@ -126,7 +128,7 @@ function SettingsForm({
     maxLength = 255,
   ) {
     return (
-      <Field label={label} hint={hint}>
+      <Field key={key} label={label} hint={hint}>
         <input
           type={type}
           name={key}
@@ -352,8 +354,20 @@ function SettingsForm({
               </section>
               <section className="a-panel a-settings-panel">
                 <div className="a-settings-intro">
+                  <h2>客服联系方式</h2>
+                  <p>填写的渠道会显示在商店首页和「联系客服」中。清空并保存即可隐藏。</p>
+                </div>
+                <div>
+                  <div className="a-form-grid">
+                    {supportChannels.map(({ key, label, hint }) => input(key, label, hint))}
+                  </div>
+                  {input("customer_service", "其他联系方式或客服说明")}
+                </div>
+              </section>
+              <section className="a-panel a-settings-panel">
+                <div className="a-settings-intro">
                   <h2>内容与兑换</h2>
-                  <p>让顾客找到店铺介绍、客服和购买后的兑换入口。</p>
+                  <p>设置店铺介绍、公告和购买后的兑换入口。</p>
                 </div>
                 <div>
                   <Field label="网站简介" hint="显示在商店首页，也是搜索引擎和分享预览使用的首页摘要。">
@@ -365,7 +379,6 @@ function SettingsForm({
                     />
                   </Field>
                   {input("announcement", "首页公告")}
-                  {input("customer_service", "客服联系方式")}
                   {input("site_footer", "页脚文案")}
                   {input(
                     "default_redeem_url",

@@ -2,14 +2,68 @@ package service
 
 import (
 	"errors"
-	"github.com/wybo/backend/internal/model"
-	"gorm.io/gorm"
 	"net/mail"
+	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/wybo/backend/internal/model"
+	"gorm.io/gorm"
 )
 
-var allowedSettings = map[string]bool{"station_apply_enabled": true, "site_brand": true, "site_logo": true, "site_favicon": true, "site_footer": true, "turnstile_enabled": true, "turnstile_site_key": true, "turnstile_secret_key": true, "default_redeem_url": true, "site_url": true, "backup_retention_days": true, "runtime_alert_email": true, "stock_threshold": true, "stock_alert_email": true, "backup_interval_hours": true, "reconcile_enabled": true, "site_name": true, "site_desc": true, "announcement": true, "customer_service": true, "resend_enabled": true, "resend_api_key": true, "resend_from": true, "order_push_enabled": true, "order_notify_email": true, "order_webhook_url": true, "order_webhook_secret": true, "order_bark_enabled": true, "order_bark_server": true, "order_bark_key": true, "order_bark_group": true, "pay_notify_base": true, "pay_return_url": true}
+var allowedSettings = map[string]bool{
+	"site_name": true, "site_brand": true, "site_logo": true, "site_favicon": true, "site_footer": true, "site_desc": true, "announcement": true,
+	"customer_service": true, "support_qq_group": true, "support_qq": true, "support_telegram": true, "support_whatsapp": true,
+	"station_apply_enabled": true, "default_redeem_url": true, "site_url": true,
+	"turnstile_enabled": true, "turnstile_site_key": true, "turnstile_secret_key": true,
+	"backup_retention_days": true, "runtime_alert_email": true, "stock_threshold": true, "stock_alert_email": true, "backup_interval_hours": true, "reconcile_enabled": true,
+	"resend_enabled": true, "resend_api_key": true, "resend_from": true,
+	"order_push_enabled": true, "order_notify_email": true, "order_webhook_url": true, "order_webhook_secret": true,
+	"order_bark_enabled": true, "order_bark_server": true, "order_bark_key": true, "order_bark_group": true,
+	"pay_notify_base": true, "pay_return_url": true,
+}
+
+var (
+	qqNumber         = regexp.MustCompile(`^[1-9][0-9]{0,19}$`)
+	telegramUsername = regexp.MustCompile(`^[a-zA-Z0-9_]{1,32}$`)
+	whatsAppNumber   = regexp.MustCompile(`^[1-9][0-9]{4,14}$`)
+	phoneSeparators  = strings.NewReplacer(" ", "", "-", "", "(", "", ")", "")
+)
+
+func contactIdentifier(value, host string) string {
+	for _, prefix := range []string{"https://" + host + "/", host + "/"} {
+		if id, ok := strings.CutPrefix(value, prefix); ok {
+			return strings.TrimSuffix(id, "/")
+		}
+	}
+	return value
+}
+
+func normalizeSupportContact(key, value string) (string, error) {
+	if value == "" {
+		return "", nil
+	}
+	switch key {
+	case "support_qq_group", "support_qq":
+		if !qqNumber.MatchString(value) {
+			return "", errors.New("QQ 群号和 QQ 号须填写数字号码")
+		}
+	case "support_telegram":
+		name := strings.TrimPrefix(contactIdentifier(value, "t.me"), "@")
+		if !telegramUsername.MatchString(name) {
+			return "", errors.New("Telegram 请填写用户名或 t.me 用户名链接")
+		}
+		return "@" + name, nil
+	case "support_whatsapp":
+		number := contactIdentifier(value, "wa.me")
+		number = strings.TrimPrefix(phoneSeparators.Replace(number), "+")
+		if !whatsAppNumber.MatchString(number) {
+			return "", errors.New("WhatsApp 请填写含国家或地区码的电话号码，或对应的 wa.me 链接")
+		}
+		return "+" + number, nil
+	}
+	return value, nil
+}
 
 func (s *Service) GetSettings() (map[string]string, error) {
 	var rows []model.Setting
@@ -34,7 +88,11 @@ func (s *Service) GetSettings() (map[string]string, error) {
 }
 func (s *Service) UpdateSettings(values map[string]string) error {
 	for k, v := range values {
-		values[k] = strings.TrimSpace(v)
+		value, err := normalizeSupportContact(k, strings.TrimSpace(v))
+		if err != nil {
+			return err
+		}
+		values[k] = value
 	}
 	for k, v := range values {
 		if (k == "order_bark_enabled" || k == "order_push_enabled") && v != "true" && v != "false" {

@@ -133,6 +133,10 @@ func (s *Service) SiteInfo() map[string]string {
 		"site_desc":          model.DefaultSiteDescription,
 		"announcement":       "",
 		"customer_service":   "",
+		"support_qq_group":   "",
+		"support_qq":         "",
+		"support_telegram":   "",
+		"support_whatsapp":   "",
 	}
 	var rows []model.Setting
 	if err := s.db.Find(&rows).Error; err == nil {

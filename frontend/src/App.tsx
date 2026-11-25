@@ -34,6 +34,7 @@ import { ErrorMessage, Modal } from "./components";
 import Storefront from "./Storefront";
 import { isProductPath } from "./metadata";
 import { SiteBrand, SiteLogo, useSite } from "./Site";
+import { ContactButton, SupportContacts } from "./SupportContacts";
 import { paymentSession, closeCashierWindow, hasCashierWindow } from "./paymentSession";
 
 function App() {
@@ -125,10 +126,7 @@ function App() {
             <NavLink to="/orders">我的订单</NavLink>
             <NavLink to="/guide">购买指南</NavLink>
           </nav>
-          <button className="header-support" onClick={() => setInfo("help")}>
-            <Headphones size={17} aria-hidden="true" />
-            <span>帮助中心</span>
-          </button>
+          <ContactButton onClick={() => setInfo("help")} />
         </header>
       )}
       <main id="main-content" ref={mainRef} tabIndex={-1}>
@@ -179,7 +177,7 @@ function App() {
           <button
             className="footer-contact"
             onClick={() => setInfo("help")}
-            aria-label="联系与帮助"
+            aria-haspopup="dialog"
           >
             <Headphones size={17} aria-hidden="true" />
             <span>联系客服</span>
@@ -190,28 +188,28 @@ function App() {
         <Modal
           title={
             info === "help"
-              ? "帮助中心"
+              ? "联系客服"
               : info === "terms"
                 ? "购买条款"
                 : "隐私说明"
           }
           onClose={() => setInfo(null)}
         >
-          <div className="info-icon">
-            <SiteLogo url={site.site_logo} />
+          <div className={info === "help" ? "support-dialog-heading" : undefined}>
+            <div className="info-icon">
+              <SiteLogo url={site.site_logo} />
+            </div>
+            <h2>
+              {info === "help"
+                ? "联系客服"
+                : info === "terms"
+                  ? "购买前，请先阅读"
+                  : "隐私与凭证保护"}
+            </h2>
           </div>
-          <h2>
-            {info === "help"
-              ? "客服与购买帮助"
-              : info === "terms"
-                ? "购买前，请先阅读"
-                : "隐私与凭证保护"}
-          </h2>
           {info === "help" ? (
             <>
-              <p className="muted">
-                关于订单、卡密和购买方式，在这里找到答案。
-              </p>
+              <SupportContacts placement="dialog" />
               <div className="help-links">
                 <Link to="/orders" onClick={() => setInfo(null)}>
                   <PackageCheck size={22} />
@@ -230,12 +228,7 @@ function App() {
                   <ChevronRight size={18} />
                 </Link>
               </div>
-              <p className="soft-note">
-                {demoMode
-                  ? "当前为演示预览，订单不会扣款，也不会发放真实卡密。"
-                  : catalog?.site?.customer_service ||
-                    "店主暂未公布人工客服联系方式，请先查看购买指南或查询订单。"}
-              </p>
+              {demoMode && <p className="soft-note">当前为演示预览，订单不会扣款，也不会发放真实卡密。</p>}
             </>
           ) : (
             <div className="legal-copy">
@@ -665,10 +658,10 @@ function Guide({ onHelp, demo }: { onHelp: () => void; demo: boolean }) {
         <Headphones size={28} aria-hidden="true" />
         <div>
           <h2>还有其他疑问？</h2>
-          <p>查看帮助中心或进入订单查询页联系售后，我们会协助处理。</p>
+          <p>联系店铺客服，或进入订单查询页申请售后。</p>
         </div>
         <button onClick={onHelp} className="button button-secondary">
-          打开帮助中心
+          联系客服
           <Headphones size={17} />
         </button>
       </div>

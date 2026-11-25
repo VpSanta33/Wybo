@@ -35,6 +35,60 @@ func stationFixture(t *testing.T) (*Service, *gorm.DB, model.Product, model.Stat
 	}
 	return s, db, p, create("alice"), create("bobby")
 }
+
+func TestStorefrontSupportContacts(t *testing.T) {
+	s, _, _, alice, _ := stationFixture(t)
+	must(t, s.UpdateSettings(map[string]string{
+		"customer_service": "原有客服说明", "support_qq_group": " 1234567 ", "support_qq": "9876543",
+		"support_telegram": "https://t.me/shop_support", "support_whatsapp": "+1 (202) 555-0142",
+	}))
+	want := map[string]string{
+		"support_qq_group": "1234567", "support_qq": "9876543",
+		"support_telegram": "@shop_support", "support_whatsapp": "+12025550142",
+	}
+	public := s.SiteInfo()
+	admin, err := s.GetSettings()
+	must(t, err)
+	station := func() *Service {
+		t.Helper()
+		scoped, err := s.ResolveStorefront("alice.example.test")
+		must(t, err)
+		return scoped
+	}
+	empty := station().SiteInfo()
+	for key, value := range want {
+		if public[key] != value || admin[key] != value || empty[key] != "" {
+			t.Fatalf("%s: storefront=%q, settings=%q, unconfigured station=%q", key, public[key], admin[key], empty[key])
+		}
+	}
+	for key, invalid := range map[string]string{
+		"support_qq_group": "群昵称", "support_qq": "qq-name",
+		"support_telegram": "https://example.test/shop", "support_whatsapp": "https://wa.me/invalid",
+	} {
+		if s.UpdateSettings(map[string]string{key: invalid, "customer_service": "changed"}) == nil {
+			t.Fatalf("accepted invalid %s", key)
+		}
+	}
+	must(t, s.UpdateSettings(map[string]string{"support_qq": ""}))
+	public = s.SiteInfo()
+	if public["support_qq"] != "" || public["support_qq_group"] != want["support_qq_group"] || public["customer_service"] != "原有客服说明" {
+		t.Fatal("partial update changed other contact settings")
+	}
+
+	alice.SupportQQGroup, alice.SupportTelegram = "7654321", "station_support"
+	must(t, s.UpdateStation(alice.ID, alice, 0))
+	scoped := station()
+	if site := scoped.SiteInfo(); site["support_qq_group"] != "7654321" || site["support_telegram"] != "@station_support" {
+		t.Fatal("station contacts set by the administrator missing")
+	}
+	alice.SupportQQGroup, alice.SupportQQ, alice.SupportWhatsApp = "", "1928374", "https://wa.me/12025550143"
+	must(t, scoped.SaveStationBrand(alice))
+	site := station().SiteInfo()
+	if site["support_qq_group"] != "" || site["support_qq"] != "1928374" || site["support_whatsapp"] != "+12025550143" || s.SiteInfo()["support_whatsapp"] != want["support_whatsapp"] {
+		t.Fatal("station owner edits were not saved to the correct storefront")
+	}
+}
+
 func TestStationProfitSnapshotsRefundAndIsolation(t *testing.T) {
 	s, db, p, a, _ := stationFixture(t)
 	alice, e := s.ResolveStorefront("alice.example.test")

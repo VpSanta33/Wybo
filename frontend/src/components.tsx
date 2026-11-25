@@ -14,7 +14,7 @@ import { cashierEstimate, paymentLogo } from "./payments";
 import QRCode from "qrcode";
 import { useNavigate, useLocation } from "react-router-dom";
 import { rememberPayment, paymentSession, openCashierWindow, closeCashierWindow, hasCashierWindow } from "./paymentSession";
-import { useSite } from "./Site";
+import { SupportContacts } from "./SupportContacts";
 
 /** 订单金额是否超过该支付方式的单笔限额（如牛牛支付单笔 500 元）。 */
 export const gatewayOverLimit = (g: PaymentGateway, amountCents: number) =>
@@ -25,17 +25,18 @@ export function payableGateway(rows: PaymentGateway[], amountCents: number, pref
   return usable.find((g) => g.code === preferred)?.code || usable[0]?.code || "";
 }
 export function PaymentLimitNotice({ gateways, amountCents }: { gateways: PaymentGateway[]; amountCents: number }) {
-  const { site } = useSite();
   const blocked = gateways.filter((g) => gatewayOverLimit(g, amountCents));
   if (!blocked.length) return null;
   const names = blocked.map((g) => `${g.label || g.name}单笔限额 ¥${money(g.max_amount_cents || 0)}`).join("、");
   const allBlocked = blocked.length === gateways.length;
   return (
-    <p className="payment-limit-note" role="status">
-      订单金额 ¥{money(amountCents)} 超过{names}，
-      {allBlocked ? "请联系客服下单。" : "请选择其他支付方式，或联系客服下单。"}
-      {site.customer_service && <span className="payment-limit-contact">客服：{site.customer_service}</span>}
-    </p>
+    <div className="payment-limit-note">
+      <p role="status">
+        订单金额 ¥{money(amountCents)} 超过{names}，
+        {allBlocked ? "请联系客服下单。" : "请选择其他支付方式，或联系客服下单。"}
+      </p>
+      <SupportContacts placement="payment" />
+    </div>
   );
 }
 

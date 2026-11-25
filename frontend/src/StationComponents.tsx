@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Banner, Field, Status, shortDate } from "./admin/ui";
 import { yuan } from "./admin/api";
 import { SiteLogo } from "./Site";
+import { supportChannels } from "./SupportContacts";
 import type { Station, StationOrder, StationProduct } from "./stations";
 
 export function StationOrderTable({ orders }: { orders: StationOrder[] }) {
@@ -274,7 +275,19 @@ export function StationBrandFields({
           onChange={(e) => onChange({ ...value, announcement: e.target.value })}
         />
       </Field>
-      <Field label="客服联系方式">
+      <div className="a-form-grid">
+        {supportChannels.map(({ key, label, hint }) => (
+          <Field key={key} label={label} hint={hint}>
+            <input
+              name={key}
+              maxLength={255}
+              value={value[key] || ""}
+              onChange={(e) => onChange({ ...value, [key]: e.target.value })}
+            />
+          </Field>
+        ))}
+      </div>
+      <Field label="其他联系方式或客服说明">
         <input
           maxLength={1000}
           value={value.customer_service}
