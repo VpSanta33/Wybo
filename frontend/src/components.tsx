@@ -279,10 +279,7 @@ export function PaymentChoices({ gateways, value, onChange, disabled = false, na
             <label className={`payment-choice ${value === g.code ? "is-selected" : ""} ${over ? "is-disabled" : ""}`} key={g.code}>
               <input type="radio" name={name} value={g.code} checked={value === g.code} disabled={over} onChange={() => onChange(g.code)} />
               <PaymentLogo code={g.payment_type && ["alipay", "usdt"].includes(g.payment_type) ? g.payment_type : g.code} logoUrl={g.logo_url} size={32} />
-              <span>
-                <strong>{g.label || g.name}</strong>
-                <small>{over ? `单笔限额 ¥${money(g.max_amount_cents || 0)}，超出请联系客服下单` : g.description || g.name}</small>
-              </span>
+              <strong>{g.label || g.name}</strong>
               <i className="payment-choice-check" aria-hidden="true">{value === g.code && <Check size={12} strokeWidth={3} />}</i>
             </label>
           );
