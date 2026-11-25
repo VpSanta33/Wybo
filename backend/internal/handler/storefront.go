@@ -64,6 +64,8 @@ type storefrontPage struct {
 	Body         string
 	Price        string
 	Availability string
+	ProductID    uint
+	PaidOrders   int64
 	Cover        string
 	Links        []service.CatalogueLink
 }
@@ -125,6 +127,7 @@ func describePage(svc *service.Service, path string) (storefrontPage, int, error
 			p.Meta = pageMetadata{Title: p.Heading + " · " + name, Description: p.Body, Type: "website"}
 			return p, http.StatusNotFound, nil
 		}
+		p.ProductID = prod.ID
 		p.Heading, p.Body, p.Cover = prod.Name, prod.Description, prod.Cover
 		p.Meta.Title, p.Meta.Type = prod.Name+" · "+name, "product"
 		if p.Body == "" {
@@ -174,6 +177,11 @@ func (h *Handler) StorefrontPage(c *gin.Context) {
 	p, status, err := describePage(svc, c.Request.URL.Path)
 	if err == nil && p.Path == "/" {
 		p.Links, err = svc.CatalogueLinks(0, 100)
+	}
+	if err == nil && p.ProductID != 0 {
+		var counts map[uint]int64
+		counts, err = svc.PaidOrderCounts(p.ProductID)
+		p.PaidOrders = counts[p.ProductID]
 	}
 	var body bytes.Buffer
 	if err == nil {

@@ -121,8 +121,8 @@ func (h *Handler) AdminSaveAgent(c *gin.Context) {
 	}
 	response.OK(c, req.Agent)
 }
-func publicProduct(p model.Product) gin.H {
-	return gin.H{"delivery_mode": p.DeliveryMode, "id": p.ID, "category_id": p.CategoryID, "name": p.Name, "description": p.Description, "cover": p.Cover, "price_cents": p.PriceCents, "original_price_cents": p.OriginalPriceCents, "redeem_url": p.RedeemURL, "redeem_guide": p.RedeemGuide, "stock": p.Stock, "sales": p.Sales, "enabled": p.Enabled, "sort": p.Sort}
+func publicProduct(p model.Product, paidOrderCount int64) gin.H {
+	return gin.H{"delivery_mode": p.DeliveryMode, "id": p.ID, "category_id": p.CategoryID, "name": p.Name, "description": p.Description, "cover": p.Cover, "price_cents": p.PriceCents, "original_price_cents": p.OriginalPriceCents, "redeem_url": p.RedeemURL, "redeem_guide": p.RedeemGuide, "stock": p.Stock, "sales": p.Sales, "paid_order_count": paidOrderCount, "enabled": p.Enabled, "sort": p.Sort}
 }
 func (h *Handler) PublicGateways(c *gin.Context) {
 	list, err := h.svc.CustomerGateways()

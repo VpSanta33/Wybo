@@ -38,18 +38,28 @@ func (h *Handler) Categories(c *gin.Context) {
 func (h *Handler) Products(c *gin.Context) {
 	categoryID, _ := strconv.Atoi(c.Query("category_id"))
 	page, size := pageSize(c)
-	list, total, err := h.publicService(c).ListProducts(uint(categoryID), c.Query("keyword"), page, size)
+	svc := h.publicService(c)
+	list, total, err := svc.ListProducts(uint(categoryID), c.Query("keyword"), page, size)
 	if err != nil {
 		response.Error(c, 500, "查询失败")
 		return
 	}
-	if err := h.publicService(c).ApplyPublicAgentPrices(c.Query("agent"), list); err != nil {
+	if err := svc.ApplyPublicAgentPrices(c.Query("agent"), list); err != nil {
 		response.Error(c, 400, err.Error())
 		return
 	}
-	out := []gin.H{}
+	ids := make([]uint, len(list))
+	for i, p := range list {
+		ids[i] = p.ID
+	}
+	counts, err := svc.PaidOrderCounts(ids...)
+	if err != nil {
+		response.Error(c, 500, "查询失败")
+		return
+	}
+	out := make([]gin.H, 0, len(list))
 	for _, p := range list {
-		out = append(out, publicProduct(p))
+		out = append(out, publicProduct(p, counts[p.ID]))
 	}
 	response.OK(c, gin.H{"list": out, "total": total, "page": page, "size": size})
 }
@@ -76,7 +86,12 @@ func (h *Handler) ProductDetail(c *gin.Context) {
 		response.Error(c, 400, err.Error())
 		return
 	}
-	response.OK(c, publicProduct(products[0]))
+	counts, err := svc.PaidOrderCounts(p.ID)
+	if err != nil {
+		response.Error(c, 500, "查询失败")
+		return
+	}
+	response.OK(c, publicProduct(products[0], counts[p.ID]))
 }
 
 // Announcements 公告列表

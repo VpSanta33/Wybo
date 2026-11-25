@@ -44,6 +44,32 @@ func (s *Service) CatalogueSize() (int64, error) {
 	return count, err
 }
 
+// PaidOrderCounts counts an order once per product as soon as payment succeeds.
+func (s *Service) PaidOrderCounts(productIDs ...uint) (map[uint]int64, error) {
+	counts := make(map[uint]int64, len(productIDs))
+	if len(productIDs) == 0 {
+		return counts, nil
+	}
+	var rows []struct {
+		ProductID  uint
+		PaidOrders int64
+	}
+	err := s.orderScope(s.db.Model(&model.Order{})).
+		Joins("JOIN order_items ON order_items.order_id = orders.id").
+		Where("order_items.product_id IN ?", productIDs).
+		Where("(orders.paid_at IS NOT NULL OR orders.status IN ?)", []string{model.OrderPaid, model.OrderCompleted, "refunding", model.OrderRefunded}).
+		Where("COALESCE(orders.pay_method, '') <> ?", "peer_wallet").
+		Select("order_items.product_id, COUNT(DISTINCT orders.id) AS paid_orders").
+		Group("order_items.product_id").Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		counts[row.ProductID] = row.PaidOrders
+	}
+	return counts, nil
+}
+
 // ListProducts 商品列表（分类/关键字/分页）
 func (s *Service) ListProducts(categoryID uint, keyword string, page, size int) ([]model.Product, int64, error) {
 	var list []model.Product

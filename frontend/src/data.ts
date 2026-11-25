@@ -19,6 +19,7 @@ export interface Product {
   original_price_cents: number;
   stock: number;
   sales: number;
+  paid_order_count?: number;
   cover?: string;
   redeem_guide?: string;
   kind: ProductKind;

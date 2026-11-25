@@ -51,6 +51,30 @@ func TestSearchPagesAndSitemaps(t *testing.T) {
 	_, err = svc.CreateStation(&station, 0, 0)
 	must(err)
 	must(svc.SaveStationProduct(station.ID, model.StationProduct{ProductID: listing.ID, WholesaleCents: 800, RetailCents: 1734, Authorized: true, Listed: true}, true))
+	orders := []model.Order{
+		{Status: model.OrderPaid, Contact: "buyer@example.test"},
+		{Status: model.OrderCompleted, Contact: "buyer@example.test"},
+		{Status: model.OrderCompleted, Contact: "returning-customer"},
+		{Status: model.OrderPending, Contact: "unpaid"},
+		{Status: model.OrderClosed, Contact: "expired"},
+		{Status: model.OrderRefunded, Contact: "refunded"},
+		{Status: model.OrderCompleted, Contact: "peer-order", PayMethod: "peer_wallet"},
+		{Status: model.OrderPaid, Contact: "station-buyer", StationID: &station.ID},
+	}
+	for i, order := range orders {
+		order.OrderNo = fmt.Sprintf("HISTORY-%d", i)
+		order.TotalCents = 5 * listing.PriceCents
+		must(db.Create(&order).Error)
+		item := model.OrderItem{OrderID: order.ID, ProductID: listing.ID, Quantity: 5, UnitPriceCents: listing.PriceCents}
+		if i == 0 {
+			// Two lines of the same product in one paid order still count once.
+			part := item
+			part.Quantity = 2
+			item.Quantity -= part.Quantity
+			must(db.Create(&part).Error)
+		}
+		must(db.Create(&item).Error)
+	}
 	r := New(db, cfg, zap.NewNop())
 	get := func(host, path string, want int) *httptest.ResponseRecorder {
 		t.Helper()
@@ -98,9 +122,10 @@ func TestSearchPagesAndSitemaps(t *testing.T) {
 		}
 	}
 	for _, tc := range []struct {
-		host  string
-		price int64
-	}{{mainHost, 999}, {subHost, 1734}} {
+		host       string
+		price      int64
+		paidOrders int
+	}{{mainHost, 999, 4}, {subHost, 1734, 1}} {
 		var detail struct {
 			Code int
 			Data model.Product
@@ -110,8 +135,17 @@ func TestSearchPagesAndSitemaps(t *testing.T) {
 		if detail.Code != 0 || detail.Data.ID != listing.ID || detail.Data.PriceCents != tc.price {
 			t.Fatalf("wrong checkout product or price on %s: %s", tc.host, w.Body.String())
 		}
+		want := fmt.Sprintf(`"paid_order_count":%d`, tc.paidOrders)
+		for _, body := range []string{w.Body.String(), get(tc.host, "/api/v1/products?keyword=茶", 200).Body.String()} {
+			if !strings.Contains(body, want) || strings.Contains(body, "buyer@example.test") {
+				t.Fatalf("wrong public paid order count on %s: %s", tc.host, body)
+			}
+		}
+		if !strings.Contains(get(tc.host, productURL, 200).Body.String(), fmt.Sprintf("%d 笔付款", tc.paidOrders)) {
+			t.Fatalf("paid order count missing from product page on %s", tc.host)
+		}
 	}
-	if html := get(mainHost, otherURL, 200).Body.String(); !strings.Contains(html, "待定价") || strings.Contains(html, "application/ld+json") {
+	if html := get(mainHost, otherURL, 200).Body.String(); !strings.Contains(html, "待定价") || !strings.Contains(html, "0 笔付款") || strings.Contains(html, "application/ld+json") {
 		t.Fatal("unpriced product advertised as an offer")
 	}
 	must(db.Model(&listing).Update("delivery_mode", model.DeliveryAuto).Error)

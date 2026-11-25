@@ -511,6 +511,9 @@ export default function Storefront({
                 )}
                 <div className="showcase-price">
                   <strong>{pendingPrice ? "待定价" : `¥${money(product.price_cents)}`}</strong>
+                </div>
+                <div className="showcase-facts">
+                  {product.paid_order_count != null && <span>{product.paid_order_count} 笔付款</span>}
                   {product.delivery_mode !== "manual" && !pendingPrice && (
                     <span>{product.stock ? `库存 ${product.stock} 份` : "暂时售罄"}</span>
                   )}

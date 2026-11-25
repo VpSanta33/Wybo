@@ -20,7 +20,7 @@
   <nav aria-label="商店导航"><a href="/">{{.Name}}</a> · <a href="/guide">购买指南</a></nav>
   <h1>{{.Heading}}</h1>
   {{if .Body}}<p>{{.Body}}</p>{{end}}
-  {{if .Price}}<p>{{.Price}} · {{.Availability}}</p>{{end}}
+  {{if .Price}}<p>{{.Price}} · {{.PaidOrders}} 笔付款 · {{.Availability}}</p>{{end}}
   {{if .Cover}}<img src="{{.Cover}}" alt="{{.Heading}}" width="160" height="160">{{end}}
   {{if .Links}}<h2>商品目录</h2><ul>{{range .Links}}<li><a href="/p/{{.ID}}">{{.Name}}</a></li>{{end}}</ul>{{end}}
   {{if eq .Path "/guide"}}<ol>
