@@ -13,8 +13,8 @@ import { api, demoMode } from "./api";
 import { useDocumentMetadata } from "./metadata";
 
 const defaults: Record<string, string> = {
-  site_name: "青屿集",
-  site_brand: "Qingyu",
+  site_name: "泡泡铺",
+  site_brand: "Popo",
   site_logo: "",
   site_favicon: "",
   site_desc: "数字商品、会员服务与兑换码，支持在线下单和订单查询。",

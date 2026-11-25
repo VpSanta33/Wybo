@@ -325,7 +325,7 @@ function SettingsForm({
                     {input(
                       "site_brand",
                       "品牌短名称",
-                      "例如 Qingyu，用于 Logo 旁的品牌文字。",
+                      "例如 Popo，用于 Logo 旁的品牌文字。",
                       "text",
                       60,
                     )}
@@ -556,7 +556,7 @@ function SettingsForm({
                   {input(
                     "resend_from",
                     "发件邮箱",
-                    "例如：青屿集 <orders@example.com>",
+                    "例如：泡泡铺 <orders@example.com>",
                   )}
                 </div>
               </section>

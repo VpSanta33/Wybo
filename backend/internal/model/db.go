@@ -127,29 +127,39 @@ func AutoMigrate(db *gorm.DB) error {
 }
 
 const (
-	DefaultSiteName        = "青屿集"
-	DefaultSiteBrand       = "Qingyu"
+	DefaultSiteName        = "泡泡铺"
+	DefaultSiteBrand       = "Popo"
 	DefaultSiteDescription = "数字商品、会员服务与兑换码，支持在线下单和订单查询。"
 )
 
 // Older versions saved the displayed defaults when the merchant saved site settings.
-// Claim this migration once so future edits, including reusing an old name, survive restarts.
+// Apply each generation once so merchants can reuse a previous name after an upgrade.
 func migrateStorefrontBrand(db *gorm.DB) error {
+	type field struct{ key, previous, current string }
 	return db.Transaction(func(tx *gorm.DB) error {
-		claim := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&Setting{Key: "migration:qingyu-brand", Value: "1"})
-		if claim.Error != nil || claim.RowsAffected == 0 {
-			return claim.Error
-		}
-		for _, field := range []struct{ key, previous, current string }{
-			{"site_name", "望月AI代充小铺", DefaultSiteName},
-			{"site_brand", "Wybo", DefaultSiteBrand},
-			{"site_desc", "ChatGPT · Claude · Grok 会员充值，支付成功自动发放卡密", DefaultSiteDescription},
-			{"site_footer", "一点月光，刚好喜欢。", ""},
-		} {
-			if err := tx.Model(&Setting{}).Where("key = ? AND value = ?", field.key, field.previous).Update("value", field.current).Error; err != nil {
-				return err
+		migrate := func(marker string, fields ...field) error {
+			claim := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&Setting{Key: marker, Value: "1"})
+			if claim.Error != nil || claim.RowsAffected == 0 {
+				return claim.Error
 			}
+			for _, f := range fields {
+				if err := tx.Model(&Setting{}).Where("key = ? AND value = ?", f.key, f.previous).Update("value", f.current).Error; err != nil {
+					return err
+				}
+			}
+			return nil
 		}
-		return nil
+		if err := migrate("migration:qingyu-brand",
+			field{"site_name", "望月AI代充小铺", "青屿集"},
+			field{"site_brand", "Wybo", "Qingyu"},
+			field{"site_desc", "ChatGPT · Claude · Grok 会员充值，支付成功自动发放卡密", DefaultSiteDescription},
+			field{"site_footer", "一点月光，刚好喜欢。", ""},
+		); err != nil {
+			return err
+		}
+		return migrate("migration:popo-brand",
+			field{"site_name", "青屿集", DefaultSiteName},
+			field{"site_brand", "Qingyu", DefaultSiteBrand},
+		)
 	})
 }

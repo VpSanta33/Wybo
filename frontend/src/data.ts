@@ -86,7 +86,7 @@ export const demoProducts: Product[] = [
     sales: 826,
     kind: "ai",
     art: "sun",
-    badge: "青屿精选",
+    badge: "泡泡精选",
     tags: ["月度会员", "创作搭子"],
   },
   {

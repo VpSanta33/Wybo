@@ -26,18 +26,43 @@ func TestUpgradeStorefrontBrand(t *testing.T) {
 	admin, err := s.GetSettings()
 	must(t, err)
 	for _, settings := range []map[string]string{s.SiteInfo(), admin} {
-		if settings["site_name"] != "青屿集" || settings["site_brand"] != "Qingyu" || settings["site_footer"] != "" ||
+		if settings["site_name"] != "泡泡铺" || settings["site_brand"] != "Popo" || settings["site_footer"] != "" ||
 			settings["site_desc"] != "我自己的商品说明" || settings["site_logo"] != "/uploads/shop.png" {
 			t.Fatalf("unexpected migrated brand: %#v", settings)
 		}
-		if _, ok := settings["migration:qingyu-brand"]; ok {
-			t.Fatal("migration marker leaked into site settings")
+		for k := range settings {
+			if strings.HasPrefix(k, "migration:") {
+				t.Fatal("migration marker leaked into site settings")
+			}
 		}
 	}
-	must(t, s.UpdateSettings(map[string]string{"site_name": "望月AI代充小铺"}))
+	must(t, s.UpdateSettings(map[string]string{"site_name": "青屿集", "site_brand": "Wybo"}))
 	must(t, model.AutoMigrate(db))
-	if s.shopName() != "望月AI代充小铺" {
+	if s.shopName() != "青屿集" || s.SiteInfo()["site_brand"] != "Wybo" {
 		t.Fatal("a subsequent restart overwrote an explicit merchant choice")
+	}
+}
+
+func TestUpgradeFromQingyu(t *testing.T) {
+	for _, tc := range []struct{ name, brand, wantName, wantBrand string }{
+		{"青屿集", "Qingyu", "泡泡铺", "Popo"},
+		{"白帆小店", "Qingyu", "白帆小店", "Popo"},
+		{"青屿集", "Harbor", "泡泡铺", "Harbor"},
+		{"望月AI代充小铺", "Wybo", "望月AI代充小铺", "Wybo"},
+	} {
+		t.Run(tc.name+"/"+tc.brand, func(t *testing.T) {
+			s, db, _ := productPricingFixture(t, 100)
+			must(t, db.AutoMigrate(&model.Setting{}))
+			must(t, db.Create(&[]model.Setting{
+				{Key: "migration:qingyu-brand", Value: "1"},
+				{Key: "site_name", Value: tc.name},
+				{Key: "site_brand", Value: tc.brand},
+			}).Error)
+			must(t, model.AutoMigrate(db))
+			if site := s.SiteInfo(); site["site_name"] != tc.wantName || site["site_brand"] != tc.wantBrand {
+				t.Fatalf("got %s (%s), want %s (%s)", site["site_name"], site["site_brand"], tc.wantName, tc.wantBrand)
+			}
+		})
 	}
 }
 
