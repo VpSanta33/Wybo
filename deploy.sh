@@ -13,6 +13,7 @@ DOMAIN=""
 STATION_ROOT=""
 CF_CREDENTIALS=""
 EMAIL=""
+EMAIL_SET=0
 ADMIN_USER=""
 OUTPUT_DIR=""
 DRY_RUN=0
@@ -37,6 +38,7 @@ usage() {
 
   --domain DOMAIN      站点域名，例如 shop.example.com（不含 https://）
   --email EMAIL        Let's Encrypt 证书联系邮箱
+  --no-email           免邮箱注册证书账户
   --station-root ROOT  分站根域名，例如 example.com，开通 *.example.com
   --cf-dns-credentials FILE  Cloudflare DNS API Token 的 Certbot INI 文件
   --admin-user NAME    首次管理员用户名，默认 admin
@@ -55,10 +57,19 @@ USAGE
 if [[ ${1:-} =~ ^(install|update|status|backup)$ ]]; then ACTION=$1; shift; fi
 while (($#)); do
   case "$1" in
-    --domain|--email|--admin-user|--source-dir|--output-dir|--station-root|--cf-dns-credentials)
+    --email|--no-email)
+      ((EMAIL_SET == 0)) || die '请只指定一个证书邮箱选项'
+      EMAIL_SET=1
+      if [[ "$1" == --email ]]; then
+        (($# >= 2)) && [[ -n "$2" ]] || die '--email 需要邮箱地址，免邮箱请使用 --no-email'
+        EMAIL=$2
+        shift
+      fi
+      shift ;;
+    --domain|--admin-user|--source-dir|--output-dir|--station-root|--cf-dns-credentials)
       (($# >= 2)) || die "$1 缺少参数"
       case "$1" in
-        --domain) DOMAIN=$2 ;; --email) EMAIL=$2 ;; --admin-user) ADMIN_USER=$2 ;;
+        --domain) DOMAIN=$2 ;; --admin-user) ADMIN_USER=$2 ;;
         --station-root) STATION_ROOT=$2 ;; --cf-dns-credentials) CF_CREDENTIALS=$2 ;;
         --source-dir) SOURCE_DIR=$2 ;; --output-dir) OUTPUT_DIR=$2 ;;
       esac
@@ -100,8 +111,9 @@ if [[ -f "$STATE" && $DRY_RUN == 0 ]]; then
   [[ -z "$DOMAIN" || "$DOMAIN" == "$old_domain" ]] || die '域名与已有部署不同；域名迁移请按文档操作，不会自动覆盖现有站点'
   [[ -z "$ADMIN_USER" || "$ADMIN_USER" == "$old_admin" ]] || die '已有管理员请在后台管理；部署脚本不重设账号'
   DOMAIN=$old_domain
-  [[ -z "$EMAIL" || "$EMAIL" == "$old_email" ]] || die '证书邮箱与已有部署不同；请先按文档修改证书账户邮箱'
+  ((EMAIL_SET == 0)) || [[ "$EMAIL" == "$old_email" ]] || die '证书邮箱与已有部署不同，请先按文档修改证书账户邮箱'
   EMAIL=$old_email
+  EMAIL_SET=1
   ADMIN_USER=$old_admin
   old_root=$(get_state station_root)
   [[ -z "$STATION_ROOT" || -z "$old_root" || "$STATION_ROOT" == "$old_root" ]] || die "已有分站根域名不同，请按迁移文档处理"
@@ -114,9 +126,9 @@ if [[ -z "$DOMAIN" ]]; then
   [[ -t 0 ]] || die '非交互运行必须提供 --domain'
   read -r -p '站点域名（例如 shop.example.com）：' DOMAIN
 fi
-if [[ -z "$EMAIL" ]]; then
-  [[ -t 0 ]] || die '非交互运行必须提供 --email'
-  read -r -p '证书联系邮箱：' EMAIL
+if ((EMAIL_SET == 0)); then
+  [[ -t 0 ]] || die '非交互运行请提供 --email 或 --no-email'
+  read -r -p '证书联系邮箱（回车免邮箱申请）：' EMAIL
 fi
 ADMIN_USER=${ADMIN_USER:-admin}
 python3 "$HELPER" validate --domain "$DOMAIN" --email "$EMAIL" --admin-user "$ADMIN_USER" --station-root "$STATION_ROOT"
@@ -297,13 +309,19 @@ if command -v ufw >/dev/null && LC_ALL=C ufw status | grep '^Status: active$' >/
   ufw allow 80/tcp
   ufw allow 443/tcp
 fi
+cert_contact=()
+if [[ -n "$EMAIL" ]]; then
+  cert_contact=(--email "$EMAIL")
+elif certbot --help all | grep -F -- '--register-unsafely-without-email' >/dev/null; then
+  cert_contact=(--register-unsafely-without-email)
+fi
 if [[ -n "$STATION_ROOT" ]]; then
   certbot certonly --dns-cloudflare --dns-cloudflare-credentials /etc/wybo/cloudflare.ini \
     --dns-cloudflare-propagation-seconds 60 --domain "$STATION_ROOT" --domain "*.$STATION_ROOT" --cert-name "$DOMAIN" \
-    --email "$EMAIL" --agree-tos --non-interactive --keep-until-expiring --renew-with-new-domains
+    "${cert_contact[@]}" --agree-tos --non-interactive --keep-until-expiring --renew-with-new-domains
 else
   certbot certonly --webroot -w /var/www/letsencrypt --domain "$DOMAIN" --cert-name "$DOMAIN" \
-    --email "$EMAIL" --agree-tos --non-interactive --keep-until-expiring
+    "${cert_contact[@]}" --agree-tos --non-interactive --keep-until-expiring
 fi
 install -m 644 "$RENDER_DIR/nginx-https.conf" /etc/nginx/sites-available/wybo.conf
 nginx -t

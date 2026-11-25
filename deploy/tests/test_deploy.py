@@ -135,6 +135,17 @@ class NativeDeployTest(unittest.TestCase):
             with self.subTest(listen=listen), self.assertRaises(ValueError):
                 deploy.check_postgres(listen)
 
+    def test_cli_no_email_persists_across_runs(self):
+        out = self.path / "no-contact"
+        command = ["bash", str(ROOT / "deploy.sh"), "--dry-run", "--domain", "shop.example.com", "--no-email", "--output-dir", str(out)]
+        subprocess.run(command, cwd=ROOT, capture_output=True, check=True)
+        state = deploy.load_state(out / "deployment.json")
+        self.assertEqual(state["email"], "")
+        subprocess.run(command, cwd=ROOT, capture_output=True, check=True)
+        self.assertEqual(state, deploy.load_state(out / "deployment.json"))
+        conflict = subprocess.run(command + ["--email", "ops@example.com"], cwd=ROOT, capture_output=True)
+        self.assertNotEqual(conflict.returncode, 0)
+
     def test_download_checksum_mismatch_is_rejected(self):
         archive = self.path / "download.tar.gz"
         archive.write_bytes(b"original archive")

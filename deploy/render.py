@@ -32,7 +32,8 @@ def validate(domain, email, admin_user):
         raise ValueError("请提供域名，不能使用 IP 地址申请此部署证书")
     if labels[-1].isdigit() or labels[-1] in ("local", "localhost", "internal"):
         raise ValueError("请使用可解析的公网域名")
-    if not re.fullmatch(r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,63}", email) or len(email) > 254:
+    email_pattern = r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,63}"
+    if not isinstance(email, str) or len(email) > 254 or (email and not re.fullmatch(email_pattern, email)):
         raise ValueError("证书联系邮箱无效")
     if not re.fullmatch(r"[A-Za-z0-9_]{3,32}", admin_user):
         raise ValueError("管理员用户名应为 3–32 位字母、数字或下划线")
