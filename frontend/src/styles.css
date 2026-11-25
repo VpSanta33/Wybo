@@ -3272,23 +3272,81 @@ summary::-webkit-details-marker {
 .plan-option .product-thumbnail { background: #fffdf8; border-color: #d2d2bf; }
 .is-selected .plan-radio { background: #276c57; border-color: #276c57; }
 .product-showcase .pending-plan-note { margin-inline: var(--card-inset); }
-.showcase-details { margin: 16px var(--card-inset) 0; border-top: 1px dashed #bdc4ae; }
-.showcase-details summary {
+.showcase-details { margin: 16px var(--card-inset) 0; padding-top: 14px; border-top: 1px dashed #bdc4ae; }
+.showcase-banner + .showcase-details { margin-top: 0; border-top: 0; }
+.showcase-details > h3 {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  min-height: 46px;
   color: var(--color-ink);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 750;
 }
-.showcase-details[open] summary > svg { transform: rotate(180deg); }
-.showcase-details p { font-size: 13px; line-height: 1.75; color: var(--color-muted); white-space: pre-line; overflow-wrap: anywhere; }
-.showcase-details p strong { display: block; color: var(--color-ink); margin: 9px 0 2px; font-size: 12px; }
-.showcase-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.showcase-details > h3 svg { color: var(--color-primary); }
+.description-preview {
+  --preview-lines: 4;
+  margin-top: 9px;
+  max-height: calc(var(--preview-lines) * 1.7em);
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.description-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 10px; }
+.showcase-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .showcase-tags span { padding: 3px 8px; background: #edf2df; border-radius: 6px; color: #49654d; font-size: 11px; overflow-wrap: anywhere; }
-.product-showcase:has(.showcase-details:not([open])) { padding-bottom: 1px; }
+.description-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  min-height: 38px;
+  padding: 5px 12px;
+  border: 1px solid #9ebca7;
+  border-radius: 10px;
+  color: var(--color-primary);
+  background: #edf6e9;
+  font-size: 13px;
+  font-weight: 700;
+}
+.description-open:hover { background: #dceedd; border-color: var(--color-primary); }
+.app-shell .modal:has(.description-reader) {
+  width: min(640px, calc(100% - 28px));
+  overflow: hidden;
+  background: var(--color-surface);
+}
+.modal-inner:has(> .description-reader) { padding: 0; }
+.modal-inner:has(> .description-reader) .modal-close { width: 44px; height: 44px; top: 8px; right: 8px; color: var(--color-ink); }
+.description-reader { display: flex; flex-direction: column; max-height: min(80dvh, 720px); }
+.description-reader header { padding: 17px 62px 15px clamp(18px, 4vw, 28px); background: #e8f4e7; border-bottom: 1px dashed #a5b79e; }
+.description-reader header h2 { margin: 0; font-size: 20px; font-weight: 800; }
+.description-reader header p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  margin-top: 3px;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+.description-reader-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px clamp(18px, 4vw, 28px) 22px;
+  color: var(--color-ink);
+  font-size: 15px;
+  line-height: 1.75;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.description-reader-body:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -3px; }
+.description-reader-body > * + * { margin-top: .55em; }
+.description-reader-body h3 { color: var(--color-primary); font-size: 1em; font-weight: 750; }
+.description-reader-body h3:not(:first-child) { margin-top: 1em; }
 .purchase-card {
   overflow: hidden;
   padding: 27px clamp(15px, 2vw, 25px) 15px;
@@ -3382,6 +3440,8 @@ summary::-webkit-details-marker {
   .plan-fieldset { margin-top: 13px; }
   .plan-options { grid-template-columns: repeat(auto-fit, minmax(min(118px,100%),1fr)); }
   .plan-options .plan-option { min-height: 69px; }
+  .description-preview { --preview-lines: 3; }
+  .description-open { min-height: 44px; }
   .purchase-card { padding: 22px 16px 15px; }
   .purchase-title h2 { font-size: 22px; }
 }

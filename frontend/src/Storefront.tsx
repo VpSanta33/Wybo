@@ -39,6 +39,7 @@ import { money, type Category, type Product } from "./data";
 import { SiteBrand, SiteLogo, useSite } from "./Site";
 import { IslandPostmark } from "./Illustrations";
 import ProductVisual, { BrandImage, ProductThumbnail } from "./ProductVisual";
+import ProductInformation from "./ProductInformation";
 import { pricePending, productBrand } from "./productBrands";
 import { CashierFeeNotice, ErrorMessage, Modal, OrderSummary, PaymentAction, PaymentChoices, PaymentLimitNotice, payableGateway } from "./components";
 import { cashierEstimate } from "./payments";
@@ -61,35 +62,6 @@ function compactPlanName(name: string) {
       ? name.slice(brand.name.length).trim()
       : name;
   return label.replace(/\s*会员\s*·\s*/, " · ").replace(/^[·\s]+/, "") || name;
-}
-
-function ProductInformation({ product }: { product: Product }) {
-  const details = useRef<HTMLDetailsElement>(null);
-  useEffect(() => {
-    const desktop = window.matchMedia("(min-width: 701px)");
-    const setDefaultOpen = () => {
-      if (details.current) details.current.open = desktop.matches;
-    };
-    setDefaultOpen();
-    desktop.addEventListener("change", setDefaultOpen);
-    return () => desktop.removeEventListener("change", setDefaultOpen);
-  }, []);
-
-  return (
-    <details className="showcase-details" ref={details}>
-      <summary>
-        {product.redeem_guide ? "商品说明与兑换方式" : "商品说明"}
-        <ChevronDown size={16} aria-hidden="true" />
-      </summary>
-      {product.description && <p>{product.description}</p>}
-      {product.tags.length > 0 && (
-        <div className="showcase-tags">
-          {product.tags.map((tag) => <span key={tag}>{tag}</span>)}
-        </div>
-      )}
-      {product.redeem_guide && <p><strong>兑换方式</strong>{product.redeem_guide}</p>}
-    </details>
-  );
 }
 
 function CategoryNavigation({
