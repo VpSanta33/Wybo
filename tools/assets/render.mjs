@@ -23,6 +23,7 @@ for (const s of sizes) {
 const pub = join(root, 'frontend', 'public')
 await mkdir(pub, { recursive: true })
 await copyFile(join(root, 'assets', 'logo-icon.svg'), join(pub, 'logo-icon.svg'))
+await copyFile(src, join(pub, 'favicon.svg'))
 await copyFile(join(root, 'assets', 'logo.svg'), join(pub, 'logo.svg'))
 await copyFile(join(outDir, 'logo-180.png'), join(pub, 'apple-touch-icon.png'))
 console.log('✓ 已同步 logo-icon.svg / logo.svg / apple-touch-icon.png 到 frontend/public')

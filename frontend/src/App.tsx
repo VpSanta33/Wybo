@@ -282,6 +282,7 @@ function App() {
 }
 
 function Orders({ onCopy }: { onCopy: (value: string) => void }) {
+  const { site } = useSite();
   const location = useLocation();
   const [orderNo, setOrderNo] = useState(
     new URLSearchParams(location.search).get("order_no") || "",
@@ -553,7 +554,7 @@ function Orders({ onCopy }: { onCopy: (value: string) => void }) {
             </>
           ) : (
             <div className="order-lookup-empty">
-              <Search size={32} aria-hidden="true" />
+              <SiteLogo url={site.site_logo} />
               <h2>输入订单号与联系方式</h2>
               <p>提交查询信息后，即可查看付款状态、卡密内容与兑换说明。</p>
               <span>

@@ -10,7 +10,6 @@ import {
 } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { api } from "./api";
-import { QingyuMark } from "./Illustrations";
 
 const defaults: Record<string, string> = {
   site_name: "青屿集",
@@ -127,7 +126,7 @@ export function SiteLogo({
       onError={() => setFailed(src)}
     />
   ) : (
-    <QingyuMark className={`site-logo ${className}`} />
+    <img className={`site-logo ${className}`} src="/logo-icon.svg" width={34} height={34} alt="" />
   );
 }
 export function SiteBrand() {

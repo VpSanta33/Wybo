@@ -238,22 +238,22 @@ export default function Dashboard({ base }: { base: string }) {
             {chart === "sales" ? (
               <>
                 <span>
-                  <i style={{ background: "#0f4c52" }} />
+                  <i style={{ background: "var(--a-ink)" }} />
                   成交收入
                 </span>
                 <span>
-                  <i style={{ background: "#2c8a6d" }} />
+                  <i style={{ background: "var(--a-green)" }} />
                   经营净利润
                 </span>
               </>
             ) : (
               <>
                 <span>
-                  <i style={{ background: "#0f4c52" }} />
+                  <i style={{ background: "var(--a-ink)" }} />
                   浏览量 PV
                 </span>
                 <span>
-                  <i style={{ background: "#63bfb5" }} />
+                  <i style={{ background: "var(--a-mint)" }} />
                   访问人数 UV
                 </span>
               </>
@@ -268,13 +268,13 @@ export default function Dashboard({ base }: { base: string }) {
                 >
                   <defs>
                     <linearGradient id="incomeFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#0f4c52" stopOpacity={0.22} />
-                      <stop offset="100%" stopColor="#0f4c52" stopOpacity={0} />
+                      <stop offset="0%" stopColor="var(--a-ink)" stopOpacity={0.22} />
+                      <stop offset="100%" stopColor="var(--a-ink)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid
                     vertical={false}
-                    stroke="#edf0f5"
+                    stroke="var(--a-border)"
                     strokeDasharray="4 4"
                   />
                   <XAxis
@@ -282,7 +282,7 @@ export default function Dashboard({ base }: { base: string }) {
                     tickFormatter={(v) => String(v).slice(5).replace("-", "/")}
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: "#8891a2", fontSize: 11 }}
+                    tick={{ fill: "var(--a-muted)", fontSize: 11 }}
                     minTickGap={24}
                   />
                   <YAxis
@@ -290,7 +290,7 @@ export default function Dashboard({ base }: { base: string }) {
                     tickFormatter={(v) => `¥${v / 100}`}
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: "#8891a2", fontSize: 11 }}
+                    tick={{ fill: "var(--a-muted)", fontSize: 11 }}
                   />
                   <Tooltip
                     formatter={(v, name) => [
@@ -302,7 +302,7 @@ export default function Dashboard({ base }: { base: string }) {
                   <Area
                     type="monotone"
                     dataKey="revenue_cents"
-                    stroke="#0f4c52"
+                    stroke="var(--a-ink)"
                     strokeWidth={2.5}
                     fill="url(#incomeFill)"
                     isAnimationActive={false}
@@ -310,7 +310,7 @@ export default function Dashboard({ base }: { base: string }) {
                   <Area
                     type="monotone"
                     dataKey="net_profit_cents"
-                    stroke="#2c8a6d"
+                    stroke="var(--a-green)"
                     strokeWidth={2}
                     fill="transparent"
                     isAnimationActive={false}
@@ -323,7 +323,7 @@ export default function Dashboard({ base }: { base: string }) {
                 >
                   <CartesianGrid
                     vertical={false}
-                    stroke="#edf0f5"
+                    stroke="var(--a-border)"
                     strokeDasharray="4 4"
                   />
                   <XAxis
@@ -331,14 +331,14 @@ export default function Dashboard({ base }: { base: string }) {
                     tickFormatter={(v) => String(v).slice(5).replace("-", "/")}
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: "#8891a2", fontSize: 11 }}
+                    tick={{ fill: "var(--a-muted)", fontSize: 11 }}
                     minTickGap={24}
                   />
                   <YAxis
                     allowDecimals={false}
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: "#8891a2", fontSize: 11 }}
+                    tick={{ fill: "var(--a-muted)", fontSize: 11 }}
                   />
                   <Tooltip
                     formatter={(v, name) => [
@@ -348,14 +348,15 @@ export default function Dashboard({ base }: { base: string }) {
                   />
                   <Bar
                     dataKey="pv"
-                    fill="#0f4c52"
+                    fill="var(--a-ink)"
                     radius={[4, 4, 0, 0]}
                     maxBarSize={20}
                     isAnimationActive={false}
                   />
                   <Bar
                     dataKey="uv"
-                    fill="#63bfb5"
+                    fill="var(--a-mint)"
+                    stroke="var(--a-green)"
                     radius={[4, 4, 0, 0]}
                     maxBarSize={20}
                     isAnimationActive={false}

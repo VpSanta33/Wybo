@@ -619,3 +619,239 @@
     white-space: nowrap;
   }
 }
+
+/* === 青屿集 Qingyu 海边海獭小店主题（分站后台与分站申请流程） === */
+.station-shell,
+.station-public {
+  background: var(--a-bg, #fffcf3);
+  color: var(--a-ink, #243d3b);
+}
+.station-header {
+  background: var(--a-bg, #fffcf3);
+  border-bottom: 2px solid var(--a-ink, #243d3b);
+}
+.station-brand {
+  color: var(--a-ink, #243d3b);
+}
+.station-brand > svg,
+.station-brand > img {
+  color: var(--a-ink, #243d3b);
+  background: var(--a-surface, #ffffff);
+  padding: 4px;
+  border: 1.5px solid var(--a-ink, #243d3b);
+  border-radius: 10px;
+  box-shadow: 2px 2px 0 var(--a-mint, #9dddc5);
+}
+.station-brand strong {
+  color: var(--a-ink, #243d3b);
+  font-weight: 750;
+}
+.station-brand small,
+.station-note,
+.station-price span,
+.station-product-heading p,
+.station-brand-uploads small,
+.station-main .a-table td small,
+.station-domain-input span,
+.station-ticket small,
+.station-empty,
+.station-admin-card p,
+.station-root-status p {
+  color: var(--a-muted, #536e6b);
+}
+.station-price strong {
+  color: var(--a-ink, #243d3b);
+  font-variant-numeric: tabular-nums;
+}
+.station-nav a,
+.station-tabs button {
+  border: 2px solid var(--a-ink, #243d3b);
+  border-radius: 10px;
+  background: var(--a-surface, #ffffff);
+  color: var(--a-ink, #243d3b);
+  font-weight: 600;
+  box-shadow: 2px 2px 0 rgba(36, 61, 59, 0.16);
+  transition:
+    background-color 0.14s,
+    box-shadow 0.14s,
+    transform 0.14s;
+}
+.station-nav a:hover,
+.station-tabs button:hover {
+  background: var(--a-butter-soft, #fff6dc);
+  box-shadow: var(--a-shadow-sm, 2px 2px 0 #243d3b);
+}
+.station-nav a.active,
+.station-tabs button[aria-pressed="true"] {
+  background: var(--a-mint, #9dddc5);
+  color: var(--a-ink, #243d3b);
+  border-color: var(--a-ink, #243d3b);
+  box-shadow: var(--a-shadow-sm, 2px 2px 0 #243d3b);
+  font-weight: 700;
+}
+.station-product,
+.station-admin-card,
+.station-root-status,
+.station-ticket {
+  border: 2px solid var(--a-ink, #243d3b);
+  border-radius: 12px;
+  background: var(--a-surface, #ffffff);
+  box-shadow: var(--a-shadow-md, 3px 3px 0 #243d3b);
+}
+.station-product h3,
+.station-admin-card h3,
+.station-root-status strong,
+.station-ticket strong {
+  color: var(--a-ink, #243d3b);
+  font-weight: 700;
+}
+.station-ticket {
+  transition:
+    background-color 0.14s,
+    box-shadow 0.14s;
+}
+.station-ticket:hover {
+  background: var(--a-butter-soft, #fff6dc);
+  box-shadow: var(--a-shadow-lg, 4px 4px 0 #243d3b);
+}
+.station-message {
+  border-bottom: 1.5px dashed var(--a-border, #d6dfd8);
+}
+.station-check {
+  color: var(--a-ink, #243d3b);
+  font-weight: 550;
+}
+.station-check input {
+  accent-color: var(--a-ink, #243d3b);
+}
+.station-upload {
+  background: var(--a-bg, #fffcf3);
+  border: 1.5px dashed var(--a-ink, #243d3b);
+  border-radius: 10px;
+}
+.station-upload img,
+.station-upload svg {
+  background: var(--a-surface, #ffffff);
+  padding: 4px;
+  border: 1.5px solid var(--a-ink, #243d3b);
+  border-radius: 8px;
+}
+.station-invite {
+  background: var(--a-butter-soft, #fff6dc);
+  border: 1.5px solid var(--a-ink, #243d3b);
+  border-radius: 10px;
+  color: var(--a-ink, #243d3b);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.station-login {
+  background: var(--a-surface, #ffffff);
+  border: 2px solid var(--a-ink, #243d3b);
+  border-radius: 16px;
+  box-shadow: var(--a-shadow-lg, 4px 4px 0 #243d3b);
+}
+.station-login > svg,
+.station-login > img {
+  padding: 5px;
+  background: var(--a-butter, #ffe39a);
+  border: 1.5px solid var(--a-ink, #243d3b);
+  border-radius: 12px;
+  box-shadow: var(--a-shadow-sm, 2px 2px 0 #243d3b);
+  color: var(--a-ink, #243d3b);
+}
+.station-login h1 {
+  color: var(--a-ink, #243d3b);
+  font-weight: 750;
+}
+
+/* 分站申请流程（公共申请页） */
+.station-public-header {
+  border-bottom: 1.5px dashed var(--a-border, #d6dfd8);
+}
+.station-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px;
+  border: 1.5px solid var(--a-ink, #243d3b);
+  border-radius: 999px;
+  background: var(--a-butter, #ffe39a);
+  color: var(--a-ink, #243d3b);
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: var(--a-shadow-sm, 2px 2px 0 #243d3b);
+}
+.station-application-intro h1 {
+  color: var(--a-ink, #243d3b);
+  font-weight: 800;
+}
+.station-application-intro > p {
+  color: #415e5b;
+}
+.station-application-intro li:before {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--a-ink, #243d3b);
+  background: var(--a-mint, #9dddc5);
+  color: var(--a-ink, #243d3b);
+  font-weight: 750;
+  box-shadow: var(--a-shadow-sm, 2px 2px 0 #243d3b);
+}
+.station-application-intro li:nth-child(2):before {
+  background: var(--a-butter, #ffe39a);
+}
+.station-application-intro li:nth-child(3):before {
+  background: var(--a-coral, #ff996d);
+}
+.station-application-intro li strong {
+  color: var(--a-ink, #243d3b);
+  font-weight: 700;
+}
+.station-application-intro li span {
+  color: var(--a-muted, #536e6b);
+}
+.station-trust {
+  border: 1.5px solid var(--a-ink, #243d3b);
+  border-radius: 12px;
+  padding: 15px 17px;
+  background: var(--a-mint-soft, #e6f6ef);
+  color: var(--a-ink, #243d3b);
+  box-shadow: var(--a-shadow-sm, 2px 2px 0 #243d3b);
+}
+.station-trust svg {
+  color: var(--a-green, #1e7a61);
+}
+.station-application-form {
+  background: var(--a-surface, #ffffff);
+  border: 2px solid var(--a-ink, #243d3b);
+  border-radius: 16px;
+  box-shadow: 5px 5px 0 var(--a-ink, #243d3b);
+}
+.station-application-form h2 {
+  color: var(--a-ink, #243d3b);
+  font-weight: 750;
+}
+.station-application-form > p {
+  color: var(--a-muted, #536e6b);
+}
+.station-success {
+  color: var(--a-ink, #243d3b);
+}
+.station-success > svg {
+  color: var(--a-green, #1e7a61);
+}
+.station-success p {
+  color: var(--a-muted, #536e6b);
+}
+.station-shell a:focus-visible,
+.station-tabs button:focus-visible,
+.station-public a:focus-visible {
+  outline: 2.5px solid var(--a-ink, #243d3b);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .station-nav a,
+  .station-tabs button,
+  .station-ticket {
+    transition: none;
+  }
+}

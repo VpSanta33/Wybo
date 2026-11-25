@@ -8,8 +8,10 @@ import {
 } from "react";
 import { Link } from "react-router-dom";
 import {
+  ArrowDown,
   ArrowLeft,
   ArrowRight,
+  BookOpen,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -18,6 +20,7 @@ import {
   CreditCard,
   Gamepad2,
   Headphones,
+  LayoutGrid,
   LoaderCircle,
   LockKeyhole,
   Mail,
@@ -33,7 +36,8 @@ import {
 } from "lucide-react";
 import { api, track, createOrder, type Catalog, type ShopOrder, type PaymentGateway } from "./api";
 import { money, type Category, type Product } from "./data";
-import { SiteBrand } from "./Site";
+import { SiteBrand, SiteLogo, useSite } from "./Site";
+import { IslandPostmark } from "./Illustrations";
 import ProductVisual, { BrandImage, ProductThumbnail } from "./ProductVisual";
 import { pricePending, productBrand } from "./productBrands";
 import { CashierFeeNotice, ErrorMessage, Modal, OrderSummary, PaymentAction, PaymentChoices, PaymentLimitNotice, payableGateway } from "./components";
@@ -57,6 +61,35 @@ function compactPlanName(name: string) {
       ? name.slice(brand.name.length).trim()
       : name;
   return label.replace(/\s*会员\s*·\s*/, " · ").replace(/^[·\s]+/, "") || name;
+}
+
+function ProductInformation({ product }: { product: Product }) {
+  const details = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 701px)");
+    const setDefaultOpen = () => {
+      if (details.current) details.current.open = desktop.matches;
+    };
+    setDefaultOpen();
+    desktop.addEventListener("change", setDefaultOpen);
+    return () => desktop.removeEventListener("change", setDefaultOpen);
+  }, []);
+
+  return (
+    <details className="showcase-details" ref={details}>
+      <summary>
+        {product.redeem_guide ? "商品说明与兑换方式" : "商品说明"}
+        <ChevronDown size={16} aria-hidden="true" />
+      </summary>
+      {product.description && <p>{product.description}</p>}
+      {product.tags.length > 0 && (
+        <div className="showcase-tags">
+          {product.tags.map((tag) => <span key={tag}>{tag}</span>)}
+        </div>
+      )}
+      {product.redeem_guide && <p><strong>兑换方式</strong>{product.redeem_guide}</p>}
+    </details>
+  );
 }
 
 function CategoryNavigation({
@@ -249,6 +282,7 @@ export default function Storefront({
   onHelp: () => void;
   onCopy: (value: string) => void;
 }) {
+  const { site } = useSite();
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -271,6 +305,7 @@ export default function Storefront({
   const [verificationRevision, setVerificationRevision] = useState(0);
   const resultRef = useRef<HTMLHeadingElement>(null);
   const demo = catalog?.demo ?? true;
+  const hasCatalogItems = !catalog || catalog.products.length > 0;
   useEffect(() => {
     if (demo) { setGateways([]); setGateway(""); setGatewayError(""); return; }
     const controller = new AbortController();
@@ -443,8 +478,31 @@ export default function Storefront({
             </Link>
           </div>
         </div>
-        <div className="category-dock">
-          <div className="container">
+      </header>
+
+      <section className="market-postcard container" aria-labelledby="market-name">
+        <div className="postcard-copy">
+          <h1 id="market-name">{site.site_name}</h1>
+          {site.site_desc && <p>{site.site_desc}</p>}
+          <div className="postcard-links">
+            {hasCatalogItems && (
+              <a className="postcard-browse" href="#store-catalog">
+                挑选商品 <ArrowDown size={16} aria-hidden="true" />
+              </a>
+            )}
+            <Link to="/guide" className={hasCatalogItems ? undefined : "postcard-browse"}>
+              <BookOpen size={16} aria-hidden="true" />购买指南
+            </Link>
+          </div>
+        </div>
+        <IslandPostmark />
+        <img className="postcard-art" src="/images/island-shop.webp" width="1134" height="756" fetchPriority="high" alt="" />
+      </section>
+
+      <div id="store-catalog" className="container">
+        {categories.length > 0 && (
+          <div className="category-dock">
+            <h2><LayoutGrid size={19} aria-hidden="true" />商品分类</h2>
             <CategoryNavigation
               categories={categories}
               activeId={activeCategory?.id}
@@ -452,8 +510,8 @@ export default function Storefront({
               onSelect={chooseCategory}
             />
           </div>
-        </div>
-      </header>
+        )}
+      </div>
 
       <section
         className="store-stage container"
@@ -467,27 +525,80 @@ export default function Storefront({
           <article className="product-showcase">
             <div className="showcase-banner">
               <div className="showcase-identity">
-                <span>{activeCategory?.name}</span>
-                <h1>{product.name}</h1>
                 <span className="showcase-delivery-pill">
                   <PackageCheck size={15} aria-hidden="true" />
                   {product.delivery_mode === "manual" ? "手工发货" : "自动发卡"}
                 </span>
+                <h2>{product.name}</h2>
+                <div className="showcase-price">
+                  <strong>{pendingPrice ? "待定价" : `¥${money(product.price_cents)}`}</strong>
+                  {product.delivery_mode !== "manual" && !pendingPrice && (
+                    <span>{product.stock ? `库存 ${product.stock} 份` : "暂时售罄"}</span>
+                  )}
+                </div>
               </div>
               <div className="showcase-art" key={product.id}>
                 <ProductVisual product={product} variant={categoryIndex} />
               </div>
             </div>
-            {(product.description || product.tags.length > 0) && (
-              <div className="showcase-details">
-                <h2>商品说明</h2>
-                {product.description && <p className="showcase-desc">{product.description}</p>}
-                {product.tags.length > 0 && (
-                  <div className="showcase-tags">
-                    {product.tags.map((tag) => <span key={tag}>{tag}</span>)}
-                  </div>
-                )}
+            <fieldset className="plan-fieldset">
+              <legend>选择套餐</legend>
+              <div className="plan-options">
+                {products.map((p) => (
+                  <label
+                    className={`plan-option ${p.id === product.id ? "is-selected" : ""} ${p.delivery_mode !== "manual" && p.stock <= 0 && !pricePending(p) ? "is-unavailable" : ""} ${pricePending(p) ? "is-pending" : ""}`}
+                    key={p.id}
+                  >
+                    <input
+                      type="radio"
+                      name="product-plan"
+                      form="store-order-form"
+                      aria-label={p.name}
+                      aria-describedby={`plan-price-${p.id}`}
+                      value={p.id}
+                      checked={p.id === product.id}
+                      disabled={
+                        (p.delivery_mode !== "manual" &&
+                          p.stock <= 0 &&
+                          !pricePending(p)) ||
+                        busy
+                      }
+                      onChange={() => chooseProduct(p)}
+                    />
+                    <span className="plan-radio" aria-hidden="true">
+                      {p.id === product.id && (
+                        <Check size={11} strokeWidth={3} />
+                      )}
+                    </span>
+                    <ProductThumbnail product={p} />
+                    <span className="plan-copy">
+                      <strong title={p.name}>
+                        {compactPlanName(p.name)}
+                      </strong>
+                    </span>
+                    <span className="plan-price" id={`plan-price-${p.id}`}>
+                      {pricePending(p) ? (
+                        <span className="pending-price">待定价</span>
+                      ) : p.delivery_mode !== "manual" && p.stock <= 0 ? (
+                        <span>暂时售罄</span>
+                      ) : (
+                        <>
+                          <small>¥</small>
+                          <strong>{money(p.price_cents)}</strong>
+                        </>
+                      )}
+                    </span>
+                  </label>
+                ))}
               </div>
+            </fieldset>
+            {pendingPrice && (
+              <p className="pending-plan-note" role="status">
+                套餐即将上架，定价后开放购买。
+              </p>
+            )}
+            {(product.description || product.tags.length > 0 || product.redeem_guide) && (
+              <ProductInformation key={product.id} product={product} />
             )}
           </article>
         )}
@@ -501,7 +612,7 @@ export default function Storefront({
             </div>
           ) : !product ? (
             <div className="store-loading">
-              <PackageCheck size={30} />
+              <SiteLogo url={site.site_logo} />
               <h2>{catalog.notice ? "商店暂时无法加载" : "新品即将上架"}</h2>
               <p>{catalog.notice || "商品正在整理上架中，请稍后再来看看。"}</p>
               {catalog.notice && (
@@ -526,10 +637,10 @@ export default function Storefront({
                   )}
                 </div>
                 <div className="purchase-title">
-                  <BrandImage name={activeCategory?.name ?? ""} />
-                  <h2>选购 {activeCategory?.name}</h2>
+                  <span className="checkout-bag"><ShoppingBag size={21} aria-hidden="true" /></span>
+                  <h2>订单结算</h2>
                 </div>
-                <p>选择套餐并填写接收邮箱，付款后按商品说明交付。</p>
+                <p className="checkout-product-name">{product.name}</p>
               </div>
               {catalog.notice && (
                 <p className="store-notice">
@@ -537,63 +648,7 @@ export default function Storefront({
                   {catalog.notice}
                 </p>
               )}
-              <form className="store-form" onSubmit={reviewOrder}>
-                <fieldset className="plan-fieldset">
-                  <legend>选择套餐</legend>
-                  <div className="plan-options">
-                    {products.map((p) => (
-                      <label
-                        className={`plan-option ${p.id === product.id ? "is-selected" : ""} ${p.delivery_mode !== "manual" && p.stock <= 0 && !pricePending(p) ? "is-unavailable" : ""} ${pricePending(p) ? "is-pending" : ""}`}
-                        key={p.id}
-                      >
-                        <input
-                          type="radio"
-                          name="product-plan"
-                          aria-label={p.name}
-                          aria-describedby={`plan-price-${p.id}`}
-                          value={p.id}
-                          checked={p.id === product.id}
-                          disabled={
-                            (p.delivery_mode !== "manual" &&
-                              p.stock <= 0 &&
-                              !pricePending(p)) ||
-                            busy
-                          }
-                          onChange={() => chooseProduct(p)}
-                        />
-                        <span className="plan-radio" aria-hidden="true">
-                          {p.id === product.id && (
-                            <Check size={11} strokeWidth={3} />
-                          )}
-                        </span>
-                        <ProductThumbnail product={p} />
-                        <span className="plan-copy">
-                          <strong title={p.name}>
-                            {compactPlanName(p.name)}
-                          </strong>
-                        </span>
-                        <span className="plan-price" id={`plan-price-${p.id}`}>
-                          {pricePending(p) ? (
-                            <span className="pending-price">待定价</span>
-                          ) : p.delivery_mode !== "manual" && p.stock <= 0 ? (
-                            <span>暂时售罄</span>
-                          ) : (
-                            <>
-                              <small>¥</small>
-                              <strong>{money(p.price_cents)}</strong>
-                            </>
-                          )}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-                {pendingPrice && (
-                  <p className="pending-plan-note" role="status">
-                    套餐即将上架，定价后开放购买。
-                  </p>
-                )}
-
+              <form id="store-order-form" className="store-form" onSubmit={reviewOrder}>
                 <div className="purchase-inputs">
                   <div className="store-field">
                     <label htmlFor="delivery-email">接收邮箱</label>
@@ -804,15 +859,6 @@ export default function Storefront({
                     : "安全下单 · 订单随时可查"}
                 </p>
               </form>
-              <details className="product-description" key={product.id}>
-                <summary>
-                  商品说明与兑换方式
-                  <Plus size={15} aria-hidden="true" />
-                </summary>
-                <p>{product.description}</p>
-                {product.tags.length > 0 && <p>{product.tags.join(" · ")}</p>}
-                {product.redeem_guide && <p>{product.redeem_guide}</p>}
-              </details>
             </>
           )}
         </div>

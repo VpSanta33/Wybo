@@ -217,3 +217,146 @@
     transition: none;
   }
 }
+
+/* === 青屿集 Qingyu 海边海獭小店主题（站点互联 / 代理工作台） === */
+.p-summary > div {
+  border: 2px solid var(--a-ink, #243d3b);
+  border-radius: 12px;
+  background: var(--a-surface, #ffffff);
+  box-shadow: var(--a-shadow-md, 3px 3px 0 #243d3b);
+}
+.p-summary > div > svg {
+  width: 38px;
+  height: 38px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1.5px solid var(--a-ink, #243d3b);
+  background: var(--a-mint-soft, #e6f6ef);
+  color: var(--a-ink, #243d3b);
+  box-shadow: 2px 2px 0 rgba(36, 61, 59, 0.2);
+}
+.p-summary > div:nth-child(2) > svg {
+  background: var(--a-mint, #9dddc5);
+}
+.p-summary > div:nth-child(3) > svg {
+  background: var(--a-butter, #ffe39a);
+}
+.p-summary > div:nth-child(4) > svg {
+  background: #ffd3bd;
+}
+.p-summary span {
+  color: var(--a-muted, #536e6b);
+  font-weight: 600;
+}
+.p-summary strong {
+  color: var(--a-ink, #243d3b);
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+.p-summary .p-site-id {
+  font-weight: 650;
+  color: var(--a-ink, #243d3b);
+}
+.p-tabs {
+  gap: 8px;
+}
+.p-tabs button {
+  border: 2px solid var(--a-ink, #243d3b);
+  border-radius: 9px;
+  background: var(--a-surface, #ffffff);
+  color: var(--a-ink, #243d3b);
+  font-weight: 600;
+  box-shadow: 2px 2px 0 rgba(36, 61, 59, 0.16);
+  transition:
+    background-color 0.14s,
+    box-shadow 0.14s,
+    transform 0.14s;
+}
+.p-tabs button:hover {
+  background: var(--a-butter-soft, #fff6dc);
+  box-shadow: var(--a-shadow-sm, 2px 2px 0 #243d3b);
+}
+.p-tabs button[aria-selected="true"] {
+  background: var(--a-mint, #9dddc5);
+  border-color: var(--a-ink, #243d3b);
+  color: var(--a-ink, #243d3b);
+  font-weight: 700;
+  box-shadow: var(--a-shadow-sm, 2px 2px 0 #243d3b);
+}
+.p-panel .p-error {
+  color: var(--a-danger, #c63842);
+  font-weight: 550;
+}
+.p-state {
+  border: 1px solid var(--a-ink, #243d3b);
+  border-radius: 6px;
+  background: var(--a-surface-warm, #faf4e3);
+  color: var(--a-ink, #243d3b);
+  font-weight: 650;
+}
+.p-state.is-good {
+  background: #daf4e8;
+  color: #165e48;
+  border-color: var(--a-green, #1e7a61);
+}
+.p-state.is-attention {
+  background: var(--a-warning-soft, #fff3d6);
+  color: var(--a-warning, #a45a10);
+  border-color: #c77b20;
+}
+.p-subheading {
+  background: var(--a-bg, #fffcf3);
+  border-top: 2px solid var(--a-ink, #243d3b);
+  border-bottom: 1px solid var(--a-border, #d6dfd8);
+}
+.p-subheading h3 {
+  color: var(--a-ink, #243d3b);
+  font-weight: 700;
+}
+.p-subheading span,
+.p-empty-note {
+  color: var(--a-muted, #536e6b);
+}
+.p-grants {
+  background: var(--a-bg, #fffcf3);
+  border: 1.5px solid var(--a-ink, #243d3b);
+  border-radius: 10px;
+}
+.p-grants > span {
+  color: var(--a-muted, #536e6b);
+  font-weight: 600;
+}
+.p-grant {
+  border: 1.5px solid transparent;
+  border-radius: 8px;
+  color: var(--a-ink, #243d3b);
+  font-weight: 550;
+}
+.p-grant:hover {
+  background: var(--a-butter-soft, #fff6dc);
+  border-color: rgba(36, 61, 59, 0.25);
+}
+.p-grant.is-current {
+  background: var(--a-mint, #9dddc5);
+  border-color: var(--a-ink, #243d3b);
+  font-weight: 700;
+  box-shadow: 2px 2px 0 rgba(36, 61, 59, 0.22);
+}
+.p-grant span:last-child {
+  color: var(--a-muted, #536e6b);
+}
+.p-grant.is-current span:last-child {
+  color: var(--a-ink, #243d3b);
+}
+@media (max-width: 600px) {
+  .p-summary > div > svg {
+    width: 32px;
+    height: 32px;
+    padding: 6px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .p-tabs button {
+    transition: none;
+  }
+}

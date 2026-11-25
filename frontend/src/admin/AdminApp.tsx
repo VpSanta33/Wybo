@@ -326,16 +326,15 @@ function Login({ onLogin }: { onLogin: () => void }) {
         返回商店
       </Link>
       <div className="a-login-art">
-        <div className="a-login-orbit">
-          <Waves size={32} aria-hidden="true" />
-          <SiteLogo url={site.site_logo} />
+        <img src="/images/island-shop.webp" width="1134" height="756" alt="" loading="lazy" />
+        <div className="a-login-caption">
+          <h1>{site.site_name}</h1>
+          <p>商家工作台 · 商品、库存与订单管理</p>
         </div>
-        <h1>{site.site_name}</h1>
-        <p>商家工作台 · 清晰管理商品、库存与订单</p>
       </div>
       <section className="a-login-card">
         <span className="a-login-mark">
-          <SiteLogo url={site.site_logo} /> {site.site_brand}
+          <SiteLogo url={site.site_logo} /> {site.site_brand || site.site_name}
         </span>
         <h2>商家登录</h2>
         <p>使用管理员账号登录。</p>
